@@ -388,7 +388,7 @@ class focal_plane():
         return data
 
     @staticmethod
-    def show_hwmap(fn, tag):
+    def read_hwmap(fn, tag):
         """
         Routine to show the structure of the hardware map generated
         by create_hwmap(). Particularly useful for interfacing.
@@ -413,24 +413,24 @@ class focal_plane():
         Hardware map written at ./test.xml
 
         Return the id of the Crate boards in the focal plane (one here)
-        >>> fp.show_hwmap(fn='test.xml', tag='Crate')
+        >>> fp.read_hwmap(fn='test.xml', tag='Crate')
         [['id']]
 
         Return the id of the DfMux boards in the focal plane (one here)
-        >>> fp.show_hwmap(fn='test.xml', tag='DfMuxBoard')
+        >>> fp.read_hwmap(fn='test.xml', tag='DfMuxBoard')
         ...     # doctest: +NORMALIZE_WHITESPACE
         [['broadcastPort', 'crateSlot', 'isClockMaster',
           'isMulticast', 'squidControllerIp', 'broadcastAddress',
           'ipAddress', 'id', 'revision']]
 
         Return the id of the Squids in the focal plane (one here)
-        >>> fp.show_hwmap(fn='test.xml', tag='Squid')
+        >>> fp.read_hwmap(fn='test.xml', tag='Squid')
         ...     # doctest: +NORMALIZE_WHITESPACE
         [['flux', 'wire', 'biasReference', 'biasEnd',
           'offset', 'biasStart', 'id']]
 
         Return the id of the 8 bolometers (4 pairs) in the focal plane
-        >>> fp.show_hwmap(fn='test.xml', tag='Bolometer')
+        >>> fp.read_hwmap(fn='test.xml', tag='Bolometer')
         ...     # doctest: +NORMALIZE_WHITESPACE
         [['xCoordinate', 'focalPlaneIndex', 'yCoordinate',
           'polarizationMode', 'lcBoardPad', 'polangle_orientation',
@@ -453,7 +453,7 @@ class focal_plane():
         return keys
 
     @staticmethod
-    def read_hwmap(fn_in, fn_out='plot_hardware_map_test.png',
+    def show_hwmap(fn_in, fn_out='plot_hardware_map_test.png',
                    save_on_disk=True, display=False):
         """
         Grab the hardware map and show the focal plane of the instrument
@@ -475,7 +475,7 @@ class focal_plane():
         >>> fp.create_hwmap()
         Hardware map generated...
         Hardware map written at ./test.xml
-        >>> fp.read_hwmap(fn_in='test.xml',
+        >>> fp.show_hwmap(fn_in='test.xml',
         ...     fn_out='plot_hardware_map_test.png',
         ...     save_on_disk=False, display=False)
         """
