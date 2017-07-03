@@ -13,18 +13,15 @@ import numpy as np
 
 import xml.etree.ElementTree as ET
 
-class hardware():
-    """
-    Class to handle the hardware of the instrument:
-    focal plane configuration, HWP
-    """
+class focal_plane():
+    """ Class to handle the focal plane of the instrument. """
     def __init__(self,
                  ncrate, ndfmux_per_crate, nsquid_per_mux, npair_per_squid,
                  fp_size, geometry='square',
                  output_folder='./', tag='test', debug=False):
         """
-        Initialise our hardware by creating the focal plane and saving
-        the configuration inside a xml file.
+        Initialise our focal plane and save the configuration
+        inside a xml file.
 
         Parameters
         ----------
@@ -88,11 +85,11 @@ class hardware():
         Examples
         ----------
         Full focal plane
-        >>> h.coordinate_in_focal_plane(npair=4)
+        >>> fp.coordinate_in_focal_plane(npair=4)
         (array([-15., -15.,  15.,  15.]), array([-15.,  15., -15.,  15.]))
 
         Focal plane with hole (4 slots, 3 pairs of bolometers)
-        >>> h.coordinate_in_focal_plane(npair=3)
+        >>> fp.coordinate_in_focal_plane(npair=3)
         (array([-15., -15.,  15.]), array([-15.,  15., -15.]))
 
         """
@@ -133,17 +130,11 @@ class hardware():
         the bolometers id, the wiring, and so on.
         The terminology used here is taken from the Polarbear experiment.
         The hierarchy is the following:
-        * CRATE
-
-            * DFMUX
-
-                * SQUID
-
-                    * BOLOMETER (top & bottom)
+        CRATE -> DFMUX -> SQUID -> BOLOMETER (top & bottom)
 
         Examples
         ----------
-        >>> h.create_hwmap()
+        >>> fp.create_hwmap()
         Hardware map generated...
         Hardware map written at ./test.xml
         """
@@ -324,7 +315,7 @@ class hardware():
     @staticmethod
     def unpack_hwmap(fn, tag, key):
         """
-        Routine to extract data from the hardware map generated
+        Routine to extract focal plane data from the hardware map generated
         by create_hwmap(). Particularly useful for interfacing.
 
         Parameters
@@ -345,30 +336,30 @@ class hardware():
 
         Examples
         ----------
-        >>> h.create_hwmap()
+        >>> fp.create_hwmap()
         Hardware map generated...
         Hardware map written at ./test.xml
 
         Return the id of the Crate boards in the focal plane (one here)
-        >>> h.unpack_hwmap(fn='test.xml', tag='Crate', key='id')
+        >>> fp.unpack_hwmap(fn='test.xml', tag='Crate', key='id')
         ['Cr0']
 
         Return the id of the DfMux boards in the focal plane (one here)
-        >>> h.unpack_hwmap(fn='test.xml', tag='DfMuxBoard', key='id')
+        >>> fp.unpack_hwmap(fn='test.xml', tag='DfMuxBoard', key='id')
         ['Cr0Df0']
 
         Return the id of the Squids in the focal plane (one here)
-        >>> h.unpack_hwmap(fn='test.xml', tag='Squid', key='id')
+        >>> fp.unpack_hwmap(fn='test.xml', tag='Squid', key='id')
         ['Cr0Df0Sq0']
 
         Return the id of the 8 bolometers (4 pairs) in the focal plane
-        >>> h.unpack_hwmap(fn='test.xml', tag='Bolometer', key='id')
+        >>> fp.unpack_hwmap(fn='test.xml', tag='Bolometer', key='id')
         ...     # doctest: +NORMALIZE_WHITESPACE
         ['Cr0Df0Sq0_0t', 'Cr0Df0Sq0_0b', 'Cr0Df0Sq0_1t', 'Cr0Df0Sq0_1b',
          'Cr0Df0Sq0_2t', 'Cr0Df0Sq0_2b', 'Cr0Df0Sq0_3t', 'Cr0Df0Sq0_3b']
 
         Return the x coordinates of the 8 bolometers in the focal plane
-        >>> h.unpack_hwmap(fn='test.xml', tag='Bolometer', key='xCoordinate')
+        >>> fp.unpack_hwmap(fn='test.xml', tag='Bolometer', key='xCoordinate')
         ...     # doctest: +NORMALIZE_WHITESPACE
         ['-15.0000', '-15.0000', '-15.0000', '-15.0000',
         '15.0000', '15.0000', '15.0000', '15.0000']
@@ -417,29 +408,29 @@ class hardware():
 
         Examples
         ----------
-        >>> h.create_hwmap()
+        >>> fp.create_hwmap()
         Hardware map generated...
         Hardware map written at ./test.xml
 
         Return the id of the Crate boards in the focal plane (one here)
-        >>> h.show_hwmap(fn='test.xml', tag='Crate')
+        >>> fp.show_hwmap(fn='test.xml', tag='Crate')
         [['id']]
 
         Return the id of the DfMux boards in the focal plane (one here)
-        >>> h.show_hwmap(fn='test.xml', tag='DfMuxBoard')
+        >>> fp.show_hwmap(fn='test.xml', tag='DfMuxBoard')
         ...     # doctest: +NORMALIZE_WHITESPACE
         [['broadcastPort', 'crateSlot', 'isClockMaster',
           'isMulticast', 'squidControllerIp', 'broadcastAddress',
           'ipAddress', 'id', 'revision']]
 
         Return the id of the Squids in the focal plane (one here)
-        >>> h.show_hwmap(fn='test.xml', tag='Squid')
+        >>> fp.show_hwmap(fn='test.xml', tag='Squid')
         ...     # doctest: +NORMALIZE_WHITESPACE
         [['flux', 'wire', 'biasReference', 'biasEnd',
           'offset', 'biasStart', 'id']]
 
         Return the id of the 8 bolometers (4 pairs) in the focal plane
-        >>> h.show_hwmap(fn='test.xml', tag='Bolometer')
+        >>> fp.show_hwmap(fn='test.xml', tag='Bolometer')
         ...     # doctest: +NORMALIZE_WHITESPACE
         [['xCoordinate', 'focalPlaneIndex', 'yCoordinate',
           'polarizationMode', 'lcBoardPad', 'polangle_orientation',
@@ -465,31 +456,35 @@ class hardware():
     def read_hwmap(fn_in, fn_out='plot_hardware_map_test.png',
                    save_on_disk=True, display=False):
         """
-        Grab the Hardware map and plot it
+        Grab the hardware map and show the focal plane of the instrument
 
         Parameters
         ----------
         fn_in : string
-            The harware map to display (xml file)
+            The harware map to display (xml file).
         fn_out : string, optional
             Name of the output file containing the plot of the focal plane.
-            Provide the extension (format: png or pdf)
+            Provide the extension (format: png or pdf).
+        save_on_disk : bool
+            If True, save the plot on disk.
+        display : bool
+            If True, show the plot.
 
         Examples
         ---------
-        >>> h.create_hwmap()
+        >>> fp.create_hwmap()
         Hardware map generated...
         Hardware map written at ./test.xml
-        >>> h.read_hwmap(fn_in='test.xml',
+        >>> fp.read_hwmap(fn_in='test.xml',
         ...     fn_out='plot_hardware_map_test.png',
         ...     save_on_disk=False, display=False)
         """
 
         import pylab as pl
 
-        bolox = hardware.unpack_hwmap(fn_in, 'Bolometer', 'xCoordinate')
-        boloy = hardware.unpack_hwmap(fn_in, 'Bolometer', 'yCoordinate')
-        color = hardware.unpack_hwmap(
+        bolox = focal_plane.unpack_hwmap(fn_in, 'Bolometer', 'xCoordinate')
+        boloy = focal_plane.unpack_hwmap(fn_in, 'Bolometer', 'yCoordinate')
+        color = focal_plane.unpack_hwmap(
             fn_in, 'Bolometer', 'polangle_orientation')
 
         fig, ax = pl.subplots(1, 2, figsize=(10, 5))
@@ -524,7 +519,7 @@ if __name__ == "__main__":
     import doctest
     doctest.testmod(
         extraglobs={
-            'h': hardware(ncrate=1, ndfmux_per_crate=1,
-                          nsquid_per_mux=1, npair_per_squid=4,
-                          fp_size=60., geometry='square',
-                          output_folder='./', tag='test', debug=True)})
+            'fp': focal_plane(ncrate=1, ndfmux_per_crate=1,
+                              nsquid_per_mux=1, npair_per_squid=4,
+                              fp_size=60., geometry='square',
+                              output_folder='./', tag='test', debug=True)})
