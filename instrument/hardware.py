@@ -397,6 +397,71 @@ class hardware():
         return data
 
     @staticmethod
+    def show_hwmap(fn, tag):
+        """
+        Routine to show the structure of the hardware map generated
+        by create_hwmap(). Particularly useful for interfacing.
+
+        Parameters
+        ----------
+        fn : string
+            xml file containing the hardware map written by create_hwmap.
+        tag : string
+            Tag corresponding to the layer in the xml file (Crate, DfMuxBoard,
+            Squid, Bolometer).
+
+        Returns
+        ----------
+        data : ndarray
+            The data corresponding to `key`.
+
+        Examples
+        ----------
+        >>> h.create_hwmap()
+        Hardware map generated...
+        Hardware map written at ./test.xml
+
+        Return the id of the Crate boards in the focal plane (one here)
+        >>> h.show_hwmap(fn='test.xml', tag='Crate')
+        [['id']]
+
+        Return the id of the DfMux boards in the focal plane (one here)
+        >>> h.show_hwmap(fn='test.xml', tag='DfMuxBoard')
+        ...     # doctest: +NORMALIZE_WHITESPACE
+        [['broadcastPort', 'crateSlot', 'isClockMaster',
+          'isMulticast', 'squidControllerIp', 'broadcastAddress',
+          'ipAddress', 'id', 'revision']]
+
+        Return the id of the Squids in the focal plane (one here)
+        >>> h.show_hwmap(fn='test.xml', tag='Squid')
+        ...     # doctest: +NORMALIZE_WHITESPACE
+        [['flux', 'wire', 'biasReference', 'biasEnd',
+          'offset', 'biasStart', 'id']]
+
+        Return the id of the 8 bolometers (4 pairs) in the focal plane
+        >>> h.show_hwmap(fn='test.xml', tag='Bolometer')
+        ...     # doctest: +NORMALIZE_WHITESPACE
+        [['xCoordinate', 'focalPlaneIndex', 'yCoordinate',
+          'polarizationMode', 'lcBoardPad', 'polangle_orientation',
+          'id', 'polarizationOrientation', 'channel']]
+
+        """
+        tree = ET.parse(fn)
+        root = tree.getroot()
+
+        keys = []
+        if root[0].tag == tag:
+            keys.append(root[0].keys())
+        elif root[0][0].tag == tag:
+            keys.append(root[0][0].keys())
+        elif root[0][0][0].tag == tag:
+            keys.append(root[0][0][0].keys())
+        elif root[0][0][0][0].tag == tag:
+            keys.append(root[0][0][0][0].keys())
+
+        return keys
+
+    @staticmethod
     def read_hwmap(fn_in, fn_out='plot_hardware_map_test.png',
                    save_on_disk=True, display=False):
         """
