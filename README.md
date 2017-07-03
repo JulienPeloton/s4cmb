@@ -20,7 +20,7 @@ pull request so that we fix it asap.
 Some parts of the pipeline are written in C (and compiled on-the-fly via the
 package weave), and in Fortran. The latter is interfaced with python using f2py.
 The compilation is done usually when you install the package (see setup.py), but
-we also provide a Makefile for more customized compilations (see <dir>/Makefile).
+we also provide a Makefile for more customized compilations (see dir/Makefile).
 
 ### Installation
 You can easily install the package using pip
