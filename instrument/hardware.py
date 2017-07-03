@@ -91,7 +91,7 @@ class hardware():
         >>> h.coordinate_in_focal_plane(npair=4)
         (array([-15., -15.,  15.,  15.]), array([-15.,  15., -15.,  15.]))
 
-        Focal plane with hole
+        Focal plane with hole (4 slots, 3 pairs of bolometers)
         >>> h.coordinate_in_focal_plane(npair=3)
         (array([-15., -15.,  15.]), array([-15.,  15., -15.]))
 
