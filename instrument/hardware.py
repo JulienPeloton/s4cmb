@@ -427,7 +427,7 @@ class hardware():
         color = hardware.unpack_hwmap(
             fn_in, 'Bolometer', 'polangle_orientation')
 
-        fig, ax = pl.subplots(1, 2)
+        fig, ax = pl.subplots(1, 2, figsize=(10, 5))
         ## Top pixel
         ax[0].scatter(bolox[::2], boloy[::2],
                       c=color[::2], alpha=1, s=30, cmap=pl.cm.jet)
@@ -436,7 +436,7 @@ class hardware():
                       label='Top pixel', alpha=0.6)
         ax[0].set_ylabel('y position (cm)')
         ax[0].set_xlabel('x position (cm)')
-        ax[0].legend()
+        ax[0].set_title('Top pixels')
 
         ## Bottom pixel
         ax[1].scatter(bolox[1::2], boloy[1::2],
@@ -446,7 +446,7 @@ class hardware():
                       label='Bottom pixel', alpha=0.6)
         ax[1].set_ylabel('y position (cm)')
         ax[1].set_xlabel('x position (cm)')
-        ax[1].legend()
+        ax[1].set_title('Bottom pixels')
 
         if save_on_disk:
             pl.savefig(fn_out)
