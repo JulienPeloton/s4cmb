@@ -49,5 +49,5 @@ docker run -it s4cmb
 ```
 
 ### Main developers
-* Julien Peloton <j.peloton at sussex.ac.uk>
-* Giulio Fabbian <gfabbian at ias.u-psud.fr>
+* Julien Peloton (j.peloton at sussex.ac.uk)
+* Giulio Fabbian (gfabbian at ias.u-psud.fr)
