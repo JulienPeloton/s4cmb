@@ -16,8 +16,8 @@ import numpy as np
 
 import xml.etree.ElementTree as ET
 
-class instrument():
-    """ Class to simulate the instrument """
+class hardware():
+    """ Class to simulate the hardware of the instrument """
     def __init__(self,
                  ncrate=1, ndfmux_per_crate=1, nsquid_per_mux=1,
                  npair_per_squid=4, fp_size=60., geometry='square',
@@ -648,7 +648,7 @@ class beam_model():
         self.name = name
         self.debug = debug
 
-        beamprm = self.generate_beam_parameters()
+        self.beamprm = self.generate_beam_parameters()
 
     def generate_beam_parameters(self):
         """
@@ -763,6 +763,134 @@ class beam_model():
         number of pairs (>100), the whole focal plane space is used.
         """
         return np.array(xcm) * conversion, np.array(ycm) * conversion
+
+    @staticmethod
+    def show_beammap(beamprm, ct, cb, nx, pix_size):
+        """
+        Show the beam map
+
+        Parameters
+        ----------
+        beamprm : dictionnary
+            Dictionnary containing the beam parameters
+        ct : int
+            Index of the first bolometer in the pair.
+        cb : int
+            Index of the second bolometer in the pair.
+        nx : int
+            Number of pixels per row/column (in pixel)
+        pix_size : float
+            Size of each pixel (in radian)
+        """
+        # Translate beams to origin and maintain differential pointing
+        dx = beamprm['xpos'][ct] - beamprm['xpos'][cb]
+        dy = beamprm['ypos'][ct] - beamprm['ypos'][cb]
+
+        tx = 0.5 * dx
+        bx = -0.5 * dx
+        ty = 0.5 * dy
+        by = -0.5 * dy
+
+        xy2f = beam_model.make_xy(nx, pix_size)
+
+        tmap = beam_model.gauss2d(xy2f, tx, ty,
+                                  beamprm['Amp'][ct], beamprm['sig_1'][ct],
+                                  beamprm['sig_2'][ct],
+                                  beamprm['ellip_ang'][ct]).reshape((nx, nx))
+
+        bmap = beam_model.gauss2d(xy2f, bx, by,
+                                  beamprm['Amp'][cb], beamprm['sig_1'][cb],
+                                  beamprm['sig_2'][cb],
+                                  beamprm['ellip_ang'][cb]).reshape((nx, nx))
+
+        summap = 0.5 * (tmap + bmap)
+        diffmap = 0.5 * (tmap - bmap)
+
+        return summap, diffmap
+
+    @staticmethod
+    def gauss2d(xy, x_0, y_0, Amp, sig_xp, sig_yp, psi):
+        '''
+        2D Gaussian model for beams.
+        Calculates timestream given boresight pointing and model parameters
+
+        @type xy: 2d array
+        @param xy: Columns are projected coordinates (xproj,yproj)
+        @type x_0: number
+        @param x_0: center of gaussian in x coordinate
+        @type y_0: number
+        @param y_0: center of gaussian in y coordinate
+        @type Amp: number
+        @param Amp: amplitude of gaussian
+        @type sig_xp: number
+        @param sig_xp: sigma for gaussian in x' coordinate system
+        @type sig_yp: number
+        @param sig_yp: sigma for gaussian in y' coordinate system
+        @type psi: number
+        @param psi: angle between normal coordinate
+            system and primed system (normal is primed if psi=0)
+        @rtype: array
+        @return: simulated timestream given our model and pointing
+        '''
+
+        x_1 = xy[0, :] - x_0
+        y_1 = xy[1, :] - y_0
+
+        xy_1 = np.array([x_1, y_1])
+
+        psi2 = -psi * np.pi / 180.0
+
+        # x/y coordinates make an angle psi with the xp/yp input coordinates
+        R = np.array(
+            [[np.cos(psi2), -np.sin(psi2)], [np.sin(psi2), np.cos(psi2)]])
+        p = np.dot(R, xy_1)
+
+        u = p[0, :]**2 / (2 * sig_xp**2) + p[1, :]**2 / (2 * sig_yp**2)
+
+        # Hide underflow by clipping beam function at -430dB level
+        mask = u < 100
+        z = Amp * np.exp(-u * mask) * mask
+
+        return z
+
+    @staticmethod
+    def make_xy(nx, pix_size):
+        """
+        Return the x and y coordinates of the pixels of a (nx, nx) grid.
+        The grid is centered on (0, 0) or the closest pixel.
+
+        Parameters
+        ----------
+        nx : int
+            Number of pixels per row/column (in pixel)
+        pix_size : float
+            Size of each pixel (in radian)
+
+        Returns
+        ----------
+        grid : ndarray (2, nx * nx)
+            x and y coordinates of the pixels.
+
+        Examples
+        ----------
+        >>> fp = focal_plane(debug=False)
+        >>> bm = beam_model(fp, debug=False)
+        >>> bm.make_xy(4, 1) # doctest: +NORMALIZE_WHITESPACE
+        array([[-2., -1.,  0.,  1.,
+                -2., -1.,  0.,  1.,
+                -2., -1.,  0.,  1.,
+                -2., -1.,  0.,  1.],
+
+               [-2., -2., -2., -2.,
+                -1., -1., -1., -1.,
+                 0.,  0.,  0.,  0.,
+                 1., 1.,  1.,  1.]])
+        """
+        ix1 = np.arange(nx)
+        xs1 = (ix1 - nx / 2) * pix_size
+        x2, y2 = np.meshgrid(xs1, xs1)
+        grid = np.array((x2.flatten(), y2.flatten()))
+        return grid
 
 
 if __name__ == "__main__":
