@@ -163,26 +163,11 @@ class focal_plane():
                 for dfmux in range(self.ndfmux_per_crate):
                     ## DFMUX
                     ET.SubElement(HWmap[crate], 'DfMuxBoard')
-                    HWmap[crate][dfmux].set('broadcastPort', '5229')
-                    HWmap[crate][dfmux].set('crateSlot', '%d' % crate)
-                    HWmap[crate][dfmux].set('isClockMaster', '0')
-                    HWmap[crate][dfmux].set('isMulticast', '1')
-                    HWmap[crate][dfmux].set(
-                        'squidControllerIp', '192.168.0.29')
-                    HWmap[crate][dfmux].set('broadcastAddress', '224.0.0.1')
-                    HWmap[crate][dfmux].set('ipAddress', '192.168.0.29')
                     HWmap[crate][dfmux].set('id', 'Cr%dDf%d' % (crate, dfmux))
-                    HWmap[crate][dfmux].set('revision', '0')
 
                     for squid in range(self.nsquid_per_mux):
                         ## SQUID
                         ET.SubElement(HWmap[crate][dfmux], 'Squid')
-                        HWmap[crate][dfmux][squid].set('flux', '0.0')
-                        HWmap[crate][dfmux][squid].set('wire', '1')
-                        HWmap[crate][dfmux][squid].set('biasReference', '7.0')
-                        HWmap[crate][dfmux][squid].set('biasEnd', '7.5')
-                        HWmap[crate][dfmux][squid].set('offset', '3.75')
-                        HWmap[crate][dfmux][squid].set('biasStart', '6.0')
                         HWmap[crate][dfmux][squid].set('id', 'Cr%dDf%dSq%d' % (
                             crate, dfmux, squid))
 
@@ -207,8 +192,6 @@ class focal_plane():
                                 'focalPlaneIndex', '1')
                             HWmap[crate][dfmux][squid][boloQ].set(
                                 'polarizationMode', '1')
-                            HWmap[crate][dfmux][squid][boloQ].set(
-                                'lcBoardPad', '64')
                             ## Position of the bolometer within the SQUID
                             HWmap[crate][dfmux][squid][boloQ].set(
                                 'channel', '%d' % boloQ)
@@ -256,8 +239,6 @@ class focal_plane():
                                 'focalPlaneIndex', '1')
                             HWmap[crate][dfmux][squid][boloU].set(
                                 'polarizationMode', '1')
-                            HWmap[crate][dfmux][squid][boloU].set(
-                                'lcBoardPad', '64')
                             ## Position of the bolometer within the SQUID
                             HWmap[crate][dfmux][squid][boloU].set(
                                 'channel', '%d' % boloU)
@@ -419,22 +400,19 @@ class focal_plane():
         Return the id of the DfMux boards in the focal plane (one here)
         >>> fp.read_hwmap(fn='test.xml', tag='DfMuxBoard')
         ...     # doctest: +NORMALIZE_WHITESPACE
-        [['broadcastPort', 'crateSlot', 'isClockMaster',
-          'isMulticast', 'squidControllerIp', 'broadcastAddress',
-          'ipAddress', 'id', 'revision']]
+        [['id']]
 
         Return the id of the Squids in the focal plane (one here)
         >>> fp.read_hwmap(fn='test.xml', tag='Squid')
         ...     # doctest: +NORMALIZE_WHITESPACE
-        [['flux', 'wire', 'biasReference', 'biasEnd',
-          'offset', 'biasStart', 'id']]
+        [['id']]
 
         Return the id of the 8 bolometers (4 pairs) in the focal plane
         >>> fp.read_hwmap(fn='test.xml', tag='Bolometer')
         ...     # doctest: +NORMALIZE_WHITESPACE
         [['xCoordinate', 'focalPlaneIndex', 'yCoordinate',
-          'polarizationMode', 'lcBoardPad', 'polangle_orientation',
-          'id', 'polarizationOrientation', 'channel']]
+          'polangle_orientation', 'polarizationMode',
+          'polarizationOrientation', 'id', 'channel']]
 
         """
         tree = ET.parse(fn)
