@@ -11,7 +11,6 @@ from __future__ import division, absolute_import, print_function
 
 import os
 import copy
-import h5py
 import numpy as np
 
 import xml.etree.ElementTree as ET
