@@ -16,6 +16,123 @@ import numpy as np
 
 import xml.etree.ElementTree as ET
 
+def coordinates_on_grid(pix_size=None, row_size=None,
+                        nx=None, nx2=None,
+                        max_points=None):
+    """
+    Return the x and y coordinates of points on a grid.
+    The grid is centered on (0, 0).
+
+    Parameters
+    ----------
+    pix_size : float, optional
+        Size of each pixel. User should either provide
+        `pix_size` or `row_size` (but not both at the same time).
+    row_size : float, optional
+        Size of each row. User should either provide
+        `pix_size` or `row_size` (but not both at the same time).
+    nx : int, optional
+        Number of pixels per row/column. User should either provide
+        `nx` or `nx2` (but not both at the same time).
+    nx2 : int, optional
+        Total number of pixels in the array. User should either provide
+        `nx` or `nx2` (but not both at the same time).
+    max_points : int, optional
+        If nx2 is specified, `max_points` defines the maximum number of points
+        to return. If None, set to `nx2`.
+
+    Returns
+    ----------
+    coordinates : ndarray (2, nx[:max_points] * nx[:max_points])
+        x and y coordinates of the pixels.
+
+    Examples
+    ----------
+    Make a grid with 2 points per row, spaced by 1 unit
+    >>> coordinates_on_grid(pix_size=1., nx=2)
+    ... # doctest: +NORMALIZE_WHITESPACE
+    array([[-0.5,  0.5, -0.5,  0.5],
+           [-0.5, -0.5,  0.5,  0.5]])
+
+    Same grid, but specifying the total number of points
+    >>> coordinates_on_grid(pix_size=1., nx2=4)
+    ... # doctest: +NORMALIZE_WHITESPACE
+    array([[-0.5,  0.5, -0.5,  0.5],
+           [-0.5, -0.5,  0.5,  0.5]])
+
+    You can also specify the maximum number of points to return
+    >>> coordinates_on_grid(pix_size=1., nx2=4, max_points=3)
+    ... # doctest: +NORMALIZE_WHITESPACE
+    array([[-0.5,  0.5, -0.5],
+           [-0.5, -0.5,  0.5]])
+
+    If you specify a total number of points which does not fit totally inside
+    a squared grid, then it will return only the point you ask on a bigger grid
+    Note that it works as if you would have specify max_points for a higher nx2
+    >>> coordinates_on_grid(pix_size=1., nx2=3)
+    ... # doctest: +NORMALIZE_WHITESPACE
+    array([[-0.5,  0.5, -0.5],
+           [-0.5, -0.5,  0.5]])
+
+    You should specify either the number of pixel per row column (nx),
+    or the total number of point in the grid but not both at the same time:
+    >>> coordinates_on_grid(pix_size=1., nx=2, nx2=4)
+    ... # doctest: +NORMALIZE_WHITESPACE, +ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    AssertionError: You should specify either the number of pixel
+    per row column (nx), or the total number of point in the grid (nx2).
+
+    Idem for pix_size and row_size
+    >>> coordinates_on_grid(pix_size=1., row_size=4., nx=2)
+    ... # doctest: +NORMALIZE_WHITESPACE, +ELLIPSIS
+    Traceback (most recent call last):
+      ...
+    AssertionError: You should specify either the size of
+    a pixel (pix_size), or the size of a row (row_size).
+    """
+    if (nx is None and nx2 is None) or (nx is not None and nx2 is not None):
+        raise AssertionError('You should specify either the ' +
+                             'number of pixel per row column (nx), or ' +
+                             'the total number of point in the grid (nx2).\n')
+
+    if (pix_size is None and row_size is None) or \
+            (pix_size is not None and row_size is not None):
+        raise AssertionError('You should specify either the ' +
+                             'size of a pixel (pix_size), ' +
+                             'or the size of a row (row_size).\n')
+
+    if nx2 is not None:
+        ## Look for the closest number with square root being an integer
+        nx2_tmp = copy.copy(nx2)
+        while True:
+            nx = np.sqrt(nx2_tmp)
+            if int(nx) == nx:
+                nx = int(nx)
+                break
+            else:
+                nx2_tmp += 1
+    else:
+        nx2 = nx**2
+
+    if max_points is None:
+        max_points = nx2
+
+    if pix_size is None:
+        pix_size = row_size / nx
+    elif row_size is None:
+        row_size = pix_size * nx
+
+    ix1 = np.arange(nx)
+    xs1 = (ix1 - (nx - 1.) / 2.) * pix_size
+    x2, y2 = np.meshgrid(xs1, xs1)
+
+    coordinates = np.array(
+        (x2.flatten()[:max_points],
+         y2.flatten()[:max_points]))
+
+    return coordinates
+
 class hardware():
     """ Class to simulate the hardware of the instrument """
     def __init__(self,
@@ -122,75 +239,6 @@ class focal_plane():
 
         self.create_hwmap()
 
-    def compute_pairs_coordinates(self, npair):
-        """
-        Define the position of the pairs in the focal plane
-        according to a type of geometry. Being a simple person,
-        only squared focal plane are available for the moment.
-        For a square focal plane, if the initial number of pairs `npair`
-        is not square rootable, then the routine will look for the closest
-        square root, and leave holes in place of the extra pairs
-        in the focal plane.
-
-        Parameters
-        ----------
-        npair : int
-            The total number of pairs of bolometers in the focal plane.
-
-        Returns
-        ----------
-        xcoord_pairs : ndarray
-            Array of length `npair` (or `2 * npair` if return_bolometer
-            is True) containing the coordinate of the pairs of bolometers
-            along the x axis.
-        ycoord_pairs : ndarray
-            Array of length `npair` (or `2 * npair` if return_bolometer
-            is True) containing the coordinate of the pairs of bolometers
-            along the y axis.
-
-        Examples
-        ----------
-        >>> fp = focal_plane(debug=False)
-
-        Full focal plane
-        >>> fp.compute_pairs_coordinates(npair=4)
-        (array([-15., -15.,  15.,  15.]), array([-15.,  15., -15.,  15.]))
-
-        Focal plane with hole (4 slots, 3 pairs of bolometers)
-        >>> fp.compute_pairs_coordinates(npair=3)
-        (array([-15., -15.,  15.]), array([-15.,  15., -15.]))
-
-        """
-        if self.geometry == 'square':
-            ## Look for the closest number with square root being an integer
-            npair_tmp = copy.copy(npair)
-            while True:
-                npair_per_row = np.sqrt(npair_tmp)
-                if int(npair_per_row) == npair_per_row:
-                    npair_per_row = int(npair_per_row)
-                    break
-                else:
-                    npair_tmp += 1
-
-            ## Define x and y coordinates for each pair
-            radius_fp = self.fp_size / 2.
-            xcoord = [
-                -radius_fp + (i * 2 + 1) * radius_fp / npair_per_row for i in
-                range(npair_per_row) for j in range(npair_per_row)]
-            ycoord = [
-                -radius_fp + (i * 2 + 1) * radius_fp / npair_per_row for j in
-                range(npair_per_row) for i in range(npair_per_row)]
-        else:
-            raise ValueError('Wrong geometry! {} '.format(self.geometry) +
-                             'is not avalaible. ' +
-                             'Only `square` is valid for the moment')
-
-        ## Keep only up the pairs up to the initial number of pairs.
-        xcoord_pairs = np.array(xcoord[:npair])
-        ycoord_pairs = np.array(ycoord[:npair])
-
-        return xcoord_pairs, ycoord_pairs
-
     def create_hwmap(self):
         """
         Create the hardware map of the instrument,
@@ -216,7 +264,9 @@ class focal_plane():
         Hardware map written at ./focal_plane_test.xml
         """
         ## Retrieve coordinate of the pairs inside the focal plane
-        xcoord, ycoord = self.compute_pairs_coordinates(self.npair)
+        # xcoord, ycoord = self.compute_pairs_coordinates(self.npair)
+        xcoord, ycoord = coordinates_on_grid(row_size=self.fp_size,
+                                             nx2=self.npair)
 
         HWmap = ET.Element('HardwareMap')
 
@@ -391,13 +441,13 @@ class focal_plane():
         Examples
         ----------
         >>> fp = focal_plane(debug=False)
-        >>> xp, yp = fp.compute_pairs_coordinates(npair=4)
+        >>> xp, yp = coordinates_on_grid(row_size=fp.fp_size, nx2=4)
         >>> print(xp, yp)
-        [-15. -15.  15.  15.] [-15.  15. -15.  15.]
+        [-15.  15. -15.  15.] [-15. -15.  15.  15.]
         >>> xb, yb = fp.convert_pair_to_bolometer_position(xp, yp)
         >>> print(xb, yb) # doctest: +NORMALIZE_WHITESPACE
-        [-15. -15. -15. -15.  15.  15.  15.  15.]
         [-15. -15.  15.  15. -15. -15.  15.  15.]
+        [-15. -15. -15. -15.  15.  15.  15.  15.]
         """
         nbolometer = 2 * len(xcoord_pairs)
         xcoord_bolometers = np.dstack(
@@ -461,7 +511,7 @@ class focal_plane():
         >>> fp.unpack_hwmap(fn='./focal_plane_test.xml',
         ...     tag='Bolometer', key='xCoordinate', dtype=float)
         ...     # doctest: +NORMALIZE_WHITESPACE
-        array([-15., -15., -15., -15.,  15.,  15.,  15.,  15.])
+        array([-15., -15.,  15.,  15., -15., -15.,  15.,  15.])
 
         """
         tree = ET.parse(fn)
@@ -666,9 +716,10 @@ class beam_model():
         >>> bm = beam_model(fp, debug=False)
         >>> beam = bm.generate_beam_parameters()
         >>> print(beam['xpos']) # doctest: +NORMALIZE_WHITESPACE
-        [-0.01308997 -0.01308997 -0.01308997 -0.01308997 -0.01308997
-        -0.01308997 -0.01308997 -0.01308997  0.01308997  0.01308997
-        0.01308997  0.01308997 0.01308997  0.01308997  0.01308997  0.01308997]
+        [-0.01308997 -0.01308997 -0.01308997 -0.01308997
+          0.01308997  0.01308997  0.01308997  0.01308997
+         -0.01308997 -0.01308997 -0.01308997 -0.01308997
+          0.01308997  0.01308997  0.01308997  0.01308997]
         """
 
         beamprm_header = ['Amp', 'Amp_err',
@@ -751,12 +802,13 @@ class beam_model():
         giving a 3 deg projection on the sky by default
         >>> fp = focal_plane(debug=False)
         >>> bm = beam_model(fp, debug=False)
-        >>> xcm, ycm = fp.compute_pairs_coordinates(fp.npair)
+        >>> xcm, ycm = coordinates_on_grid(
+        ...                 row_size=fp.fp_size, nx2=fp.npair)
         >>> print(bm.convert_cm_to_rad(xcm, ycm,
         ...     conversion=bm.projected_fp_size / fp.fp_size * np.pi / 180.))
         ...     # doctest: +NORMALIZE_WHITESPACE
-        (array([-0.01308997, -0.01308997,  0.01308997,  0.01308997]),
-         array([-0.01308997,  0.01308997, -0.01308997,  0.01308997]))
+        (array([-0.01308997,  0.01308997, -0.01308997,  0.01308997]),
+         array([-0.01308997, -0.01308997,  0.01308997,  0.01308997]))
 
         Note that in this simple example, the focal plane size is 60 cm,
         but the pairs are separated by 30 cm only. For a realistic
@@ -765,22 +817,45 @@ class beam_model():
         return np.array(xcm) * conversion, np.array(ycm) * conversion
 
     @staticmethod
-    def show_beammap(beamprm, ct, cb, nx, pix_size):
+    def construct_beammap(beamprm, ct, cb, nx, pix_size):
         """
-        Show the beam map
+        Construct the pixel beam maps
+        (sum and difference of bolometer beam maps)
 
         Parameters
         ----------
         beamprm : dictionnary
-            Dictionnary containing the beam parameters
+            Dictionnary containing the beam parameters.
         ct : int
-            Index of the first bolometer in the pair.
+            Index of the top bolometer in the pair.
         cb : int
-            Index of the second bolometer in the pair.
+            Index of the bottom bolometer in the pair.
         nx : int
-            Number of pixels per row/column (in pixel)
+            Number of pixels per row/column (in pixel).
         pix_size : float
-            Size of each pixel (in radian)
+            Size of each pixel (in radian).
+
+        Returns
+        ----------
+        summap : ndarray
+            Beam map made of the sum of bolometer beam maps.
+        diffmap : ndarray
+            Beam map made of the difference of bolometer beam maps.
+
+        Examples
+        ----------
+        Note that bolometers within the same pixel are neighbour bolometers
+        that is (ct, cb) = (0, 1) for example.
+        >>> fp = focal_plane(debug=False)
+        >>> bm = beam_model(fp, debug=False)
+        >>> pix_size = 0.5 / 180. * np.pi / 60. # 0.5 arcmin in rad
+        >>> summap, diffmap = bm.construct_beammap(
+        ...     beamprm=bm.beamprm, ct=0, cb=1, nx=4, pix_size=pix_size)
+        >>> print(summap) # doctest: +NORMALIZE_WHITESPACE
+        [[ 0.77520676  0.86809111  0.86809111  0.77520676]
+         [ 0.86809111  0.97210474  0.97210474  0.86809111]
+         [ 0.86809111  0.97210474  0.97210474  0.86809111]
+         [ 0.77520676  0.86809111  0.86809111  0.77520676]]
         """
         # Translate beams to origin and maintain differential pointing
         dx = beamprm['xpos'][ct] - beamprm['xpos'][cb]
@@ -791,7 +866,7 @@ class beam_model():
         ty = 0.5 * dy
         by = -0.5 * dy
 
-        xy2f = beam_model.make_xy(nx, pix_size)
+        xy2f = coordinates_on_grid(pix_size=pix_size, nx=nx)
 
         tmap = beam_model.gauss2d(xy2f, tx, ty,
                                   beamprm['Amp'][ct], beamprm['sig_1'][ct],
@@ -812,25 +887,46 @@ class beam_model():
     def gauss2d(xy, x_0, y_0, Amp, sig_xp, sig_yp, psi):
         '''
         2D Gaussian model for beams.
-        Calculates timestream given boresight pointing and model parameters
 
-        @type xy: 2d array
-        @param xy: Columns are projected coordinates (xproj,yproj)
-        @type x_0: number
-        @param x_0: center of gaussian in x coordinate
-        @type y_0: number
-        @param y_0: center of gaussian in y coordinate
-        @type Amp: number
-        @param Amp: amplitude of gaussian
-        @type sig_xp: number
-        @param sig_xp: sigma for gaussian in x' coordinate system
-        @type sig_yp: number
-        @param sig_yp: sigma for gaussian in y' coordinate system
-        @type psi: number
-        @param psi: angle between normal coordinate
-            system and primed system (normal is primed if psi=0)
-        @rtype: array
-        @return: simulated timestream given our model and pointing
+        Parameters
+        ----------
+        xy : 2d array
+            Columns are projected coordinates (xproj,yproj)
+        x_0: float
+            x coordinate of the center of the Gaussian.
+        y_0: float
+            y coordinate of the center of the Gaussian.
+        Amp: float
+            Amplitude of the Gaussian.
+        sig_xp: float
+            Sigma for the Gaussian in x' coordinate system (rotated
+            system if psi != 0).
+        sig_yp: float
+            Sigma for the Gaussian in y' coordinate system (rotated
+            system if psi != 0).
+        psi: float
+            Angle between normal coordinate system and
+            primed system (normal is primed if psi = 0).
+
+        Returns
+        ----------
+        z : 1d array
+            Flatten beam map of shape (xy[1].shape, )
+
+        Examples
+        ----------
+        >>> fp = focal_plane(debug=False)
+        >>> bm = beam_model(fp, debug=False)
+        >>> pix_size = 0.5 / 180. * np.pi / 60. # 0.5 arcmin in rad
+        >>> xy = coordinates_on_grid(pix_size=pix_size, nx=4)
+        >>> beam_model.gauss2d(xy, x_0=0, y_0=0, Amp=1.,
+        ...     sig_xp=bm.beamprm['sig_1'][0],
+        ...     sig_yp=bm.beamprm['sig_2'][0], psi=0)
+        ... # doctest: +NORMALIZE_WHITESPACE
+        array([ 0.77520676,  0.86809111,  0.86809111,  0.77520676,
+                0.86809111,  0.97210474,  0.97210474,  0.86809111,
+                0.86809111,  0.97210474,  0.97210474,  0.86809111,
+                0.77520676,  0.86809111,  0.86809111,  0.77520676])
         '''
 
         x_1 = xy[0, :] - x_0
@@ -852,45 +948,6 @@ class beam_model():
         z = Amp * np.exp(-u * mask) * mask
 
         return z
-
-    @staticmethod
-    def make_xy(nx, pix_size):
-        """
-        Return the x and y coordinates of the pixels of a (nx, nx) grid.
-        The grid is centered on (0, 0) or the closest pixel.
-
-        Parameters
-        ----------
-        nx : int
-            Number of pixels per row/column (in pixel)
-        pix_size : float
-            Size of each pixel (in radian)
-
-        Returns
-        ----------
-        grid : ndarray (2, nx * nx)
-            x and y coordinates of the pixels.
-
-        Examples
-        ----------
-        >>> fp = focal_plane(debug=False)
-        >>> bm = beam_model(fp, debug=False)
-        >>> bm.make_xy(4, 1) # doctest: +NORMALIZE_WHITESPACE
-        array([[-2., -1.,  0.,  1.,
-                -2., -1.,  0.,  1.,
-                -2., -1.,  0.,  1.,
-                -2., -1.,  0.,  1.],
-
-               [-2., -2., -2., -2.,
-                -1., -1., -1., -1.,
-                 0.,  0.,  0.,  0.,
-                 1., 1.,  1.,  1.]])
-        """
-        ix1 = np.arange(nx)
-        xs1 = (ix1 - nx / 2) * pix_size
-        x2, y2 = np.meshgrid(xs1, xs1)
-        grid = np.array((x2.flatten(), y2.flatten()))
-        return grid
 
 
 if __name__ == "__main__":
