@@ -11,6 +11,7 @@ Cosmic Microwave Background experiments.
 Requirements
 =============
 The pipeline is mainly written in python and it has the following dependencies:
+
 * numpy, scipy, matplotlib, etc.
 * f2py (for fortran to python interfacing)
 * mpi4py (for parallel computing)
@@ -28,9 +29,10 @@ we also provide a Makefile for more customized compilations (see dir/Makefile).
 Installation
 =============
 You can easily install the package using pip
-```bash
-pip install s4cmb
-```
+
+::
+
+    pip install s4cmb
 
 Otherwise, you can clone the repo from the github repository and
 use the setup.py for the installation. Just run:
