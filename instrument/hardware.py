@@ -1,7 +1,9 @@
 #!/usr/bin/python
 """
-Script to simulate the focal plane of a CMB experiment.
-The hardware configuration is stored in a xml file, and read later on.
+Script to simulate the hardware of a CMB experiment.
+The focal plane configuration is stored in a xml file, and read later on.
+The instrument models (pointing, beam, polarisation angle) are stored in
+a hdf5 file and read later on.
 
 Author: Julien Peloton, j.peloton@sussex.ac.uk
 """
@@ -19,7 +21,7 @@ class focal_plane():
     def __init__(self,
                  ncrate, ndfmux_per_crate, nsquid_per_mux, npair_per_squid,
                  fp_size, geometry='square',
-                 output_folder='./', tag='test', debug=False):
+                 output_folder='./', name='test', debug=False):
         """
         Initialise our focal plane and save the configuration
         inside a xml file.
@@ -40,7 +42,7 @@ class focal_plane():
             The shape of the focal plane.
         output_folder : string, optional
             The folder where the xml file will be stored.
-        tag : string, optional
+        name : string, optional
             The name of the xml file (without the extension).
         debug : boolean, optional
             If True, print out a number of useful comments for debugging.
@@ -52,14 +54,14 @@ class focal_plane():
         self.fp_size = fp_size
         self.geometry = geometry
         self.output_folder = output_folder
-        self.tag = tag
-        self.output_file = self.tag + '.xml'
+        self.name = name
+        self.output_file = 'focal_plane_' + self.name + '.xml'
 
         self.debug = debug
 
         self.create_hwmap()
 
-    def coordinate_pairs_in_focal_plane(self, npair, return_bolometer=False):
+    def coordinate_pairs_in_focal_plane(self, npair):
         """
         Define the position of the pairs in the focal plane
         according to a type of geometry. Being a simple person,
@@ -73,17 +75,14 @@ class focal_plane():
         ----------
         npair : int
             The total number of pairs of bolometers in the focal plane.
-        return_bolometer : bool, optional
-            If True, the routines the position of bolometers instead of
-            the position of pairs of bolometers.
 
         Returns
         ----------
-        xcoord_reduced : ndarray
+        xcoord_pairs : ndarray
             Array of length `npair` (or `2 * npair` if return_bolometer
             is True) containing the coordinate of the pairs of bolometers
             along the x axis.
-        ycoord_reduced : ndarray
+        ycoord_pairs : ndarray
             Array of length `npair` (or `2 * npair` if return_bolometer
             is True) containing the coordinate of the pairs of bolometers
             along the y axis.
@@ -93,10 +92,6 @@ class focal_plane():
         Full focal plane
         >>> fp.coordinate_pairs_in_focal_plane(npair=4)
         (array([-15., -15.,  15.,  15.]), array([-15.,  15., -15.,  15.]))
-        >>> fp.coordinate_pairs_in_focal_plane(npair=4, return_bolometer=True)
-        ...     # doctest: +NORMALIZE_WHITESPACE
-        (array([-15., -15., -15., -15.,  15.,  15.,  15.,  15.]),
-         array([-15., -15.,  15.,  15., -15., -15.,  15.,  15.]))
 
         Focal plane with hole (4 slots, 3 pairs of bolometers)
         >>> fp.coordinate_pairs_in_focal_plane(npair=3)
@@ -131,18 +126,6 @@ class focal_plane():
         xcoord_pairs = np.array(xcoord[:npair])
         ycoord_pairs = np.array(ycoord[:npair])
 
-        if return_bolometer is True:
-            ## Return the position of bolometers instead of pairs
-            xcoord_bolometers = np.array(
-                [[xcoord_pairs[i],
-                  xcoord_pairs[i]] for i in range(
-                      len(xcoord_pairs))]).flatten()
-            ycoord_bolometers = np.array(
-                [[ycoord_pairs[i],
-                  ycoord_pairs[i]] for i in range(
-                      len(ycoord_pairs))]).flatten()
-            return xcoord_bolometers, ycoord_bolometers
-
         return xcoord_pairs, ycoord_pairs
 
     def create_hwmap(self):
@@ -167,7 +150,7 @@ class focal_plane():
         ----------
         >>> fp.create_hwmap()
         Hardware map generated...
-        Hardware map written at ./test.xml
+        Hardware map written at ./focal_plane_test.xml
         """
         ## Total number of pairs and bolometers in the focal plane
         npair = self.ncrate * self.ndfmux_per_crate * \
@@ -325,6 +308,48 @@ class focal_plane():
                 os.path.join(self.output_folder, self.output_file)))
 
     @staticmethod
+    def convert_pair_to_bolometer_position(xcoord_pairs, ycoord_pairs):
+        """
+        Return the position of bolometers given the position of pairs.
+
+        Parameters
+        ----------
+        xcoord_pairs : ndarray
+            Array of length `npair` containing the coordinate
+            of the pairs of bolometers along the x axis.
+        ycoord_pairs : ndarray
+            Array of length `npair` containing the coordinate
+            of the pairs of bolometers along the y axis.
+
+        Returns
+        ----------
+        xcoord_bolometers : ndarray
+            Array of length `2 * npair` containing the coordinate of
+            the bolometers along the x axis.
+        ycoord_bolometers : ndarray
+            Array of length `2 * npair` containing the coordinate of
+            the bolometers along the y axis.
+
+        Examples
+        ----------
+        >>> xp, yp = fp.coordinate_pairs_in_focal_plane(npair=4)
+        >>> print(xp, yp)
+        [-15. -15.  15.  15.] [-15.  15. -15.  15.]
+        >>> xb, yb = fp.convert_pair_to_bolometer_position(xp, yp)
+        >>> print(xb, yb) # doctest: +NORMALIZE_WHITESPACE
+        [-15. -15. -15. -15.  15.  15.  15.  15.]
+        [-15. -15.  15.  15. -15. -15.  15.  15.]
+        """
+
+        nbolometers = 2 * len(xcoord_pairs)
+        xcoord_bolometers = np.dstack(
+            (xcoord_pairs, xcoord_pairs)).reshape((1, nbolometers))[0]
+        ycoord_bolometers = np.dstack(
+            (ycoord_pairs, ycoord_pairs)).reshape((1, nbolometers))[0]
+
+        return xcoord_bolometers, ycoord_bolometers
+
+    @staticmethod
     def unpack_hwmap(fn, tag, key):
         """
         Routine to extract focal plane data from the hardware map generated
@@ -350,31 +375,36 @@ class focal_plane():
         ----------
         >>> fp.create_hwmap()
         Hardware map generated...
-        Hardware map written at ./test.xml
+        Hardware map written at ./focal_plane_test.xml
 
         Return the id of the Crate boards in the focal plane (one here)
-        >>> fp.unpack_hwmap(fn='test.xml', tag='Crate', key='id')
-        ['Cr0']
+        >>> fp.unpack_hwmap(fn='./focal_plane_test.xml', tag='Crate', key='id')
+        ...     # doctest: +NORMALIZE_WHITESPACE
+        array(['Cr0'], dtype='|S3')
 
         Return the id of the DfMux boards in the focal plane (one here)
-        >>> fp.unpack_hwmap(fn='test.xml', tag='DfMuxBoard', key='id')
-        ['Cr0Df0']
+        >>> fp.unpack_hwmap(fn='./focal_plane_test.xml',
+        ...     tag='DfMuxBoard', key='id') # doctest: +NORMALIZE_WHITESPACE
+        array(['Cr0Df0'], dtype='|S6')
 
         Return the id of the Squids in the focal plane (one here)
-        >>> fp.unpack_hwmap(fn='test.xml', tag='Squid', key='id')
-        ['Cr0Df0Sq0']
+        >>> fp.unpack_hwmap(fn='./focal_plane_test.xml',
+        ...     tag='Squid', key='id') # doctest: +NORMALIZE_WHITESPACE
+        array(['Cr0Df0Sq0'], dtype='|S9')
 
         Return the id of the 8 bolometers (4 pairs) in the focal plane
-        >>> fp.unpack_hwmap(fn='test.xml', tag='Bolometer', key='id')
-        ...     # doctest: +NORMALIZE_WHITESPACE
-        ['Cr0Df0Sq0_0t', 'Cr0Df0Sq0_0b', 'Cr0Df0Sq0_1t', 'Cr0Df0Sq0_1b',
-         'Cr0Df0Sq0_2t', 'Cr0Df0Sq0_2b', 'Cr0Df0Sq0_3t', 'Cr0Df0Sq0_3b']
+        >>> fp.unpack_hwmap(fn='./focal_plane_test.xml',
+        ...     tag='Bolometer', key='id') # doctest: +NORMALIZE_WHITESPACE
+        array(['Cr0Df0Sq0_0t', 'Cr0Df0Sq0_0b', 'Cr0Df0Sq0_1t',
+        'Cr0Df0Sq0_1b', 'Cr0Df0Sq0_2t', 'Cr0Df0Sq0_2b',
+        'Cr0Df0Sq0_3t', 'Cr0Df0Sq0_3b'], dtype='|S12')
 
         Return the x coordinates of the 8 bolometers in the focal plane
-        >>> fp.unpack_hwmap(fn='test.xml', tag='Bolometer', key='xCoordinate')
+        >>> fp.unpack_hwmap(fn='./focal_plane_test.xml',
+        ...     tag='Bolometer', key='xCoordinate')
         ...     # doctest: +NORMALIZE_WHITESPACE
-        ['-15.0000', '-15.0000', '-15.0000', '-15.0000',
-        '15.0000', '15.0000', '15.0000', '15.0000']
+        array(['-15.0000', '-15.0000', '-15.0000', '-15.0000',
+        '15.0000', '15.0000', '15.0000', '15.0000'], dtype='|S8')
 
         """
         tree = ET.parse(fn)
@@ -397,7 +427,7 @@ class focal_plane():
                                         len(root[0][0][0].getchildren())):
                                     data.append(root[i][j][k][l].get(key))
 
-        return data
+        return np.array(data)
 
     @staticmethod
     def read_hwmap(fn, tag):
@@ -422,24 +452,24 @@ class focal_plane():
         ----------
         >>> fp.create_hwmap()
         Hardware map generated...
-        Hardware map written at ./test.xml
+        Hardware map written at ./focal_plane_test.xml
 
         Return the id of the Crate boards in the focal plane (one here)
-        >>> fp.read_hwmap(fn='test.xml', tag='Crate')
+        >>> fp.read_hwmap(fn='./focal_plane_test.xml', tag='Crate')
         [['id']]
 
         Return the id of the DfMux boards in the focal plane (one here)
-        >>> fp.read_hwmap(fn='test.xml', tag='DfMuxBoard')
+        >>> fp.read_hwmap(fn='./focal_plane_test.xml', tag='DfMuxBoard')
         ...     # doctest: +NORMALIZE_WHITESPACE
         [['id']]
 
         Return the id of the Squids in the focal plane (one here)
-        >>> fp.read_hwmap(fn='test.xml', tag='Squid')
+        >>> fp.read_hwmap(fn='./focal_plane_test.xml', tag='Squid')
         ...     # doctest: +NORMALIZE_WHITESPACE
         [['id']]
 
         Return the id of the 8 bolometers (4 pairs) in the focal plane
-        >>> fp.read_hwmap(fn='test.xml', tag='Bolometer')
+        >>> fp.read_hwmap(fn='./focal_plane_test.xml', tag='Bolometer')
         ...     # doctest: +NORMALIZE_WHITESPACE
         [['xCoordinate', 'focalPlaneIndex', 'yCoordinate',
           'polangle_orientation', 'polarizationMode',
@@ -483,8 +513,8 @@ class focal_plane():
         ---------
         >>> fp.create_hwmap()
         Hardware map generated...
-        Hardware map written at ./test.xml
-        >>> fp.show_hwmap(fn_in='test.xml',
+        Hardware map written at ./focal_plane_test.xml
+        >>> fp.show_hwmap(fn_in='./focal_plane_test.xml',
         ...     fn_out='plot_hardware_map_test.png',
         ...     save_on_disk=False, display=False)
         """
@@ -525,9 +555,64 @@ class focal_plane():
 
 
 class calibration():
-    """ Class to handle model of the instrument """
-    def __init__(self):
-        pass
+    """ Class to handle models of the instrument """
+    def __init__(self,
+                 focal_plane_fn, FWHM=3.5, projected_fp_size=3.,
+                 output_folder='./', name='test'):
+        """
+        This class creates the data used to model the instrument:
+        * pointing model parameters of the telescope
+        * beam parameters of the bolometers
+        * polarisation angle of the bolometers
+
+        Parameters
+        ----------
+        focal_plane_fn : string
+            xml file containing focal plane informations (generated
+            by the class focal_plane)
+        FWHM : float, optional
+            Full Width Half Maximum of the beam (in arcmin).
+            Default = 3.5 arcmin.
+        projected_fp_size : float, optional
+            Size of the focal plane on the sky (in degree). This has to
+            do with the size of the mirror. Default = 3 degrees.
+        output_folder : string, optional
+            The folder where the xml file will be stored.
+        name : string, optional
+            The name of the xml file (without the extension).
+        debug : boolean, optional
+            If True, print out a number of useful comments for debugging.
+
+        """
+        self.focal_plane_fn = focal_plane_fn
+        self.FWHM = FWHM
+        self.projected_fp_size = projected_fp_size
+
+        self.beam_model = beam_model()
+
+        def beam_model(self):
+            """
+            Construct the beam parameters such as position of the centroids,
+            ellipticity, angle of rotation, and associated errors.
+
+            Returns
+            ----------
+            beam_model : dictionnary
+                Dictionnary containing beam parameters
+            """
+
+            beamprm_header = ['Amp', 'Amp_err',
+                              'ellip_ang', 'ellip_ang_err',
+                              'sig_1', 'sig_1_err',
+                              'sig_2', 'sig_2_err',
+                              'xpos', 'xpos_err',
+                              'ypos', 'ypos_err']
+            beamprm_fields = {k: np.zeros(nbolo) for k in beamprm_header}
+
+            beamprm_fields['xpos'] = focal_plane.unpack_hwmap(
+                self.focal_plane_fn, 'Bolometer', 'xCoordinate')
+            beamprm_fields['ypos'] = focal_plane.unpack_hwmap(
+                self.focal_plane_fn, 'Bolometer', 'yCoordinate')
 
 
 if __name__ == "__main__":
@@ -537,4 +622,4 @@ if __name__ == "__main__":
             'fp': focal_plane(ncrate=1, ndfmux_per_crate=1,
                               nsquid_per_mux=1, npair_per_squid=4,
                               fp_size=60., geometry='square',
-                              output_folder='./', tag='test', debug=True)})
+                              output_folder='./', name='test', debug=True)})
