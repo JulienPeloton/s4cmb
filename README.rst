@@ -1,12 +1,15 @@
+================
 s4cmb (public version)
-==
+================
 
-### The package
+The package
+=============
 Systematics For Cosmic Microwave Background (s4cmb), is a package to
 study instrumental systematic effects in the context of current and future
 Cosmic Microwave Background experiments.
 
-### Requirements
+Requirements
+=============
 The pipeline is mainly written in python and it has the following dependencies:
 * numpy, scipy, matplotlib, etc.
 * f2py (for fortran to python interfacing)
@@ -22,7 +25,8 @@ package weave), and in Fortran. The latter is interfaced with python using f2py.
 The compilation is done usually when you install the package (see setup.py), but
 we also provide a Makefile for more customized compilations (see dir/Makefile).
 
-### Installation
+Installation
+=============
 You can easily install the package using pip
 ```bash
 pip install s4cmb
@@ -48,6 +52,7 @@ docker build -t s4cmb .
 docker run -it s4cmb
 ```
 
-### Main developers
+Main developers
+=============
 * Julien Peloton (j.peloton at sussex.ac.uk)
 * Giulio Fabbian (gfabbian at ias.u-psud.fr)
