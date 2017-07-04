@@ -20,7 +20,7 @@ class focal_plane():
     """ Class to handle the focal plane of the instrument. """
     def __init__(self,
                  ncrate, ndfmux_per_crate, nsquid_per_mux, npair_per_squid,
-                 fp_size, geometry='square',
+                 fp_size=60., geometry='square',
                  output_folder='./', name='test', debug=False):
         """
         Initialise our focal plane and save the configuration
@@ -36,8 +36,8 @@ class focal_plane():
             Number of SQUID per MUX.
         npair_per_squid : int
             Number of pair of bolometers per SQUID.
-        fp_size : float
-            The size of the focal plane in cm.
+        fp_size : float, optional
+            The size of the focal plane in cm. Default is 60 cm.
         geometry : string, optional
             The shape of the focal plane.
         output_folder : string, optional
@@ -51,6 +51,12 @@ class focal_plane():
         self.ndfmux_per_crate = ndfmux_per_crate
         self.nsquid_per_mux = nsquid_per_mux
         self.npair_per_squid = npair_per_squid
+
+        ## Total number of pairs and bolometers in the focal plane
+        self.npair = self.ncrate * self.ndfmux_per_crate * \
+            self.nsquid_per_mux * self.npair_per_squid
+        self.nbolometer = self.npair * 2
+
         self.fp_size = fp_size
         self.geometry = geometry
         self.output_folder = output_folder
@@ -152,13 +158,8 @@ class focal_plane():
         Hardware map generated...
         Hardware map written at ./focal_plane_test.xml
         """
-        ## Total number of pairs and bolometers in the focal plane
-        npair = self.ncrate * self.ndfmux_per_crate * \
-            self.nsquid_per_mux * self.npair_per_squid
-        nbolo = npair * 2
-
         ## Retrieve coordinate of the pairs inside the focal plane
-        xcoord, ycoord = self.coordinate_pairs_in_focal_plane(npair)
+        xcoord, ycoord = self.coordinate_pairs_in_focal_plane(self.npair)
 
         HWmap = ET.Element('HardwareMap')
 
@@ -192,7 +193,7 @@ class focal_plane():
                             boloQ = 2*pair
                             boloU = 2*pair + 1
 
-                            if int(pair_id/np.sqrt(npair)) % 2 == 0:
+                            if int(pair_id/np.sqrt(self.npair)) % 2 == 0:
                                 shift = 0.
                                 shiftinv = 45.
                             else:
@@ -290,9 +291,9 @@ class focal_plane():
                             ## Close the job if you hit the maximum number of
                             ## bolometers or pairs.
                             try:
-                                assert bolo_id < nbolo, \
+                                assert bolo_id < self.nbolometer, \
                                     'Hardware map generated...'
-                                assert pair_id < npair, \
+                                assert pair_id < self.npair, \
                                     'Hardware map generated...'
                             except AssertionError, e:
                                 if self.debug:
@@ -340,17 +341,16 @@ class focal_plane():
         [-15. -15. -15. -15.  15.  15.  15.  15.]
         [-15. -15.  15.  15. -15. -15.  15.  15.]
         """
-
-        nbolometers = 2 * len(xcoord_pairs)
+        nbolometer = 2 * len(xcoord_pairs)
         xcoord_bolometers = np.dstack(
-            (xcoord_pairs, xcoord_pairs)).reshape((1, nbolometers))[0]
+            (xcoord_pairs, xcoord_pairs)).reshape((1, nbolometer))[0]
         ycoord_bolometers = np.dstack(
-            (ycoord_pairs, ycoord_pairs)).reshape((1, nbolometers))[0]
+            (ycoord_pairs, ycoord_pairs)).reshape((1, nbolometer))[0]
 
         return xcoord_bolometers, ycoord_bolometers
 
     @staticmethod
-    def unpack_hwmap(fn, tag, key):
+    def unpack_hwmap(fn, tag, key, dtype=str):
         """
         Routine to extract focal plane data from the hardware map generated
         by create_hwmap(). Particularly useful for interfacing.
@@ -365,6 +365,8 @@ class focal_plane():
         key : string
             The key corresponding to the data to be extracted.
             `key` should be in `tag`.
+        dtype : type
+            Type of the data to unpack. Default is string.
 
         Returns
         ----------
@@ -401,10 +403,9 @@ class focal_plane():
 
         Return the x coordinates of the 8 bolometers in the focal plane
         >>> fp.unpack_hwmap(fn='./focal_plane_test.xml',
-        ...     tag='Bolometer', key='xCoordinate')
+        ...     tag='Bolometer', key='xCoordinate', dtype=float)
         ...     # doctest: +NORMALIZE_WHITESPACE
-        array(['-15.0000', '-15.0000', '-15.0000', '-15.0000',
-        '15.0000', '15.0000', '15.0000', '15.0000'], dtype='|S8')
+        array([-15., -15., -15., -15.,  15.,  15.,  15.,  15.])
 
         """
         tree = ET.parse(fn)
@@ -427,7 +428,7 @@ class focal_plane():
                                         len(root[0][0][0].getchildren())):
                                     data.append(root[i][j][k][l].get(key))
 
-        return np.array(data)
+        return np.array(data, dtype=dtype)
 
     @staticmethod
     def read_hwmap(fn, tag):
@@ -521,8 +522,10 @@ class focal_plane():
 
         import pylab as pl
 
-        bolox = focal_plane.unpack_hwmap(fn_in, 'Bolometer', 'xCoordinate')
-        boloy = focal_plane.unpack_hwmap(fn_in, 'Bolometer', 'yCoordinate')
+        bolox = focal_plane.unpack_hwmap(
+            fn_in, 'Bolometer', 'xCoordinate', dtype=float)
+        boloy = focal_plane.unpack_hwmap(
+            fn_in, 'Bolometer', 'yCoordinate', dtype=float)
         color = focal_plane.unpack_hwmap(
             fn_in, 'Bolometer', 'polangle_orientation')
 
@@ -554,65 +557,171 @@ class focal_plane():
         pl.clf()
 
 
-class calibration():
+class calibration(focal_plane):
     """ Class to handle models of the instrument """
     def __init__(self,
-                 focal_plane_fn, FWHM=3.5, projected_fp_size=3.,
-                 output_folder='./', name='test'):
+                 ncrate, ndfmux_per_crate, nsquid_per_mux, npair_per_squid,
+                 fp_size=60., geometry='square',
+                 FWHM=3.5, beam_seed=58347,
+                 projected_fp_size=3.,
+                 output_folder='./', name='test', debug=False):
         """
         This class creates the data used to model the instrument:
+        * focal plane (Inheritance from focal plane class)
         * pointing model parameters of the telescope
         * beam parameters of the bolometers
         * polarisation angle of the bolometers
 
         Parameters
         ----------
-        focal_plane_fn : string
-            xml file containing focal plane informations (generated
-            by the class focal_plane)
+        ncrate : int
+            Number of crate plate.
+        ndfmux_per_crate : int
+            Number of MUX board per crate.
+        nsquid_per_mux : int
+            Number of SQUID per MUX.
+        npair_per_squid : int
+            Number of pair of bolometers per SQUID.
+        fp_size : float, optional
+            The size of the focal plane in cm. Default is 60 cm.
+        geometry : string, optional
+            The shape of the focal plane.
         FWHM : float, optional
             Full Width Half Maximum of the beam (in arcmin).
             Default = 3.5 arcmin.
+        beam_seed : int
+            Seed used to generate angle of rotation of beam axes.
+            Default is 58347.
         projected_fp_size : float, optional
             Size of the focal plane on the sky (in degree). This has to
             do with the size of the mirror. Default = 3 degrees.
         output_folder : string, optional
-            The folder where the xml file will be stored.
+            The folder where the data will be stored.
         name : string, optional
-            The name of the xml file (without the extension).
+            Tag for the output file (without the extension).
         debug : boolean, optional
             If True, print out a number of useful comments for debugging.
 
         """
-        self.focal_plane_fn = focal_plane_fn
+        focal_plane.__init__(self, ncrate, ndfmux_per_crate, nsquid_per_mux,
+                             npair_per_squid, fp_size, geometry,
+                             output_folder, name, debug)
+
         self.FWHM = FWHM
+        self.beam_seed = beam_seed
         self.projected_fp_size = projected_fp_size
+        self.fp_size = fp_size
+        self.npair = len(self.unpack_hwmap(
+            self.output_file, 'Bolometer', 'xCoordinate'))
+        self.nbolometer = self.npair * 2
 
-        self.beam_model = beam_model()
+        self.beam = self.beam_model()
 
-        def beam_model(self):
-            """
-            Construct the beam parameters such as position of the centroids,
-            ellipticity, angle of rotation, and associated errors.
+    def beam_model(self):
+        """
+        Construct the beam parameters such as position of the centroids,
+        ellipticity, angle of rotation, and associated errors.
 
-            Returns
-            ----------
-            beam_model : dictionnary
-                Dictionnary containing beam parameters
-            """
+        Returns
+        ----------
+        beamprm_fields : dictionnary
+            Dictionnary containing beam parameters
 
-            beamprm_header = ['Amp', 'Amp_err',
-                              'ellip_ang', 'ellip_ang_err',
-                              'sig_1', 'sig_1_err',
-                              'sig_2', 'sig_2_err',
-                              'xpos', 'xpos_err',
-                              'ypos', 'ypos_err']
-            beamprm_fields = {k: np.zeros(nbolo) for k in beamprm_header}
+        Examples
+        ----------
+        >>> beam = cal.beam_model()
+        >>> print(beam['xpos']) # doctest: +NORMALIZE_WHITESPACE
+        [-0.01308997 -0.01308997 -0.01308997 -0.01308997 -0.01308997
+        -0.01308997 -0.01308997 -0.01308997  0.01308997  0.01308997
+        0.01308997  0.01308997 0.01308997  0.01308997  0.01308997  0.01308997]
+        """
 
-            beamprm_fields['xpos'] = focal_plane.unpack_hwmap(
-                self.focal_plane_fn, 'Bolometer', 'xCoordinate')
-            beamprm_fields['ypos'] = focal_plane.unpack_hwmap(
-                self.focal_plane_fn, 'Bolometer', 'yCoordinate')
+        beamprm_header = ['Amp', 'Amp_err',
+                          'ellip_ang', 'ellip_ang_err',
+                          'sig_1', 'sig_1_err',
+                          'sig_2', 'sig_2_err',
+                          'xpos', 'xpos_err',
+                          'ypos', 'ypos_err']
+        beamprm_fields = {k: np.zeros(self.nbolometer) for k in beamprm_header}
+
+        ## Position of the bolometers
+        ## (pairs cm -> bolometers cm -> bolometers radians)
+        xp = focal_plane.unpack_hwmap(
+            self.output_file, 'Bolometer', 'xCoordinate', dtype=float)
+        yp = focal_plane.unpack_hwmap(
+            self.output_file, 'Bolometer', 'yCoordinate', dtype=float)
+
+        beamprm_fields['xpos'], beamprm_fields['ypos'] = \
+            focal_plane.convert_pair_to_bolometer_position(xp, yp)
+
+        beamprm_fields['xpos'], beamprm_fields['ypos'] = \
+            calibration.convert_cm_to_rad(
+                beamprm_fields['xpos'],
+                beamprm_fields['ypos'],
+                conversion=self.projected_fp_size / self.fp_size * np.pi/180.)
+
+        ## Generate Gaussian beams.
+        ## FWHM arcmin -> FWHM rad -> sigma rad
+        FWHM_rad = self.FWHM / 60. * np.pi / 180.
+        sigma_rad = FWHM_rad / np.sqrt(8 * np.log(2))
+
+        beamprm_fields['sig_1'] = np.ones(self.nbolometer) * sigma_rad
+        beamprm_fields['sig_2'] = np.ones(self.nbolometer) * sigma_rad
+
+        ## Angle of rotation for the ellipses.
+        ## Between -90 and 90 degrees.
+        state = np.random.RandomState(self.beam_seed)
+        beamprm_fields['ellip_ang'] = state.uniform(-90, 90, self.nbolometer)
+
+        ## Amplitude of the beams
+        ## Default is one.
+        beamprm_fields['Amp'] = np.ones(self.nbolometer)
+
+        return beamprm_fields
+
+    @staticmethod
+    def convert_cm_to_rad(xcm, ycm, conversion):
+        """
+        Convert positions in cm of the pairs of bolometers or bolometers
+        in the focal plane into positions in radian.
+
+        Parameters
+        ----------
+        xcm : ndarray
+            x coordinates of pairs of bolometers or bolometers in cm.
+        ycm : ndarray
+            y coordinates of pairs of bolometers or bolometers in cm.
+        conversion : float
+            Conversion factor in rad/cm.
+
+        Returns
+        ----------
+        xrad : ndarray
+            x coordinates of pairs of bolometers or bolometers in radians.
+            It has the same length as `xcm`.
+        yrad : ndarray
+            y coordinates of pairs of bolometers or bolometers in radians.
+            It has the same length as `ycm`.
+
+        Examples
+        ----------
+        Focal plane of 60 cm diameter and mirror
+        giving a 3 deg projection on the sky
+        >>> fp_size = 60.
+        >>> projected_fp_size = 3.
+        >>> xcm = [-15., -15., 15., 15.]
+        >>> ycm = [-15., 15., -15., 15.]
+        >>> print(cal.convert_cm_to_rad(xcm, ycm,
+        ...     conversion=projected_fp_size / fp_size * np.pi / 180.))
+        ...     # doctest: +NORMALIZE_WHITESPACE
+        (array([-0.01308997, -0.01308997,  0.01308997,  0.01308997]),
+         array([-0.01308997,  0.01308997, -0.01308997,  0.01308997]))
+
+        Note that in this simple example, the focal plane size is 60 cm,
+        but the pairs are separated by 30 cm only. For a realistic
+        number of pairs (>100), the whole focal plane space is used.
+        """
+        return np.array(xcm) * conversion, np.array(ycm) * conversion
 
 
 if __name__ == "__main__":
@@ -622,4 +731,10 @@ if __name__ == "__main__":
             'fp': focal_plane(ncrate=1, ndfmux_per_crate=1,
                               nsquid_per_mux=1, npair_per_squid=4,
                               fp_size=60., geometry='square',
-                              output_folder='./', name='test', debug=True)})
+                              output_folder='./', name='test', debug=True),
+            'cal': calibration(ncrate=1, ndfmux_per_crate=1,
+                               nsquid_per_mux=1, npair_per_squid=4,
+                               fp_size=60., geometry='square',
+                               FWHM=3.5, beam_seed=58347,
+                               projected_fp_size=3.,
+                               output_folder='./', name='test', debug=True)})
