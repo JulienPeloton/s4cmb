@@ -137,7 +137,7 @@ class hardware():
     """ Class to simulate the hardware of the instrument """
     def __init__(self,
                  ncrate=1, ndfmux_per_crate=1, nsquid_per_mux=1,
-                 npair_per_squid=4, fp_size=60., geometry='square',
+                 npair_per_squid=4, fp_size=60.,
                  FWHM=3.5, beam_seed=58347,
                  projected_fp_size=3.,
                  output_folder='./', name='test', debug=False):
@@ -160,8 +160,6 @@ class hardware():
             Number of pair of bolometers per SQUID.
         fp_size : float, optional
             The size of the focal plane in cm. Default is 60 cm.
-        geometry : string, optional
-            The shape of the focal plane.
         FWHM : float, optional
             Full Width Half Maximum of the beam (in arcmin).
             Default = 3.5 arcmin.
@@ -181,8 +179,7 @@ class hardware():
         """
         self.focal_plane = focal_plane(ncrate, ndfmux_per_crate,
                                        nsquid_per_mux, npair_per_squid,
-                                       fp_size, geometry,
-                                       output_folder, name, debug)
+                                       fp_size, output_folder, name, debug)
 
         self.beam_parameters = beam_model(self.focal_plane, FWHM, beam_seed,
                                           projected_fp_size, output_folder,
@@ -192,7 +189,7 @@ class focal_plane():
     """ Class to handle the focal plane of the instrument. """
     def __init__(self,
                  ncrate=1, ndfmux_per_crate=1, nsquid_per_mux=1,
-                 npair_per_squid=4, fp_size=60., geometry='square',
+                 npair_per_squid=4, fp_size=60.,
                  output_folder='./', name='test', debug=False):
         """
         Initialise our focal plane and save the configuration
@@ -210,8 +207,6 @@ class focal_plane():
             Number of pair of bolometers per SQUID.
         fp_size : float, optional
             The size of the focal plane in cm. Default is 60 cm.
-        geometry : string, optional
-            The shape of the focal plane.
         output_folder : string, optional
             The folder where the xml file will be stored.
         name : string, optional
@@ -230,7 +225,6 @@ class focal_plane():
         self.nbolometer = self.npair * 2
 
         self.fp_size = fp_size
-        self.geometry = geometry
         self.output_folder = output_folder
         self.name = name
         self.output_file = 'focal_plane_' + self.name + '.xml'
