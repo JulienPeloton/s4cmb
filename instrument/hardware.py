@@ -9,6 +9,7 @@ from __future__ import division, absolute_import, print_function
 
 import os
 import copy
+import h5py
 import numpy as np
 
 import xml.etree.ElementTree as ET
@@ -58,7 +59,7 @@ class focal_plane():
 
         self.create_hwmap()
 
-    def coordinate_in_focal_plane(self, npair):
+    def coordinate_pairs_in_focal_plane(self, npair, return_bolometer=False):
         """
         Define the position of the pairs in the focal plane
         according to a type of geometry. Being a simple person,
@@ -72,24 +73,33 @@ class focal_plane():
         ----------
         npair : int
             The total number of pairs of bolometers in the focal plane.
+        return_bolometer : bool, optional
+            If True, the routines the position of bolometers instead of
+            the position of pairs of bolometers.
 
         Returns
         ----------
         xcoord_reduced : ndarray
-            Array of length `npair` containing the coordinate of the pairs
-            of bolometers along the x axis
+            Array of length `npair` (or `2 * npair` if return_bolometer
+            is True) containing the coordinate of the pairs of bolometers
+            along the x axis.
         ycoord_reduced : ndarray
-            Array of length `npair` containing the coordinate of the pairs
-            of bolometers along the y axis
+            Array of length `npair` (or `2 * npair` if return_bolometer
+            is True) containing the coordinate of the pairs of bolometers
+            along the y axis.
 
         Examples
         ----------
         Full focal plane
-        >>> fp.coordinate_in_focal_plane(npair=4)
+        >>> fp.coordinate_pairs_in_focal_plane(npair=4)
         (array([-15., -15.,  15.,  15.]), array([-15.,  15., -15.,  15.]))
+        >>> fp.coordinate_pairs_in_focal_plane(npair=4, return_bolometer=True)
+        ...     # doctest: +NORMALIZE_WHITESPACE
+        (array([-15., -15., -15., -15.,  15.,  15.,  15.,  15.]),
+         array([-15., -15.,  15.,  15., -15., -15.,  15.,  15.]))
 
         Focal plane with hole (4 slots, 3 pairs of bolometers)
-        >>> fp.coordinate_in_focal_plane(npair=3)
+        >>> fp.coordinate_pairs_in_focal_plane(npair=3)
         (array([-15., -15.,  15.]), array([-15.,  15., -15.]))
 
         """
@@ -118,10 +128,22 @@ class focal_plane():
                              'Only `square` is valid for the moment')
 
         ## Keep only up the pairs up to the initial number of pairs.
-        xcoord_reduced = np.array(xcoord[:npair])
-        ycoord_reduced = np.array(ycoord[:npair])
+        xcoord_pairs = np.array(xcoord[:npair])
+        ycoord_pairs = np.array(ycoord[:npair])
 
-        return xcoord_reduced, ycoord_reduced
+        if return_bolometer is True:
+            ## Return the position of bolometers instead of pairs
+            xcoord_bolometers = np.array(
+                [[xcoord_pairs[i],
+                  xcoord_pairs[i]] for i in range(
+                      len(xcoord_pairs))]).flatten()
+            ycoord_bolometers = np.array(
+                [[ycoord_pairs[i],
+                  ycoord_pairs[i]] for i in range(
+                      len(ycoord_pairs))]).flatten()
+            return xcoord_bolometers, ycoord_bolometers
+
+        return xcoord_pairs, ycoord_pairs
 
     def create_hwmap(self):
         """
@@ -130,7 +152,16 @@ class focal_plane():
         the bolometers id, the wiring, and so on.
         The terminology used here is taken from the Polarbear experiment.
         The hierarchy is the following:
-        CRATE -> DFMUX -> SQUID -> BOLOMETER (top & bottom)
+
+        +-------------------------------------------------------------------+
+        |CRATE -> DFMUX -> SQUID -> BOLOMETER (top & bottom)
+        |  |        |        |          |
+        |  v        v        v          v
+        |  id       id       id         id, xCoordinate, yCoordinate,
+        |                               focalPlaneIndex, polangle_orientation
+        |                               polarizationMode,
+        |                               polarizationOrientation, channel
+        +--------------------------------------------------------------------+
 
         Examples
         ----------
@@ -144,7 +175,7 @@ class focal_plane():
         nbolo = npair * 2
 
         ## Retrieve coordinate of the pairs inside the focal plane
-        xcoord, ycoord = self.coordinate_in_focal_plane(npair)
+        xcoord, ycoord = self.coordinate_pairs_in_focal_plane(npair)
 
         HWmap = ET.Element('HardwareMap')
 
@@ -491,6 +522,12 @@ class focal_plane():
         if display:
             pl.show()
         pl.clf()
+
+
+class calibration():
+    """ Class to handle model of the instrument """
+    def __init__(self):
+        pass
 
 
 if __name__ == "__main__":
