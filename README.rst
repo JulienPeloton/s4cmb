@@ -36,23 +36,27 @@ You can easily install the package using pip
 
 Otherwise, you can clone the repo from the github repository and
 use the setup.py for the installation. Just run:
-```bash
-python setup.py install
-```
+
+::
+
+    python setup.py install
+
 Make sure you have correct permissions (otherwise just add --user).
 You can also directly use the code by updating manually your PYTHONPATH.
 Just add in your bashrc:
-```bash
-s4cmbPATH=/path/to/the/package
-export PYTHONPATH=$PYTHONPATH:$s4cmbPATH
-```
+
+::
+
+    s4cmbPATH=/path/to/the/package
+    export PYTHONPATH=$PYTHONPATH:$s4cmbPATH
 
 Alternatively if you do not want install the package on your computer,
 you can also use the dockerfile provided to create a docker image:
-```bash
-docker build -t s4cmb .
-docker run -it s4cmb
-```
+
+::
+
+    docker build -t s4cmb .
+    docker run -it s4cmb
 
 Main developers
 =============
