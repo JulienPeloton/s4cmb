@@ -11,8 +11,11 @@ from __future__ import division, absolute_import, print_function
 
 import os
 import copy
+import datetime
 import numpy as np
 
+## I/O
+from astropy.io import fits as pyfits
 import xml.etree.ElementTree as ET
 
 def coordinates_on_grid(pix_size=None, row_size=None,
@@ -226,7 +229,8 @@ class focal_plane():
         self.fp_size = fp_size
         self.output_folder = output_folder
         self.name = name
-        self.output_file = 'focal_plane_' + self.name + '.xml'
+        self.output_file = os.path.join(
+            self.output_folder, 'focal_plane_' + self.name + '.xml')
 
         self.debug = debug
 
@@ -402,11 +406,9 @@ class focal_plane():
                                 break
 
         tree = ET.ElementTree(HWmap)
-        fn = os.path.join(self.output_folder, self.output_file)
-        tree.write(fn)
+        tree.write(self.output_file)
         if self.debug:
-            print('Hardware map written at {}'.format(
-                os.path.join(self.output_folder, self.output_file)))
+            print('Hardware map written at {}'.format(self.output_file))
 
     @staticmethod
     def convert_pair_to_bolometer_position(xcoord_pairs, ycoord_pairs):
@@ -691,6 +693,11 @@ class beam_model():
         self.name = name
         self.debug = debug
 
+        ## TODO make output format uniform...
+        ## Probably use hdf5 everywhere!
+        self.output_file = os.path.join(
+            self.output_folder, 'beamprm_' + self.name + '.fits')
+
         self.beamprm = self.generate_beam_parameters()
 
     def generate_beam_parameters(self):
@@ -878,7 +885,7 @@ class beam_model():
 
     @staticmethod
     def gauss2d(xy, x_0, y_0, Amp, sig_xp, sig_yp, psi):
-        '''
+        """
         2D Gaussian model for beams.
 
         Parameters
@@ -920,7 +927,7 @@ class beam_model():
                 0.86809111,  0.97210474,  0.97210474,  0.86809111,
                 0.86809111,  0.97210474,  0.97210474,  0.86809111,
                 0.77520676,  0.86809111,  0.86809111,  0.77520676])
-        '''
+        """
 
         x_1 = xy[0, :] - x_0
         y_1 = xy[1, :] - y_0
@@ -941,6 +948,221 @@ class beam_model():
         z = Amp * np.exp(-u * mask) * mask
 
         return z
+
+    def savetodisk(self, headerdict={}):
+        """
+        Save beam model into disk.
+        The data are written into a fits file.
+
+        Parameters
+        ----------
+        headerdict : dictionnary, optional
+            Dictionnary containing header informations.
+
+        Examples
+        ----------
+        >>> fp = focal_plane(debug=False)
+        >>> bm = beam_model(fp, debug=False)
+        >>> bm.savetodisk(headerdict={
+        ...     'ndet': fp.nbolometer,
+        ...     'author': 'me',
+        ...     'date': str(datetime.date.today())})
+        """
+
+        ## Header of the files
+        if len(headerdict) == 0:
+            headerdict = {}
+            headerdict['ndet'] = self.focal_plane.nbolometer
+            headerdict['author'] = 'me'
+            headerdict['date'] = str(datetime.date.today())
+
+        savefits_todisk(headerdict, self.beamprm, self.output_file)
+
+class pointing_model():
+    """ Class to handle the pointing model of the telescope """
+    def __init__(self, model='5params', output_folder='./', name='test'):
+        """
+        We focus on a five-parameter pointing model (Mangum 2001) to
+        characterize the relationship between the telescope's encoder
+        readings and its true boresight pointing on the sky.
+        The parameters described in this reference are
+
+        * IA, the azimuth encoder zero offset,
+        * IE, the elevation encoder zero offset,
+        * CA, the collimation error of the electromagnetic axis,
+        * AN, the azimuth axis offset/misalignment (north-south) and
+        * AW, the azimuth offset/misalignment (east-west).
+
+        Parameters
+        ----------
+        model : string, optional
+            The pointing model to load. Currently, only the five-parameter
+            pointing model (Mangum 2001) is implemented (model = 5params).
+        output_folder : string, optional
+            The folder where the data will be stored.
+        name : string, optional
+            Tag for the output file (without the extension).
+
+        Examples
+        --------
+        >>> pm = pointing_model()
+        >>> [(i, round(j,3)) for i, j in zip(
+        ...     pm.allowed_params.split(), pm.value_params)]
+        ... # doctest: +NORMALIZE_WHITESPACE
+        [('ia', -10.285), ('ie', 8.74),
+         ('ca', -15.598), ('an', -0.51),
+         ('aw', 0.109)]
+
+        >>> pm = pointing_model(model='super-model-trop-bien')
+        ... # doctest: +NORMALIZE_WHITESPACE, +ELLIPSIS
+        Traceback (most recent call last):
+         ...
+        ValueError: Only the five-parameter pointing model
+        (Mangum 2001) is implemented for the moment (model = 5params)
+        """
+        self.output_folder = output_folder
+        self.name = name
+
+        ## TODO make output format uniform...
+        ## Probably use hdf5 everywhere!
+        self.output_file = os.path.join(
+            self.output_folder, 'pm_' + self.name + '.fits')
+
+        if model == '5params':
+            self.five_parameter_pointing_model()
+        else:
+            raise ValueError('Only the five-parameter ' +
+                             'pointing model (Mangum 2001) is implemented ' +
+                             'for the moment (model = 5params)')
+
+    def five_parameter_pointing_model(self):
+        """
+        Parameters based on Polarbear measurements.
+        """
+        self.allowed_params = 'ia ie ca an aw'
+
+        self.value_params = np.array([-10.28473073, 8.73953334,
+                                      -15.59771781, -0.50977716, 0.10858016])
+
+        ## Set this to zero for the moment
+        self.RMS_AZ = 0.0
+        self.RMS_EL = 0.0
+        self.RMS_RESID = 0.0
+
+    def savetodisk(self, headerdict={}):
+        """
+        Save pointing model into disk.
+        The data are written into a fits file.
+
+        Parameters
+        ----------
+        headerdict : dictionnary, optional
+            Dictionnary containing header informations.
+
+        Examples
+        ----------
+        >>> pm = pointing_model()
+        >>> pm.savetodisk(headerdict={
+        ...     'allowed_params': pm.allowed_params,
+        ...     'RMS AZ': str(pm.RMS_AZ),
+        ...     'RMS EL': str(pm.RMS_EL),
+        ...     'RMS RESID': str(pm.RMS_RESID)})
+        """
+        if len(headerdict) == 0:
+            headerdict['allowed_params'] = self.allowed_params
+            headerdict['RMS AZ'] = str(self.RMS_AZ)
+            headerdict['RMS EL'] = str(self.RMS_EL)
+            headerdict['RMS RESID'] = str(self.RMS_RESID)
+
+        data = {}
+        data['pointing_model'] = self.value_params
+
+        savefits_todisk(headerdict, data, self.output_file)
+
+def savefits_todisk(headerdict, datadict, output_file):
+    """
+    Save data into fits file.
+
+    Parameters
+    ----------
+    headerdict : dictionnary
+        Dictionnary containing the header of the fits.
+    datadict : dictionnary
+        Dictionnary containing the data. Note that the data must be ndarrays.
+    output_file : string
+        Name of the fits file to create. If it exists already on the disk,
+        the previous file is erased before writting the new file.
+
+    Examples
+    ----------
+    >>> headerdict = {'Take a break': 'read a short story',
+    ...               'Author': 'Philip K. Dick'}
+    >>> datadict = {'Short Stories': np.array(['Beyond Lies the Wub'])}
+    >>> output_file = './erase_me.fits'
+    >>> savefits_todisk(headerdict, datadict, output_file)
+    >>> os.remove(output_file)
+    """
+    header_hdu = pyfits.PrimaryHDU()
+
+    # Use HIERARCH.
+    for key in headerdict:
+        header_hdu.header['HIERARCH {}'.format(key)] = (headerdict[key])
+
+    cols = [pyfits.Column(
+                name=label,
+                format=dtype_to_fits(datadict[label].dtype),
+                array=datadict[label]) for label in datadict]
+    data_hdu = pyfits.BinTableHDU.from_columns(pyfits.ColDefs(cols))
+    hdulist = pyfits.HDUList([header_hdu, data_hdu])
+
+    if os.path.exists(output_file):
+        os.remove(output_file)
+    hdulist.writeto(output_file)
+    hdulist.close()
+
+def dtype_to_fits(dtype):
+    """
+    This function will return the appropriate FITS format string from a given
+    numpy dtype object.
+
+    Parameters
+    ----------
+    dtype : type
+        Numpy dtype
+
+    Returns
+    ----------
+    FITS format: str
+        The appropriate FITS format string given the numpy dtype object.
+
+    Examples
+    ----------
+    >>> array = np.ones(2, dtype=int)
+    >>> dtype_to_fits(array.dtype)
+    'K'
+    >>> array = np.ones(2, dtype=str)
+    >>> dtype_to_fits(array.dtype)
+    'A1'
+    """
+
+    # Type dictionary to convert to fits type
+    typedict = {'uint8': 'B',
+                'uint16': 'I',
+                'uint32': 'J',
+                'int8': 'A',
+                'int16': 'I',
+                'int32': 'J',
+                'int64': 'K',
+                'float32': 'E',
+                'float64': 'D',
+                'bool': 'L'}
+
+    if (dtype.kind == 'S'):
+        # Handle variable-length string types with care:
+        return 'A{}'.format(dtype.itemsize)
+    else:
+        # Use the above list for numeric types.
+        return typedict[dtype.name]
 
 
 if __name__ == "__main__":
