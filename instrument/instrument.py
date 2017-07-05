@@ -668,8 +668,8 @@ class beam_model():
         """
         Parameters
         ----------
-        focal_plane : obj
-            Class containing focal plane parameters.
+        focal_plane : focal_plane instance
+            Instance of focal_plane containing focal plane parameters.
         FWHM : float, optional
             Full Width Half Maximum of the beam (in arcmin).
             Default = 3.5 arcmin.
@@ -713,8 +713,8 @@ class beam_model():
 
         Returns
         ----------
-        beamprm_fields : dictionnary
-            Dictionnary containing beam parameters
+        beamprm_fields : dictionary
+            Dictionary containing beam parameters
 
         Examples
         ----------
@@ -830,8 +830,8 @@ class beam_model():
 
         Parameters
         ----------
-        beamprm : dictionnary
-            Dictionnary containing the beam parameters.
+        beamprm : dictionary
+            Dictionary containing the beam parameters.
         ct : int
             Index of the top bolometer in the pair.
         cb : int
@@ -962,8 +962,8 @@ class beam_model():
 
         Parameters
         ----------
-        headerdict : dictionnary, optional
-            Dictionnary containing header informations.
+        headerdict : dictionary, optional
+            Dictionary containing header informations.
 
         Examples
         ----------
@@ -1063,8 +1063,8 @@ class pointing_model():
 
         Parameters
         ----------
-        headerdict : dictionnary, optional
-            Dictionnary containing header informations.
+        headerdict : dictionary, optional
+            Dictionary containing header informations.
 
         Examples
         ----------
@@ -1086,16 +1086,106 @@ class pointing_model():
 
         savefits_todisk(headerdict, data, self.output_file)
 
+class polarisation_angle_model():
+    """ Class to handle the detector polarisation angle model """
+    def __init__(self, focal_plane, output_folder='./', name='test'):
+        """
+        The polarisation angle model consists in defining detector polarisation
+        angle. The focal plane is cut in quadrants (Crate).
+        Within a quadrant, pixels are categorized into two: Q and U pixels.
+        Q and U pixels have 45 degrees difference in their polarisation angle,
+        and form lines within quadrant. Each pixel contains a top and a
+        bottom bolometer, with 90 degrees difference in the polarisation angle.
+        Then, you go from one quadrant to another by a global 90 deg rotation
+        of the polarisation angle starting with quadrant 0 having
+        theta_{Q, top} = 0 deg.
+
+        Parameters
+        ----------
+        focal_plane : focal_plane instance
+            instance of focal_plane containing focal plane parameters.
+        output_folder : string, optional
+            The folder where the data will be stored.
+        name : string, optional
+            Tag for the output file (without the extension).
+        """
+        self.focal_plane = focal_plane
+        self.output_folder = output_folder
+        self.name = name
+        self.output_file = os.path.join(
+            self.output_folder, 'paprm_' + self.name + '.fits')
+
+        self.paprm = self.generate_paprm()
+
+    def generate_paprm(self):
+        """
+        Construct the polarisation angle parameters: id of the bolometers,
+        the polarisation angle for each, and associated errors.
+        Errors are set to zero by default.
+
+        Returns
+        ----------
+        paprm_fields : dictionary
+            Dictionary containing the polarisation angle parameters:
+            id of the bolometers, the polarisation angle for each,
+            and associated errors.
+
+        """
+        paprm_header = ['boloid', 'polangle', 'polangle_err']
+        paprm_fields = {k: np.zeros(
+            self.focal_plane.nbolometer) for k in paprm_header}
+
+        paprm_fields['boloid'] = self.focal_plane.unpack_hwmap(
+            fn=self.focal_plane.output_file,
+            tag='Bolometer',
+            key='id')
+
+        paprm_fields['polangle'] = self.focal_plane.unpack_hwmap(
+            fn=self.focal_plane.output_file,
+            tag='Bolometer', key='polangle_orientation', dtype=float)
+
+        paprm_fields['polangle_err'] = np.zeros_like(paprm_fields['polangle'])
+
+        return paprm_fields
+
+    def savetodisk(self, headerdict={}):
+        """
+        Save polarisation angle model into disk.
+        The data are written into a fits file.
+
+        Parameters
+        ----------
+        headerdict : dictionary, optional
+            Dictionary containing header informations.
+
+        Examples
+        ----------
+        >>> fp = focal_plane(debug=False)
+        >>> pa = polarisation_angle_model(fp)
+        >>> pa.savetodisk(headerdict={
+        ...     'ndet': fp.nbolometer,
+        ...     'author': 'me',
+        ...     'date': str(datetime.date.today())})
+        """
+        ## Header of the files
+        if len(headerdict) == 0:
+            headerdict = {}
+            headerdict['ndet'] = self.focal_plane.nbolometer
+            headerdict['author'] = 'me'
+            headerdict['date'] = str(datetime.date.today())
+
+        savefits_todisk(headerdict, self.paprm, self.output_file)
+
 def savefits_todisk(headerdict, datadict, output_file):
     """
     Save data into fits file.
 
     Parameters
     ----------
-    headerdict : dictionnary
-        Dictionnary containing the header of the fits.
-    datadict : dictionnary
-        Dictionnary containing the data. Note that the data must be ndarrays.
+    headerdict : dictionary
+        Dictionary containing the header of the fits.
+    datadict : dictionary
+        Dictionary containing the data. Note that the data must be ndarrays.
     output_file : string
         Name of the fits file to create. If it exists already on the disk,
         the previous file is erased before writting the new file.
