@@ -136,12 +136,13 @@ def coordinates_on_grid(pix_size=None, row_size=None,
     return coordinates
 
 class hardware():
-    """ Class to simulate the hardware of the instrument """
+    """ Class to load the hardware and models of the instrument """
     def __init__(self,
                  ncrate=1, ndfmux_per_crate=1, nsquid_per_mux=1,
                  npair_per_squid=4, fp_size=60.,
                  FWHM=3.5, beam_seed=58347,
                  projected_fp_size=3.,
+                 pm_name='5params',
                  output_folder='./', name='test', debug=False):
         """
         This class creates the data used to model the instrument:
@@ -171,6 +172,9 @@ class hardware():
         projected_fp_size : float, optional
             Size of the focal plane on the sky (in degree). This has to
             do with the size of the mirror. Default = 3 degrees.
+        pm_name : string, optional
+            The pointing model to load. Currently, only the five-parameter
+            pointing model (Mangum 2001) is implemented (pm_name = 5params).
         output_folder : string, optional
             The folder where the data will be stored.
         name : string, optional
@@ -186,6 +190,8 @@ class hardware():
         self.beam_parameters = beam_model(self.focal_plane, FWHM, beam_seed,
                                           projected_fp_size, output_folder,
                                           name, debug)
+
+        self.pointing_model(pm_name, output_folder, name)
 
 class focal_plane():
     """ Class to handle the focal plane of the instrument. """
@@ -980,7 +986,7 @@ class beam_model():
 
 class pointing_model():
     """ Class to handle the pointing model of the telescope """
-    def __init__(self, model='5params', output_folder='./', name='test'):
+    def __init__(self, pm_name='5params', output_folder='./', name='test'):
         """
         We focus on a five-parameter pointing model (Mangum 2001) to
         characterize the relationship between the telescope's encoder
@@ -995,9 +1001,9 @@ class pointing_model():
 
         Parameters
         ----------
-        model : string, optional
+        pm_name : string, optional
             The pointing model to load. Currently, only the five-parameter
-            pointing model (Mangum 2001) is implemented (model = 5params).
+            pointing model (Mangum 2001) is implemented (pm_name = 5params).
         output_folder : string, optional
             The folder where the data will be stored.
         name : string, optional
@@ -1013,27 +1019,28 @@ class pointing_model():
          ('ca', -15.598), ('an', -0.51),
          ('aw', 0.109)]
 
-        >>> pm = pointing_model(model='super-model-trop-bien')
+        >>> pm = pointing_model(pm_name='super-model-trop-bien')
         ... # doctest: +NORMALIZE_WHITESPACE, +ELLIPSIS
         Traceback (most recent call last):
          ...
         ValueError: Only the five-parameter pointing model
-        (Mangum 2001) is implemented for the moment (model = 5params)
+        (Mangum 2001) is implemented for the moment (pm_name = 5params)
         """
         self.output_folder = output_folder
         self.name = name
+        self.pm_name = pm_name
 
         ## TODO make output format uniform...
         ## Probably use hdf5 everywhere!
         self.output_file = os.path.join(
             self.output_folder, 'pm_' + self.name + '.fits')
 
-        if model == '5params':
+        if self.pm_name == '5params':
             self.five_parameter_pointing_model()
         else:
             raise ValueError('Only the five-parameter ' +
                              'pointing model (Mangum 2001) is implemented ' +
-                             'for the moment (model = 5params)')
+                             'for the moment (pm_name = 5params)')
 
     def five_parameter_pointing_model(self):
         """
