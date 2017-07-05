@@ -190,9 +190,9 @@ class hardware():
                                        nsquid_per_mux, npair_per_squid,
                                        fp_size, output_folder, name, debug)
 
-        self.beam_parameters = beam_model(self.focal_plane, FWHM, beam_seed,
-                                          projected_fp_size, output_folder,
-                                          name, debug)
+        self.beam_model = beam_model(self.focal_plane, FWHM, beam_seed,
+                                     projected_fp_size, output_folder,
+                                     name, debug)
 
         self.pointing_model = pointing_model(pm_name, output_folder, name)
 
@@ -975,10 +975,7 @@ class beam_model():
         ----------
         >>> fp = focal_plane(debug=False)
         >>> bm = beam_model(fp, debug=False)
-        >>> bm.savetodisk(headerdict={
-        ...     'ndet': fp.nbolometer,
-        ...     'author': 'me',
-        ...     'date': str(datetime.date.today())})
+        >>> bm.savetodisk()
         """
 
         ## Header of the files
@@ -1075,11 +1072,7 @@ class pointing_model():
         Examples
         ----------
         >>> pm = pointing_model()
-        >>> pm.savetodisk(headerdict={
-        ...     'allowed_params': pm.allowed_params,
-        ...     'RMS AZ': str(pm.RMS_AZ),
-        ...     'RMS EL': str(pm.RMS_EL),
-        ...     'RMS RESID': str(pm.RMS_RESID)})
+        >>> pm.savetodisk()
         """
         if len(headerdict) == 0:
             headerdict['allowed_params'] = self.allowed_params
@@ -1168,10 +1161,7 @@ class polarisation_angle_model():
         ----------
         >>> fp = focal_plane(debug=False)
         >>> pa = polarisation_angle_model(fp)
-        >>> pa.savetodisk(headerdict={
-        ...     'ndet': fp.nbolometer,
-        ...     'author': 'me',
-        ...     'date': str(datetime.date.today())})
+        >>> pa.savetodisk()
         """
         ## Header of the files
         if len(headerdict) == 0:
