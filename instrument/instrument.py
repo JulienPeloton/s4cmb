@@ -182,6 +182,9 @@ class hardware():
         debug : boolean, optional
             If True, print out a number of useful comments for debugging.
 
+        Examples
+        ----------
+        >>> instrument = hardware()
         """
         self.focal_plane = focal_plane(ncrate, ndfmux_per_crate,
                                        nsquid_per_mux, npair_per_squid,
@@ -191,7 +194,10 @@ class hardware():
                                           projected_fp_size, output_folder,
                                           name, debug)
 
-        self.pointing_model(pm_name, output_folder, name)
+        self.pointing_model = pointing_model(pm_name, output_folder, name)
+
+        self.polarisation_angle_model = polarisation_angle_model(
+            self.focal_plane, output_folder, name)
 
 class focal_plane():
     """ Class to handle the focal plane of the instrument. """
@@ -405,7 +411,7 @@ class focal_plane():
                                     'Hardware map generated...'
                                 assert pair_id < self.npair, \
                                     'Hardware map generated...'
-                            except AssertionError, e:
+                            except AssertionError as e:
                                 if self.debug:
                                     print(str(e))
                                 max_hit = True
