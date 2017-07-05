@@ -11,6 +11,7 @@ from __future__ import division, absolute_import, print_function
 
 import os
 import copy
+import glob
 import datetime
 import numpy as np
 
@@ -143,7 +144,7 @@ class hardware():
                  FWHM=3.5, beam_seed=58347,
                  projected_fp_size=3.,
                  pm_name='5params',
-                 output_folder='./', name='test', debug=False):
+                 output_folder='./', name='_to_test_', debug=False):
         """
         This class creates the data used to model the instrument:
         * focal plane
@@ -204,7 +205,7 @@ class focal_plane():
     def __init__(self,
                  ncrate=1, ndfmux_per_crate=1, nsquid_per_mux=1,
                  npair_per_squid=4, fp_size=60.,
-                 output_folder='./', name='test', debug=False):
+                 output_folder='./', name='_to_test_', debug=False):
         """
         Initialise our focal plane and save the configuration
         inside a xml file.
@@ -270,7 +271,7 @@ class focal_plane():
         ----------
         >>> fp = focal_plane(debug=True)
         Hardware map generated...
-        Hardware map written at ./focal_plane_test.xml
+        Hardware map written at ./focal_plane__to_test_.xml
         """
         ## Retrieve coordinate of the pairs inside the focal plane
         # xcoord, ycoord = self.compute_pairs_coordinates(self.npair)
@@ -493,29 +494,29 @@ class focal_plane():
         >>> fp = focal_plane(debug=False)
 
         Return the id of the Crate boards in the focal plane (one here)
-        >>> fp.unpack_hwmap(fn='./focal_plane_test.xml', tag='Crate', key='id')
+        >>> fp.unpack_hwmap(fn='./focal_plane__to_test_.xml', tag='Crate', key='id')
         ...     # doctest: +NORMALIZE_WHITESPACE
         array(['Cr0'], dtype='|S3')
 
         Return the id of the DfMux boards in the focal plane (one here)
-        >>> fp.unpack_hwmap(fn='./focal_plane_test.xml',
+        >>> fp.unpack_hwmap(fn='./focal_plane__to_test_.xml',
         ...     tag='DfMuxBoard', key='id') # doctest: +NORMALIZE_WHITESPACE
         array(['Cr0Df0'], dtype='|S6')
 
         Return the id of the Squids in the focal plane (one here)
-        >>> fp.unpack_hwmap(fn='./focal_plane_test.xml',
+        >>> fp.unpack_hwmap(fn='./focal_plane__to_test_.xml',
         ...     tag='Squid', key='id') # doctest: +NORMALIZE_WHITESPACE
         array(['Cr0Df0Sq0'], dtype='|S9')
 
         Return the id of the 8 bolometers (4 pairs) in the focal plane
-        >>> fp.unpack_hwmap(fn='./focal_plane_test.xml',
+        >>> fp.unpack_hwmap(fn='./focal_plane__to_test_.xml',
         ...     tag='Bolometer', key='id') # doctest: +NORMALIZE_WHITESPACE
         array(['Cr0Df0Sq0_0t', 'Cr0Df0Sq0_0b', 'Cr0Df0Sq0_1t',
         'Cr0Df0Sq0_1b', 'Cr0Df0Sq0_2t', 'Cr0Df0Sq0_2b',
         'Cr0Df0Sq0_3t', 'Cr0Df0Sq0_3b'], dtype='|S12')
 
         Return the x coordinates of the 8 bolometers in the focal plane
-        >>> fp.unpack_hwmap(fn='./focal_plane_test.xml',
+        >>> fp.unpack_hwmap(fn='./focal_plane__to_test_.xml',
         ...     tag='Bolometer', key='xCoordinate', dtype=float)
         ...     # doctest: +NORMALIZE_WHITESPACE
         array([-15., -15.,  15.,  15., -15., -15.,  15.,  15.])
@@ -567,21 +568,21 @@ class focal_plane():
         >>> fp = focal_plane(debug=False)
 
         Return the id of the Crate boards in the focal plane (one here)
-        >>> fp.read_hwmap(fn='./focal_plane_test.xml', tag='Crate')
+        >>> fp.read_hwmap(fn='./focal_plane__to_test_.xml', tag='Crate')
         [['id']]
 
         Return the id of the DfMux boards in the focal plane (one here)
-        >>> fp.read_hwmap(fn='./focal_plane_test.xml', tag='DfMuxBoard')
+        >>> fp.read_hwmap(fn='./focal_plane__to_test_.xml', tag='DfMuxBoard')
         ...     # doctest: +NORMALIZE_WHITESPACE
         [['id']]
 
         Return the id of the Squids in the focal plane (one here)
-        >>> fp.read_hwmap(fn='./focal_plane_test.xml', tag='Squid')
+        >>> fp.read_hwmap(fn='./focal_plane__to_test_.xml', tag='Squid')
         ...     # doctest: +NORMALIZE_WHITESPACE
         [['id']]
 
         Return the id of the 8 bolometers (4 pairs) in the focal plane
-        >>> fp.read_hwmap(fn='./focal_plane_test.xml', tag='Bolometer')
+        >>> fp.read_hwmap(fn='./focal_plane__to_test_.xml', tag='Bolometer')
         ...     # doctest: +NORMALIZE_WHITESPACE
         [['xCoordinate', 'focalPlaneIndex', 'yCoordinate',
           'polangle_orientation', 'polarizationMode',
@@ -624,8 +625,7 @@ class focal_plane():
         Examples
         ---------
         >>> fp = focal_plane(debug=False)
-        >>> fp.show_hwmap(fn_in='./focal_plane_test.xml',
-        ...     fn_out='plot_hardware_map_test.png',
+        >>> fp.show_hwmap(fn_in='./focal_plane__to_test_.xml',
         ...     save_on_disk=False, display=False)
         """
 
@@ -670,7 +670,7 @@ class beam_model():
     def __init__(self,
                  focal_plane, FWHM=3.5, beam_seed=58347,
                  projected_fp_size=3.,
-                 output_folder='./', name='test', debug=False):
+                 output_folder='./', name='_to_test_', debug=False):
         """
         Parameters
         ----------
@@ -989,7 +989,8 @@ class beam_model():
 
 class pointing_model():
     """ Class to handle the pointing model of the telescope """
-    def __init__(self, pm_name='5params', output_folder='./', name='test'):
+    def __init__(self,
+                 pm_name='5params', output_folder='./', name='_to_test_'):
         """
         We focus on a five-parameter pointing model (Mangum 2001) to
         characterize the relationship between the telescope's encoder
@@ -1087,7 +1088,7 @@ class pointing_model():
 
 class polarisation_angle_model():
     """ Class to handle the detector polarisation angle model """
-    def __init__(self, focal_plane, output_folder='./', name='test'):
+    def __init__(self, focal_plane, output_folder='./', name='_to_test_'):
         """
         The polarisation angle model consists in defining detector polarisation
         angle. The focal plane is cut in quadrants (Crate).
@@ -1257,7 +1258,30 @@ def dtype_to_fits(dtype):
         # Use the above list for numeric types.
         return typedict[dtype.name]
 
+def remove_test_data(has_id='_to_test_', silent=True):
+    """
+    Remove data with name containing the `has_id`.
+
+    Parameters
+    ----------
+    has_id : string
+        String included in filename(s) to remove.
+
+    Examples
+    ----------
+    >>> file = open('file_to_erase_.txt', 'w')
+    >>> file.close()
+    >>> remove_test_data(has_id='_to_erase_', silent=False)
+    Removing files:  ['file_to_erase_.txt']
+    """
+    fns = glob.glob('*' + has_id + '*')
+    if not silent:
+        print('Removing files: ', fns)
+    for fn in fns:
+        os.remove(fn)
+
 
 if __name__ == "__main__":
     import doctest
     doctest.testmod()
+    remove_test_data(has_id='_to_test_')
