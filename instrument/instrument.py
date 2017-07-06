@@ -1,9 +1,10 @@
 #!/usr/bin/python
 """
 Script to simulate the hardware of a CMB experiment.
-The focal plane configuration is stored in a xml file, and read later on.
-The instrument models (pointing, beam, polarisation angle) are stored in
-a hdf5 file and read later on.
+* focal plane
+* pointing model parameters of the telescope
+* beam parameters of the bolometers
+* polarisation angle of the bolometers
 
 Author: Julien Peloton, j.peloton@sussex.ac.uk
 """

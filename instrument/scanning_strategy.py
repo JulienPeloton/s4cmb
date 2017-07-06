@@ -207,18 +207,16 @@ class scanning_strategy():
                     self.az_min[scan_number]) / np.cos(el / radToDeg)
 
         ## Define the timing bounds!
-        num_pts = 0
-        lst_now = float(self.telescope_location.sidereal_time()) / (2 * np.pi)
+        LST_now = float(self.telescope_location.sidereal_time()) / (2 * np.pi)
         begin_LST = float(
             ephem.hours(self.begin_LST[scan_number])) / (2 * np.pi)
         end_LST = float(ephem.hours(self.end_LST[scan_number])) / (2 * np.pi)
-
         if (begin_LST > end_LST):
             begin_LST -= 1.
 
         ## Reset the date to correspond to the sidereal time to start
         self.telescope_location.date -= (
-            (lst_now - begin_LST) * sidDayToSec) * ephem.second
+            (LST_now - begin_LST) * sidDayToSec) * ephem.second
 
         ## Figure out how long to run the scan for
         num_pts = int((end_LST - begin_LST) * sidDayToSec * sampling_freq)
@@ -228,7 +226,7 @@ class scanning_strategy():
         upper_az = az_mean + az_throw / 2.
         lower_az = az_mean - az_throw / 2.
         az_speed = self.sky_speed / np.cos(el / radToDeg)
-        pb_az = az_mean
+        running_az = az_mean
 
         ## Initialize arrays
         pb_az_array = np.zeros(num_pts)
@@ -243,7 +241,7 @@ class scanning_strategy():
         time_padding = 10.0 / 86400.0
 
         ## Start of the scan
-        pb_az_array[0] = pb_az
+        pb_az_array[0] = running_az
         pb_mjd_array[0] = date_to_mjd(self.telescope_location.date)
 
         ## Check if scan already exists
@@ -265,13 +263,13 @@ class scanning_strategy():
             return False
 
         ## Update before starting the loop
-        pb_az += az_speed * pb_az_dir / sampling_freq
+        running_az += az_speed * pb_az_dir / sampling_freq
         self.telescope_location.date += ephem.second / sampling_freq
 
         if self.language == 'python':
             for t in range(1, num_pts):
                 ## Set the Azimuth and time
-                pb_az_array[t] = pb_az
+                pb_az_array[t] = running_az
 
                 pb_ra_array[t], pb_dec_array[t] = \
                     self.telescope_location.radec_of(
@@ -279,12 +277,12 @@ class scanning_strategy():
                     pb_el_array[t] * np.pi / 180.)
 
                 ## Case to change the direction of the scan
-                if(pb_az > upper_az):
+                if(running_az > upper_az):
                     pb_az_dir = -1.
-                elif(pb_az < lower_az):
+                elif(running_az < lower_az):
                     pb_az_dir = 1.
 
-                pb_az += az_speed * pb_az_dir / sampling_freq
+                running_az += az_speed * pb_az_dir / sampling_freq
 
                 ## Increment the time by one second / sampling rate
                 pb_mjd_array[t] = pb_mjd_array[t-1] + \
@@ -299,19 +297,19 @@ class scanning_strategy():
             for (t=1;t<num_pts;t++)
             {
                 // Set the Azimuth and time
-                pb_az_array[t] = pb_az;
+                pb_az_array[t] = running_az;
 
                 // Case to change the direction of the scan
-                if (pb_az > upper_az)
+                if (running_az > upper_az)
                 {
                     pb_az_dir = -1.0;
                 }
-                else if (pb_az < lower_az)
+                else if (running_az < lower_az)
                 {
                     pb_az_dir = 1.0;
                 }
 
-                pb_az += az_speed * pb_az_dir / sampling_freq;
+                running_az += az_speed * pb_az_dir / sampling_freq;
 
                 // Increment the time by one second / sampling rate
                 pb_mjd_array[t] = pb_mjd_array[t-1] + second / sampling_freq;
@@ -321,35 +319,29 @@ class scanning_strategy():
             az_speed = float(az_speed)
             pb_az_dir = float(pb_az_dir)
             sampling_freq = float(sampling_freq)
-            pb_az = float(pb_az)
+            running_az = float(running_az)
             upper_az = float(upper_az)
             lower_az = float(lower_az)
             weave.inline(c_code, [
                 'num_pts',
-                'pb_az', 'pb_az_array', 'upper_az', 'lower_az', 'az_speed',
-                'pb_az_dir', 'pb_mjd_array', 'second', 'sampling_freq'])
+                'running_az', 'pb_az_array', 'upper_az',
+                'lower_az', 'az_speed', 'pb_az_dir', 'pb_mjd_array',
+                'second', 'sampling_freq'], verbose=0)
 
         ## Do not use that for precision - it truncates values
         self.telescope_location.date += num_pts * ephem.second / sampling_freq
 
-        #########################################################
         ## Save in file
-        #########################################################
         scan_file['sample_rate'] = sampling_freq
+        scan_file['lastmjd'] = pb_mjd_array[-1] + time_padding
+
         scan_file['antenna0-tracker-actual-0'] = pb_az_array * np.pi / 180
         scan_file['antenna0-tracker-actual-1'] = pb_el_array * np.pi / 180
         scan_file['antenna0-tracker-utc-0'] = pb_mjd_array
-
-        scan_file['lastmjd'] = pb_mjd_array[-1] + time_padding
+        scan_file['receiver-bolometers-utc'] = pb_mjd_array
 
         scan_file['RA'] = pb_ra_array
         scan_file['Dec'] = pb_dec_array
-
-        # mask_array = np.array(constant_velocity_portions(
-        #     scan_file, threshold=0.9), dtype=int)
-        # scan_file['antenna0-tracker-scan_flag-0'] = mask_array
-
-        scan_file['receiver-bolometers-utc'] = pb_mjd_array
 
         if not silent:
             print('+-----------------------------------+')
@@ -363,7 +355,9 @@ class scanning_strategy():
         ## Add one day before the next CES (to avoid conflict of time)
         self.telescope_location.date += 24 * ephem.second * 3600
 
+        ## Add the scan into the instance
         self._update('scan{}'.format(scan_number), scan_file)
+
         return True
 
     def run(self, silent=True, save_on_disk=False):
@@ -382,8 +376,8 @@ class scanning_strategy():
         ----------
         >>> scan = scanning_strategy(sampling_freq=1., nCES=2)
         >>> scan.run()
-        >>> scan.scan0
-        toto
+        >>> print(scan.scan0['firstmjd'], scan.scan0['lastmjd'])
+        56293.6202546 56293.8230093
         """
         dic_HWP = {}
         ## Loop over CESes
@@ -407,7 +401,7 @@ class scanning_strategy():
             # create_HWP(myargs, dic_HWP, scan, CES_position)
 
             # Save the CES on disk
-            if save_on_disk:
+            if save_on_disk and scan_is_new:
                 out_folder = os.path.join(self.output_folder, 'TOD')
                 if not os.path.isdir(out_folder):
                     os.makedirs(out_folder)
@@ -419,9 +413,12 @@ class scanning_strategy():
         #     so_util.pickle_save(dic_HWP, hwp_caltable)
 
     def visualize_my_scan(self, nside, reso=6.9, xsize=900, rot=[0, -57.5],
-                          nfid_bolometer=6000, fp_size=180., boost=1.):
+                          nfid_bolometer=6000, fp_size=180., boost=1.,
+                          test=False):
         """
-        Simple map-making: project time ordered data into sky maps.
+        Simple map-making: project time ordered data into sky maps for
+        visualisation. It works only in pure python (i.e. if you set
+        language='python' when initialising the scanning_strategy class).
 
         Parameters
         ----------
@@ -442,13 +439,44 @@ class scanning_strategy():
         boost : int
             boost factor to artificially increase the number of hits.
             It doesn't change the shape of the survey (just the amplitude).
+        test : bool
+            If True, doesn't display the result (mainly for test mode).
 
         Outputs
         ----------
             * nhit_loc: 1D array, sky map with cumulative hit counts
-        """
 
-        nhit = hp.pixelfunc.nside2npix(nside)
+        Examples
+        ----------
+        Set your scan
+        >>> scan = scanning_strategy(sampling_freq=1., nCES=12)
+        >>> scan.run()
+
+        Set test=False if you want to display the output.
+        >>> scan.visualize_my_scan(nside=128, test=True)
+        test mode: nhits = 11587/196608 (fsky=5.89%), max hit = 305245
+
+        Note that you cannot yet perform visualisation if using speed up
+        in C or fortran because RA and Dec are not computed.
+        >>> scan = scanning_strategy(sampling_freq=1., nCES=1, language='C')
+        >>> scan.run()
+        >>> scan.visualize_my_scan(nside=128, test=True)
+        ... # doctest: +NORMALIZE_WHITESPACE, +ELLIPSIS
+        Traceback (most recent call last):
+         ...
+        ValueError: Visualisation is available only in pure python
+        because we do not provide (yet) RA and Dec in C or fortran.
+        Relaunch using language='python' in the class scanning_strategy.
+        """
+        if self.language != 'python':
+            raise ValueError("Visualisation is available only in pure " +
+                             "python because we do not provide (yet) " +
+                             "RA and Dec in C or fortran. Relaunch " +
+                             "using language='python' in the class " +
+                             "scanning_strategy.")
+
+        npix = hp.pixelfunc.nside2npix(nside)
+        nhit = np.zeros(npix)
         for scan_number in range(self.nCES):
             scan = getattr(self, 'scan{}'.format(scan_number))
 
@@ -468,146 +496,111 @@ class scanning_strategy():
             }
             """
 
-            # Boresight pointing healpix maps
-            npix = hp.pixelfunc.nside2npix(nside)
+            ## Boresight pointing healpix maps
             nhit_loc = np.zeros(npix)
             weave.inline(c_code, [
                 'pix_global',
                 'num_pts',
                 'nhit_loc'])
 
-            nhit_loc = convolve_focalplane(nhit_loc, nfid_bolometer,
-                                           fp_size, boost)
+            ## Fake large focal plane with many bolometers for visualisation.
+            nhit_loc = self.convolve_focalplane(nhit_loc, nfid_bolometer,
+                                                fp_size, boost)
 
             nhit += nhit_loc
 
-        hp.gnomview(nhit, rot=rot, reso=reso, xsize=xsize)
-        import pylab as pl
-        pl.show()
+        ## Display the result of not testing.
+        if not test:
+            import pylab as pl
+            print('visu mode: nhits = {}/{} (fsky={}%), max hit = {}'.format(
+                len(nhit[nhit > 0]),
+                len(nhit),
+                round(len(nhit[nhit > 0])/len(nhit) * 100, 2),
+                int(np.max(nhit))))
+            nhit[nhit == 0] = np.nan
+            hp.gnomview(nhit, rot=rot, reso=reso, xsize=xsize,
+                        cmap=pl.cm.viridis,
+                        title='nbolos = {}, '.format(nfid_bolometer) +
+                        'fp size = {} arcmin, '.format(fp_size) +
+                        'nhit boost = {}'.format(boost))
+            hp.graticule(dpar=1.)
+            pl.show()
+        else:
+            print('test mode: nhits = {}/{} (fsky={}%), max hit = {}'.format(
+                len(nhit[nhit > 0]),
+                len(nhit),
+                round(len(nhit[nhit > 0])/len(nhit) * 100, 2),
+                int(np.max(nhit))))
 
-    def _update(self, name, value):
+    @staticmethod
+    def convolve_focalplane(bore_nHits, nbolos, fp_radius_amin, boost):
         """
-        Wrapper around setattr function.
-        Set a named attribute on an object.
+        Given a nHits and bore_cos and bore_sin map,
+        perform the focal plane convolution.
+        Original author: Neil Goeckner-Wald.
+        Modifications by Julien Peloton.
 
         Parameters
         ----------
-        name : string
-            The name of the new attribute
-        value : *
-            The value of the attribute.
+        bore_nHits : 1D array
+            number of hits for the reference detector.
+        bore_cos : 1D array
+            cumulative cos**2 for the reference detector.
+        bore_sin : 1D array
+            cumulative sin**2 for the reference detector.
+        bore_cs : 1D array
+            cumulative cos*sin for the reference detector.
+        nbolos : int
+            total number of bolometers desired.
+        fp_radius_amin : float
+            radius of the focal plane in arcmin.
+        boost : float
+            boost factor to artificially increase the number of hits.
+            It doesn't change the shape of the survey (just the amplitude).
+
+        Returns
+        ----------
+        focalplane_nHits : 1D array
+            Number of hits for the all the detectors.
+
         """
-        setattr(self, name, value)
+        # Now we want to make the focalplane maps
+        focalplane_nHits = np.zeros(bore_nHits.shape)
 
-class tod_io():
-    """ """
-    def __init__(self):
-        """
-        """
-        pass
+        # Resolution of our healpix map
+        nside = hp.npix2nside(focalplane_nHits.shape[0])
+        resol_amin = hp.nside2resol(nside, arcmin=True)
+        fp_rad_bins = int(fp_radius_amin * 2. / resol_amin)
+        fp_diam_bins = (fp_rad_bins * 2) + 1
 
-    @staticmethod
-    def create_fields_in_file(dic):
-        """ Completely hardcoded light structure of PB TOD data files """
+        # Build the focal plane model and a list of offsets
+        (x_fp, y_fp) = np.array(
+            np.unravel_index(
+                range(0, fp_diam_bins**2),
+                (fp_diam_bins, fp_diam_bins))).reshape(
+                    2, fp_diam_bins, fp_diam_bins) - (fp_rad_bins)
+        fp_map = ((x_fp**2 + y_fp**2) < (fp_rad_bins)**2)
 
-        ## Azimuth / Elevation
-        dic['antenna0-tracker-actual-0'] = []
-        dic['antenna0-tracker-actual-1'] = []
+        bolo_per_pix = nbolos / float(np.sum(fp_map))
 
-        ## Define the Constant velocity portion
-        dic['antenna0-tracker-scan_flag-0'] = []
+        dRA = np.ndarray.flatten(
+            (x_fp[fp_map].astype(float) * fp_radius_amin) / (
+                fp_rad_bins * 60. * (180. / (np.pi))))
+        dDec = np.ndarray.flatten(
+            (y_fp[fp_map].astype(float) * fp_radius_amin) / (
+                fp_rad_bins * 60. * (180. / (np.pi))))
 
-        ## Time UTC
-        dic['antenna0-tracker-utc-0'] = []
+        pixels_global = np.array(np.where(bore_nHits != 0)[0], dtype=int)
+        for n in pixels_global:
+            n = int(n)
 
-        ## WHWP angles
-        dic['WHWPangle'] = []
+            # Compute pointing offsets
+            (theta_bore, phi_bore) = hp.pix2ang(nside, n)
+            phi = phi_bore + dRA * np.sin(theta_bore)
+            theta = theta_bore + dDec
 
-        ## Receiver clock
-        dic['receiver-bolometers-utc'] = []
-        dic['receiver-bolometers-adcShort'] = []
+            pixels = hp.ang2pix(nside, theta, phi)
 
-        return dic
-
-    @staticmethod
-    def save_file(scan, output_folder):
-        """
-        """
-        date = scan['firstmjd']
-        out_fn = os.path.join(output_folder, mjd_to_greg(date) + '.hdf5')
-        out_file = h5py.File(out_fn, 'w')
-        attrs = ['sample_rate', 'firstmjd', 'lastmjd']
-        for k in scan.keys():
-            if k in attrs:
-                out_file.attrs[k] = scan[k]
-            else:
-                out_file.create_dataset(k, data=scan[k])
-        out_file.close()
-
-def convolve_focalplane(bore_nHits, nbolos, fp_radius_amin, boost):
-    """
-    Given a nHits and bore_cos and bore_sin map,
-    perform the focal plane convolution.
-    Original author: Neil Goeckner-Wald.
-    Modifications by Julien Peloton.
-
-    Parameters
-    ----------
-        * bore_nHits: 1D array, number of hits for the reference detector
-        * bore_cos: 1D array, cumulative cos**2 for the reference detector
-        * bore_sin: 1D array, cumulative sin**2 for the reference detector
-        * bore_cs: 1D array, cumulative cos*sin for the reference detector
-        * nbolos: int, total number of bolometers desired
-        * fp_radius_amin: float, radius of the focal plane in arcmin
-        * boost: float, boost factor to artificially
-            increase the number of hits.
-            It doesn't change the shape of the survey (just the amplitude)
-
-    Outputs
-    ----------
-        * focalplane_nHits: 1D array, number of hits
-            for the all the detectors
-
-    """
-    # Now we want to make the focalplane maps
-    focalplane_nHits = np.zeros(bore_nHits.shape)
-
-    # Resolution of our healpix map
-    nside = hp.npix2nside(focalplane_nHits.shape[0])
-    resol_amin = hp.nside2resol(nside, arcmin=True)
-    fp_rad_bins = int(fp_radius_amin * 2. / resol_amin)
-    fp_diam_bins = (fp_rad_bins * 2) + 1
-
-    # Build the focal plane model and a list of offsets
-    (x_fp, y_fp) = np.array(
-        np.unravel_index(
-            range(0, fp_diam_bins**2),
-            (fp_diam_bins, fp_diam_bins))).reshape(
-                2, fp_diam_bins, fp_diam_bins) - (fp_rad_bins)
-    fp_map = ((x_fp**2 + y_fp**2) < (fp_rad_bins)**2)
-
-    bolo_per_pix = nbolos / float(np.sum(fp_map))
-
-    dRA = np.ndarray.flatten(
-        (x_fp[fp_map].astype(float) * fp_radius_amin) / (
-            fp_rad_bins * 60. * (180. / (np.pi))))
-    dDec = np.ndarray.flatten(
-        (y_fp[fp_map].astype(float) * fp_radius_amin) / (
-            fp_rad_bins * 60. * (180. / (np.pi))))
-
-    pixels_global = np.array(np.where(bore_nHits != 0)[0], dtype=int)
-    for n in pixels_global:
-        n = int(n)
-
-        # Compute pointing offsets
-        (theta_bore, phi_bore) = hp.pix2ang(nside, n)
-        phi = phi_bore + dRA * np.sin(theta_bore)
-        theta = theta_bore + dDec
-
-        pixels = hp.ang2pix(nside, theta, phi)
-
-        method = 'Cweave'
-        if method == 'Cweave':
             ## Necessary because the values in pixels
             ## aren't necessarily unique!
             ## This is a poor design choice and should probably be fixed
@@ -626,9 +619,121 @@ def convolve_focalplane(bore_nHits, nbolos, fp_radius_amin, boost):
                 'focalplane_nHits',
                 'pixels', 'bolo_per_pix', 'npix_loc', 'n', 'boost'])
 
-    return focalplane_nHits
+        return focalplane_nHits
+
+    def _update(self, name, value):
+        """
+        Wrapper around setattr function.
+        Set a named attribute on an object.
+
+        Parameters
+        ----------
+        name : string
+            The name of the new attribute
+        value : *
+            The value of the attribute.
+        """
+        setattr(self, name, value)
+
+class tod_io():
+    """ Class to handle the I/O in the scanning strategy module """
+    def __init__(self):
+        """
+        Some static methods to manipulate the I/O.
+        """
+        pass
+
+    @staticmethod
+    def create_fields_in_file(dic):
+        """
+        Define entries for TOD data files
+
+        Parameters
+        ----------
+        dic : dictionary
+            Dictionary which will contain the data. Usually empty.
+
+        Returns
+        ----------
+        dic : dictionary
+            Dictionary which contain empty fields.
+        """
+
+        ## Azimuth / Elevation
+        dic['antenna0-tracker-actual-0'] = []
+        dic['antenna0-tracker-actual-1'] = []
+
+        ## Time UTC
+        dic['antenna0-tracker-utc-0'] = []
+
+        ## WHWP angles
+        dic['WHWPangle'] = []
+
+        ## Receiver clock
+        dic['receiver-bolometers-utc'] = []
+        dic['receiver-bolometers-adcShort'] = []
+
+        return dic
+
+    @staticmethod
+    def save_file(scan, output_folder):
+        """
+        Save scanning strategy files on disk. The file format is hdf5.
+        Note that the filename is normalised and always follows:
+        fn = mjd_to_greg(starting_date_of_the_scan) + '.hdf5'
+
+        Parameters
+        ----------
+        scan : dictionary
+            Dictionary created by create_fields_in_file and
+            containing the data to be saved.
+        output_folder : string
+            The folder where the data will be stored.
+
+        """
+        date = scan['firstmjd']
+        out_fn = os.path.join(output_folder, mjd_to_greg(date) + '.hdf5')
+
+        out_file = h5py.File(out_fn, 'w')
+        attrs = ['sample_rate', 'firstmjd', 'lastmjd']
+
+        for k in scan.keys():
+            if k in attrs:
+                out_file.attrs[k] = scan[k]
+            else:
+                out_file.create_dataset(k, data=scan[k])
+
+        out_file.close()
+
+## Here are a bunch of routines to handle dates...
 
 def date_to_mjd(date):
+    """
+    Convert
+
+    Parameters
+    ----------
+    date : ephem.Date
+        Floating point value used by ephem to represent a date.
+        The value is the number of days since 1899 December 31 12:00 UT. When
+        creating an instance you can pass in a Python datetime instance,
+        timetuple, year-month-day triple, or a plain float.
+        Run str() on this object to see the UTC date it represents.
+        ...
+        WTF?
+
+    Returns
+    ----------
+    mjd : float
+        Date in the format MJD.
+
+    Examples
+    ----------
+    >>> e = ephem.Observer()
+    >>> mjd = date_to_mjd(e.date)
+    >>> print(round(e.date, 2), round(mjd, 2))
+    42921.18 57940.68
+    """
     return greg_to_mjd(date_to_greg(date))
 
 def gregi_to_mjd(year, month, day, hour, minute, second):
