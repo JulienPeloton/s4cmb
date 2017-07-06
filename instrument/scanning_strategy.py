@@ -1,0 +1,668 @@
+#!/usr/bin/python
+"""
+Script to simulate the scan of a CMB experiment.
+
+Author: Julien Peloton, j.peloton@sussex.ac.uk
+"""
+from __future__ import division, absolute_import, print_function
+
+import os
+import ephem
+import h5py
+import numpy as np
+import healpy as hp
+import weave
+
+# pyslalib now installs slalib.so to site-packages/pyslalib/slalib.so
+# This handles both cases. 2011-03-04
+try:
+    from pyslalib import slalib
+except ImportError:
+    import slalib
+
+# ## numerical constants
+radToDeg = 180 / np.pi
+sidDayToSec = 86164.0905
+
+class scanning_strategy():
+    """ Class to handle the scanning strategy of the telescope """
+    def __init__(self, nCES=12, start_date='2013/1/1 00:00:00',
+                 telescope_longitude='-67:46.816',
+                 telescope_latitude='-22:56.396', telescope_elevation=5200.,
+                 name_strategy='deep_patch', sampling_freq=30., sky_speed=0.4,
+                 language='python', output_folder='./'):
+        """
+        A scanning strategy consists in defining the site of observation
+        on earth for which we will make the observation, the region
+        of the sky to observe, and the schedule of observations.
+
+        Parameters
+        ----------
+        nCES : int, optional
+            Number of scans to generate.
+        start_date : string, optional
+            Starting date for observations. The format is: YYYY/M/D HH:MM:SS.
+        telescope_longitude : string, optional
+            Longitute (angle) of the telescope. String form: 0:00:00.0.
+        telescope_latitude : string, optional
+            Latitude (angle) of the telescope. String form: 0:00:00.0.
+        telescope_elevation : float, optional
+            Height above sea level (in meter).
+        name_strategy : string, optional
+            Name of a pre-defined scanning strategy to define the boundaries
+            of the scan: elevation, azimuth, and time. Only available for the:
+            moment name_strategy = deep_patch.
+        sampling_freq : float, optional
+            Sampling frequency of the bolometers in Hz.
+        sky_speed : float, optional
+            Azimuth speed of the telescope in deg/s.
+        language : string, optional
+            Language used for core computations. For big experiments, the
+            computational time can be big, and some part of the code can be
+            speeded up by interfacing python with C or Fortran.
+            Default is python (i.e. no interfacing and can be slow).
+            Choose language=C or language=fortran otherwise. Note that C codes
+            are compiled on-the-fly (weave), but for fortran codes you need
+            first to compile it. See the setup.py or the provided Makefile.
+        output_folder : string, optional
+            The folder where the data will be stored.
+
+        """
+        self.nCES = nCES
+        self.start_date = start_date
+        self.name_strategy = name_strategy
+        self.sampling_freq = sampling_freq
+        self.sky_speed = sky_speed
+        self.output_folder = output_folder
+        self.language = language
+
+        self.telescope_location = self.define_telescope_location(
+            telescope_longitude, telescope_latitude, telescope_elevation)
+
+        self.define_boundary_of_scan()
+
+    def define_telescope_location(self, telescope_longitude='-67:46.816',
+                                  telescope_latitude='-22:56.396',
+                                  telescope_elevation=5200.):
+        """
+        Routine to define the site of observation on earth for which
+        positions are to be computed. The location of the Polarbear telescope
+        is entered as default.
+
+        Parameters
+        ----------
+        telescope_longitude : str
+            Longitute (angle) of the telescope. String form: 0:00:00.0.
+        telescope_latitude : str
+            Latitude (angle) of the telescope. String form: 0:00:00.0.
+        telescope_elevation : float
+            Height above sea level (in meter).
+
+        Returns
+        ----------
+        location : Observer instance
+            An `Observer` instance allows you to compute the positions of
+            celestial bodies as seen from a particular latitude and longitude
+            on the Earth's surface.
+
+        Examples
+        ----------
+        >>> scan = scanning_strategy()
+        >>> telescope_location = scan.define_telescope_location()
+        >>> telescope_location.elevation
+        5200.0
+
+        """
+        location = ephem.Observer()
+        location.long = telescope_longitude
+        location.lat = telescope_latitude
+        location.elevation = telescope_elevation
+
+        return location
+
+    def define_boundary_of_scan(self):
+        """
+        Given a pre-defined scanning strategy,
+        define the boundaries of the scan: elevation, azimuth, and time.
+        For a custom usage (advanced users), modify this routine.
+
+        Examples
+        ----------
+        >>> scan = scanning_strategy(name_strategy='deep_patch')
+        >>> scan.elevation # doctest: +NORMALIZE_WHITESPACE
+        [30.0, 45.5226, 47.7448, 49.967,
+         52.1892, 54.4114, 56.6336, 58.8558,
+         61.078, 63.3002, 65.5226, 35.2126]
+
+        Only the observation of a deep patch (5 percent of the sky
+        in the southern hemisphere) is currently available.
+        >>> scan = scanning_strategy(name_strategy='toto')
+        ... # doctest: +NORMALIZE_WHITESPACE, +ELLIPSIS
+        Traceback (most recent call last):
+         ...
+        ValueError: Only name_strategy = deep_patch is currently available.
+        For a custom usage (advanced users), modify this routine.
+
+        >>> scan.allowed_scanning_strategies
+        ['deep_patch']
+        """
+        self.allowed_scanning_strategies = ['deep_patch']
+
+        if self.name_strategy == 'deep_patch':
+            self.elevation = [30.0, 45.5226, 47.7448, 49.967,
+                              52.1892, 54.4114, 56.6336, 58.8558,
+                              61.078, 63.3002, 65.5226, 35.2126]
+
+            self.az_min = [134.2263, 162.3532, 162.3532, 162.3532,
+                           162.3532, 162.3532, 162.3532, 162.3532,
+                           162.3532, 162.3532, 162.3532, 204.7929]
+
+            self.az_max = [154.2263, 197.3532, 197.3532, 197.3532,
+                           197.3532, 197.3532, 197.3532, 197.3532,
+                           197.3532, 197.3532, 197.3532, 224.7929]
+
+            self.begin_LST = ['17:07:54.84', '22:00:21.76', '22:00:21.76',
+                              '22:00:21.76', '22:00:21.76', '22:00:21.76',
+                              '22:00:21.76', '22:00:21.76', '22:00:21.76',
+                              '22:00:21.76', '22:00:21.76', '2:01:01.19']
+
+            self.end_LST = ['22:00:21.76', '02:01:01.19', '02:01:01.19',
+                            '02:01:01.19', '02:01:01.19', '02:01:01.19',
+                            '02:01:01.19', '02:01:01.19', '02:01:01.19',
+                            '02:01:01.19', '02:01:01.19', '6:53:29.11']
+        else:
+            raise ValueError("Only name_strategy = deep_patch is " +
+                             "currently available. For a custom usage " +
+                             "(advanced users), modify this routine.")
+
+    def run_one_scan(self, scan_file, scan_number, silent=True):
+        """
+        Generate one observation (i.e. one CES) of the telescope.
+
+        Parameters
+        ----------
+        scan_file : dictionary
+            Dictionary generated by tod_io.create_fields_in_file which
+            contain the (empty) outputs of the scan.
+        scan_number : int
+            Index of the scan (between 0 and nCES - 1).
+        silent : bool
+            If False, print out messages about the scan. Default is True.
+
+        Returns
+        ----------
+        bool : bool
+            Returns True if the scan has been generated, and False if the scan
+            already exists on the disk.
+        """
+        ## Figure out the elevation to run the scan!
+        el = self.elevation[scan_number]
+
+        ## Define the sampling rate in Hz
+        sampling_freq = self.sampling_freq
+
+        ## Define geometry of the scan by figuring out the azimuth bounds
+        az_mean = (self.az_min[scan_number] + self.az_max[scan_number]) * 0.5
+        az_throw = (self.az_max[scan_number] -
+                    self.az_min[scan_number]) / np.cos(el / radToDeg)
+
+        ## Define the timing bounds!
+        num_pts = 0
+        lst_now = float(self.telescope_location.sidereal_time()) / (2 * np.pi)
+        begin_LST = float(
+            ephem.hours(self.begin_LST[scan_number])) / (2 * np.pi)
+        end_LST = float(ephem.hours(self.end_LST[scan_number])) / (2 * np.pi)
+
+        if (begin_LST > end_LST):
+            begin_LST -= 1.
+
+        ## Reset the date to correspond to the sidereal time to start
+        self.telescope_location.date -= (
+            (lst_now - begin_LST) * sidDayToSec) * ephem.second
+
+        ## Figure out how long to run the scan for
+        num_pts = int((end_LST - begin_LST) * sidDayToSec * sampling_freq)
+
+        ## Run the scan!
+        pb_az_dir = 1.
+        upper_az = az_mean + az_throw / 2.
+        lower_az = az_mean - az_throw / 2.
+        az_speed = self.sky_speed / np.cos(el / radToDeg)
+        pb_az = az_mean
+
+        ## Initialize arrays
+        pb_az_array = np.zeros(num_pts)
+        pb_mjd_array = np.zeros(num_pts)
+        pb_ra_array = np.zeros(num_pts)
+        pb_dec_array = np.zeros(num_pts)
+        pb_el_array = np.ones(num_pts) * el
+
+        ## Loop over time samples
+        begin_lst = str(self.telescope_location.sidereal_time())
+        # Pad scans 10 seconds on either side
+        time_padding = 10.0 / 86400.0
+
+        ## Start of the scan
+        pb_az_array[0] = pb_az
+        pb_mjd_array[0] = date_to_mjd(self.telescope_location.date)
+
+        ## Check if scan already exists
+        scan_file['firstmjd'] = pb_mjd_array[0] - time_padding
+        out_file = os.path.join(
+            self.output_folder,
+            mjd_to_greg(scan_file['firstmjd']) + '.hdf5')
+
+        if os.path.isfile(out_file):
+            if not silent:
+                print('Scan already exists at {}'.format(out_file))
+
+            ## You still has to perform the loop
+            ## over time to reach the next CES
+            for tt in range(0, num_pts):
+                self.telescope_location.date += ephem.second / sampling_freq
+            self.telescope_location.date += 24 * ephem.second * 3600
+
+            return False
+
+        ## Update before starting the loop
+        pb_az += az_speed * pb_az_dir / sampling_freq
+        self.telescope_location.date += ephem.second / sampling_freq
+
+        if self.language == 'python':
+            for t in range(1, num_pts):
+                ## Set the Azimuth and time
+                pb_az_array[t] = pb_az
+
+                pb_ra_array[t], pb_dec_array[t] = \
+                    self.telescope_location.radec_of(
+                    pb_az_array[t] * np.pi / 180.,
+                    pb_el_array[t] * np.pi / 180.)
+
+                ## Case to change the direction of the scan
+                if(pb_az > upper_az):
+                    pb_az_dir = -1.
+                elif(pb_az < lower_az):
+                    pb_az_dir = 1.
+
+                pb_az += az_speed * pb_az_dir / sampling_freq
+
+                ## Increment the time by one second / sampling rate
+                pb_mjd_array[t] = pb_mjd_array[t-1] + \
+                    ephem.second / sampling_freq
+
+                ## Increment the time by one second / sampling rate
+                self.telescope_location.date += ephem.second / sampling_freq
+
+        elif self.language == 'C':
+            c_code = r'''
+            int t;
+            for (t=1;t<num_pts;t++)
+            {
+                // Set the Azimuth and time
+                pb_az_array[t] = pb_az;
+
+                // Case to change the direction of the scan
+                if (pb_az > upper_az)
+                {
+                    pb_az_dir = -1.0;
+                }
+                else if (pb_az < lower_az)
+                {
+                    pb_az_dir = 1.0;
+                }
+
+                pb_az += az_speed * pb_az_dir / sampling_freq;
+
+                // Increment the time by one second / sampling rate
+                pb_mjd_array[t] = pb_mjd_array[t-1] + second / sampling_freq;
+            }
+            '''
+            second = 1./24./3600.
+            az_speed = float(az_speed)
+            pb_az_dir = float(pb_az_dir)
+            sampling_freq = float(sampling_freq)
+            pb_az = float(pb_az)
+            upper_az = float(upper_az)
+            lower_az = float(lower_az)
+            weave.inline(c_code, [
+                'num_pts',
+                'pb_az', 'pb_az_array', 'upper_az', 'lower_az', 'az_speed',
+                'pb_az_dir', 'pb_mjd_array', 'second', 'sampling_freq'])
+
+        ## Do not use that for precision - it truncates values
+        self.telescope_location.date += num_pts * ephem.second / sampling_freq
+
+        #########################################################
+        ## Save in file
+        #########################################################
+        scan_file['sample_rate'] = sampling_freq
+        scan_file['antenna0-tracker-actual-0'] = pb_az_array * np.pi / 180
+        scan_file['antenna0-tracker-actual-1'] = pb_el_array * np.pi / 180
+        scan_file['antenna0-tracker-utc-0'] = pb_mjd_array
+
+        scan_file['lastmjd'] = pb_mjd_array[-1] + time_padding
+
+        scan_file['RA'] = pb_ra_array
+        scan_file['Dec'] = pb_dec_array
+
+        # mask_array = np.array(constant_velocity_portions(
+        #     scan_file, threshold=0.9), dtype=int)
+        # scan_file['antenna0-tracker-scan_flag-0'] = mask_array
+
+        scan_file['receiver-bolometers-utc'] = pb_mjd_array
+
+        if not silent:
+            print('+-----------------------------------+')
+            print(' CES starts at %s and finishes at %s' % (
+                mjd_to_greg(scan_file['firstmjd']),
+                mjd_to_greg(scan_file['lastmjd'])))
+            print(' It lasts %.3f hours' % (
+                (scan_file['lastmjd'] - scan_file['firstmjd']) * 24))
+            print('+-----------------------------------+')
+
+        ## Add one day before the next CES (to avoid conflict of time)
+        self.telescope_location.date += 24 * ephem.second * 3600
+
+        self._update('scan{}'.format(scan_number), scan_file)
+        return True
+
+    def run(self, silent=True, save_on_disk=False):
+        """
+        Generate all the observations (i.e. all CES) of the telescope.
+
+        Parameters
+        ----------
+        silent : bool
+            If False, print out messages about the scan. Default is True.
+        save_on_disk : bool
+            If True, store the data on disk (hdf5 file). Write each scan into
+            separate files. Default is False.
+
+        Examples
+        ----------
+        >>> scan = scanning_strategy(sampling_freq=1., nCES=2)
+        >>> scan.run()
+        >>> scan.scan0
+        toto
+        """
+        dic_HWP = {}
+        ## Loop over CESes
+        for CES_position in range(self.nCES):
+            ## Initialise the starting date of observation
+            ## It will be updated then automatically
+            if CES_position == 0:
+                self.telescope_location.date = self.start_date
+
+            ## Define empty TOD structure
+            scan = {}
+            scan = tod_io.create_fields_in_file(scan)
+
+            # Create the scan strategy
+            scan_is_new = self.run_one_scan(scan, CES_position, silent=silent)
+            if scan_is_new is False:
+                ## that means already computed
+                if not silent:
+                    print('-- Data already on disk: skipping --')
+                continue
+            # create_HWP(myargs, dic_HWP, scan, CES_position)
+
+            # Save the CES on disk
+            if save_on_disk:
+                out_folder = os.path.join(self.output_folder, 'TOD')
+                if not os.path.isdir(out_folder):
+                    os.makedirs(out_folder)
+                tod_io.save_file(scan, output_folder=out_folder)
+
+        # if s is not False:
+        #     hwp_caltable = os.path.join(
+        #         config.get_cal_path(), 'hwp_caltable_{}.pkl'.format(args.tag))
+        #     so_util.pickle_save(dic_HWP, hwp_caltable)
+
+    def visualize_my_scan(self, nside, reso=6.9, xsize=900, rot=[0, -57.5],
+                          nfid_bolometer=6000, fp_size=180., boost=1.):
+        """
+        Simple map-making: project time ordered data into sky maps.
+
+        Parameters
+        ----------
+        nside : int
+            Resolution of the healpix map.
+        reso : float
+            Resolution of the projected map (pixel size) in arcmin.
+        xsize : int
+            Number of pixel per row for the projected map.
+        rot : 1d array of float
+            Coordinates of the center of
+            the projected map [lon, lat] in degree
+        nfid_bolometer : int
+            Fiducial number of bolometers for visualisation.
+            By default, the scans are done for one reference bolometer.
+        fp_size : float
+            Size of the focal plane on the sky, in arcmin.
+        boost : int
+            boost factor to artificially increase the number of hits.
+            It doesn't change the shape of the survey (just the amplitude).
+
+        Outputs
+        ----------
+            * nhit_loc: 1D array, sky map with cumulative hit counts
+        """
+
+        nhit = hp.pixelfunc.nside2npix(nside)
+        for scan_number in range(self.nCES):
+            scan = getattr(self, 'scan{}'.format(scan_number))
+
+            num_pts = len(scan['antenna0-tracker-actual-0'])
+            pix_global = hp.pixelfunc.ang2pix(
+                nside, (np.pi/2.) - scan['Dec'], scan['RA'])
+
+            c_code = r"""
+            int i, pix;
+            double c, s;
+            for (i=0;i<num_pts;i++)
+            {
+                pix = pix_global[i];
+
+                // Number of hits per pixel
+                nhit_loc[pix] += 1;
+            }
+            """
+
+            # Boresight pointing healpix maps
+            npix = hp.pixelfunc.nside2npix(nside)
+            nhit_loc = np.zeros(npix)
+            weave.inline(c_code, [
+                'pix_global',
+                'num_pts',
+                'nhit_loc'])
+
+            nhit_loc = convolve_focalplane(nhit_loc, nfid_bolometer,
+                                           fp_size, boost)
+
+            nhit += nhit_loc
+
+        hp.gnomview(nhit, rot=rot, reso=reso, xsize=xsize)
+        import pylab as pl
+        pl.show()
+
+    def _update(self, name, value):
+        """
+        Wrapper around setattr function.
+        Set a named attribute on an object.
+
+        Parameters
+        ----------
+        name : string
+            The name of the new attribute
+        value : *
+            The value of the attribute.
+        """
+        setattr(self, name, value)
+
+class tod_io():
+    """ """
+    def __init__(self):
+        """
+        """
+        pass
+
+    @staticmethod
+    def create_fields_in_file(dic):
+        """ Completely hardcoded light structure of PB TOD data files """
+
+        ## Azimuth / Elevation
+        dic['antenna0-tracker-actual-0'] = []
+        dic['antenna0-tracker-actual-1'] = []
+
+        ## Define the Constant velocity portion
+        dic['antenna0-tracker-scan_flag-0'] = []
+
+        ## Time UTC
+        dic['antenna0-tracker-utc-0'] = []
+
+        ## WHWP angles
+        dic['WHWPangle'] = []
+
+        ## Receiver clock
+        dic['receiver-bolometers-utc'] = []
+        dic['receiver-bolometers-adcShort'] = []
+
+        return dic
+
+    @staticmethod
+    def save_file(scan, output_folder):
+        """
+        """
+        date = scan['firstmjd']
+        out_fn = os.path.join(output_folder, mjd_to_greg(date) + '.hdf5')
+        out_file = h5py.File(out_fn, 'w')
+        attrs = ['sample_rate', 'firstmjd', 'lastmjd']
+        for k in scan.keys():
+            if k in attrs:
+                out_file.attrs[k] = scan[k]
+            else:
+                out_file.create_dataset(k, data=scan[k])
+        out_file.close()
+
+def convolve_focalplane(bore_nHits, nbolos, fp_radius_amin, boost):
+    """
+    Given a nHits and bore_cos and bore_sin map,
+    perform the focal plane convolution.
+    Original author: Neil Goeckner-Wald.
+    Modifications by Julien Peloton.
+
+    Parameters
+    ----------
+        * bore_nHits: 1D array, number of hits for the reference detector
+        * bore_cos: 1D array, cumulative cos**2 for the reference detector
+        * bore_sin: 1D array, cumulative sin**2 for the reference detector
+        * bore_cs: 1D array, cumulative cos*sin for the reference detector
+        * nbolos: int, total number of bolometers desired
+        * fp_radius_amin: float, radius of the focal plane in arcmin
+        * boost: float, boost factor to artificially
+            increase the number of hits.
+            It doesn't change the shape of the survey (just the amplitude)
+
+    Outputs
+    ----------
+        * focalplane_nHits: 1D array, number of hits
+            for the all the detectors
+
+    """
+    # Now we want to make the focalplane maps
+    focalplane_nHits = np.zeros(bore_nHits.shape)
+
+    # Resolution of our healpix map
+    nside = hp.npix2nside(focalplane_nHits.shape[0])
+    resol_amin = hp.nside2resol(nside, arcmin=True)
+    fp_rad_bins = int(fp_radius_amin * 2. / resol_amin)
+    fp_diam_bins = (fp_rad_bins * 2) + 1
+
+    # Build the focal plane model and a list of offsets
+    (x_fp, y_fp) = np.array(
+        np.unravel_index(
+            range(0, fp_diam_bins**2),
+            (fp_diam_bins, fp_diam_bins))).reshape(
+                2, fp_diam_bins, fp_diam_bins) - (fp_rad_bins)
+    fp_map = ((x_fp**2 + y_fp**2) < (fp_rad_bins)**2)
+
+    bolo_per_pix = nbolos / float(np.sum(fp_map))
+
+    dRA = np.ndarray.flatten(
+        (x_fp[fp_map].astype(float) * fp_radius_amin) / (
+            fp_rad_bins * 60. * (180. / (np.pi))))
+    dDec = np.ndarray.flatten(
+        (y_fp[fp_map].astype(float) * fp_radius_amin) / (
+            fp_rad_bins * 60. * (180. / (np.pi))))
+
+    pixels_global = np.array(np.where(bore_nHits != 0)[0], dtype=int)
+    for n in pixels_global:
+        n = int(n)
+
+        # Compute pointing offsets
+        (theta_bore, phi_bore) = hp.pix2ang(nside, n)
+        phi = phi_bore + dRA * np.sin(theta_bore)
+        theta = theta_bore + dDec
+
+        pixels = hp.ang2pix(nside, theta, phi)
+
+        method = 'Cweave'
+        if method == 'Cweave':
+            ## Necessary because the values in pixels
+            ## aren't necessarily unique!
+            ## This is a poor design choice and should probably be fixed
+            c_code = r"""
+            int i, pix;
+            for (i=0;i<npix_loc;i++)
+            {
+                pix = pixels[i];
+                focalplane_nHits[pix] += bore_nHits[n] * bolo_per_pix * boost;
+            }
+            """
+
+            npix_loc = len(pixels)
+            weave.inline(c_code, [
+                'bore_nHits',
+                'focalplane_nHits',
+                'pixels', 'bolo_per_pix', 'npix_loc', 'n', 'boost'])
+
+    return focalplane_nHits
+
+def date_to_mjd(date):
+    return greg_to_mjd(date_to_greg(date))
+
+def gregi_to_mjd(year, month, day, hour, minute, second):
+    fracday, status = slalib.sla_dtf2d(hour, minute, second)
+    mjd, status = slalib.sla_cldj(year, month, day)
+    mjd += fracday
+
+    return mjd
+
+def date_to_greg(date):
+    date_ = str(date)
+    date_ = str(date.datetime())
+    return date_.split('.')[0].replace('-','').replace(':','').replace(' ','_')
+
+def greg_to_mjd(str):
+    year = int(str[:4])
+    month = int(str[4:6])
+    day = int(str[6:8])
+    hour = int(str[9:11])
+    minute = int(str[11:13])
+    second = int(str[13:15])
+    return gregi_to_mjd(year,month,day,hour,minute,second)
+
+def mjd_to_greg(mjd):
+    year,month,day,fracday,baddate = slalib.sla_djcl(mjd)
+    if baddate: raise BadMJD
+
+    sign,(hour,minute,second,frac) = slalib.sla_dd2tf(2,fracday)
+
+    s = '%4d%2d%2d_%2d%2d%2d'%(year,month,day,hour,minute,second)
+    s = s.replace(' ','0')
+
+    return s
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
