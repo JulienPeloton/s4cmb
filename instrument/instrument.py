@@ -1257,6 +1257,42 @@ class half_wave_plate():
 
         return HWP_angles
 
+    def update_hardware(self, new_type_HWP, new_freq_HWP, new_angle_HWP):
+        """
+        Change the behaviour of the HWP.
+
+        Parameters
+        ----------
+        new_type_HWP : string, optional
+            The type of HWP that you want to mount on your instrument.
+            * CRWHP: continously rotating HWP.
+            * stepped: stepped HWP (once a CES).
+        new_freq_HWP : float, optional
+            The frequency of rotation of the HWP in Hz.
+        new_angle_HWP : float, optional
+            The offset of the HWP in degree.
+
+        Examples
+        ----------
+        Continously rotating HWP at 2 Hz starting at 0 degree.
+        >>> hwp = half_wave_plate(type_HWP='CRHWP', freq_HWP=2., angle_HWP=0.)
+        >>> hwp.compute_HWP_angles(sample_rate=100., size=10)
+        ... # doctest: +NORMALIZE_WHITESPACE
+        array([ 0.        ,  0.12566371,  0.25132741,  0.37699112,  0.50265482,
+            0.62831853,  0.75398224,  0.87964594,  1.00530965,  1.13097336])
+
+        For some reason, our HWP died!
+        >>> hwp.update_hardware(new_type_HWP='stepped',
+        ...     new_freq_HWP=0.0, new_angle_HWP=0.0)
+        >>> hwp.compute_HWP_angles(sample_rate=100., size=10)
+        ... # doctest: +NORMALIZE_WHITESPACE
+        array([ 0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.])
+
+        """
+        self.type_HWP = new_freq_HWP
+        self.freq_HWP = new_freq_HWP
+        self.angle_HWP = new_angle_HWP
+
 
 def savefits_todisk(headerdict, datadict, output_file):
     """
