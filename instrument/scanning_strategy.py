@@ -686,6 +686,24 @@ class tod_io():
 
         out_file.close()
 
+    @staticmethod
+    def load_file(filename):
+        """
+        Load scanning strategy files from the disk.
+        The file format is hdf5.
+
+        Parameters
+        ----------
+        filename : string
+            Name of the hdf5 file containing the scan parameters.
+
+        Returns
+        ----------
+        dic : dictionary
+            Dictionary containing the scan parameters
+        """
+        pass
+
 ## Here are a bunch of routines to handle dates...
 
 def date_to_mjd(date):
