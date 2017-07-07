@@ -65,7 +65,7 @@ TODO
 * Make it public!
 * Write Fortran interface.
 * Update the version of the package.
-* Link to Travis.
+* Link to Travis (make a branch for testing before...).
 * Link to coverage.
 * Start the TOD module.
 
