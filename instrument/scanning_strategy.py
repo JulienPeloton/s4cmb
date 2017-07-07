@@ -453,14 +453,14 @@ class scanning_strategy():
         >>> scan.run()
 
         Set test=False if you want to display the output.
-        >>> scan.visualize_my_scan(nside=128, test=True)
-        test mode: nhits = 11587/196608 (fsky=5.89%), max hit = 305245
+        >>> scan.visualize_my_scan(nside=64, test=True)
+        test mode: nhits = 2946/49152 (fsky=5.99%), max hit = 1277119
 
         Note that you cannot yet perform visualisation if using speed up
         in C or fortran because RA and Dec are not computed.
         >>> scan = scanning_strategy(sampling_freq=1., nCES=1, language='C')
         >>> scan.run()
-        >>> scan.visualize_my_scan(nside=128, test=True)
+        >>> scan.visualize_my_scan(nside=64, test=True)
         ... # doctest: +NORMALIZE_WHITESPACE, +ELLIPSIS
         Traceback (most recent call last):
          ...
@@ -709,7 +709,7 @@ class tod_io():
 
 def date_to_mjd(date):
     """
-    Convert
+    Convert date in ephem.date format to MJD.
 
     Parameters
     ----------
@@ -730,43 +730,120 @@ def date_to_mjd(date):
     Examples
     ----------
     >>> e = ephem.Observer()
+    >>> e.date = 0.0 ## 1899 December 31 12:00 UT
     >>> mjd = date_to_mjd(e.date)
-    >>> print(round(e.date, 2), round(mjd, 2))
-    42921.18 57940.68
+    >>> print('DATE={} ->'.format(round(e.date, 2)),
+    ...     'MJD={}'.format(round(mjd, 2)))
+    DATE=0.0 -> MJD=15019.5
     """
     return greg_to_mjd(date_to_greg(date))
 
-def gregi_to_mjd(year, month, day, hour, minute, second):
+def date_to_greg(date):
+    """
+    Convert date in ephem.date format to gregorian date.
+
+    Parameters
+    ----------
+    date : ephem.Date
+        Floating point value used by ephem to represent a date.
+        The value is the number of days since 1899 December 31 12:00 UT. When
+        creating an instance you can pass in a Python datetime instance,
+        timetuple, year-month-day triple, or a plain float.
+        Run str() on this object to see the UTC date it represents.
+        ...
+        WTF?
+
+    Returns
+    ----------
+    greg : string
+        Gregorian date (format: YYYYMMDD_HHMMSS)
+
+    Examples
+    ----------
+    >>> e = ephem.Observer()
+    >>> e.date = 0.0 ## 1899 December 31 12:00 UT
+    >>> greg = date_to_greg(e.date)
+    >>> print('DATE={} ->'.format(round(e.date, 2)),
+    ...     'GREG={}'.format(greg))
+    DATE=0.0 -> GREG=18991231_120000
+    """
+    date_ = str(date)
+    date_ = str(date.datetime())
+    greg = date_.split('.')[0].replace('-',
+                                       '').replace(':',
+                                                   '').replace(' ',
+                                                               '_')
+
+    return greg
+
+def greg_to_mjd(greg):
+    """
+    Convert gregorian date into MJD.
+
+    Parameters
+    ----------
+    greg : string
+        Gregorian date (format: YYYYMMDD_HHMMSS)
+
+    Returns
+    ----------
+    mjd : float
+        Date in the format MJD.
+
+    Examples
+    ----------
+    >>> greg = '19881103_000000'
+    >>> mjd = greg_to_mjd(greg)
+    >>> print('GREG={} ->'.format(greg), 'MJD={}'.format(round(mjd, 2)))
+    GREG=19881103_000000 -> MJD=47468.0
+    """
+    year = int(greg[:4])
+    month = int(greg[4:6])
+    day = int(greg[6:8])
+    hour = int(greg[9:11])
+    minute = int(greg[11:13])
+    second = int(greg[13:15])
+
     fracday, status = slalib.sla_dtf2d(hour, minute, second)
     mjd, status = slalib.sla_cldj(year, month, day)
     mjd += fracday
 
     return mjd
 
-def date_to_greg(date):
-    date_ = str(date)
-    date_ = str(date.datetime())
-    return date_.split('.')[0].replace('-','').replace(':','').replace(' ','_')
-
-def greg_to_mjd(str):
-    year = int(str[:4])
-    month = int(str[4:6])
-    day = int(str[6:8])
-    hour = int(str[9:11])
-    minute = int(str[11:13])
-    second = int(str[13:15])
-    return gregi_to_mjd(year,month,day,hour,minute,second)
-
 def mjd_to_greg(mjd):
-    year,month,day,fracday,baddate = slalib.sla_djcl(mjd)
-    if baddate: raise BadMJD
+    """
+    Convert MJD into gregorian date.
 
-    sign,(hour,minute,second,frac) = slalib.sla_dd2tf(2,fracday)
+    Parameters
+    ----------
+    mjd : float
+        Date in the format MJD.
 
-    s = '%4d%2d%2d_%2d%2d%2d'%(year,month,day,hour,minute,second)
-    s = s.replace(' ','0')
+    Returns
+    ----------
+    greg : string
+        Gregorian date (format: YYYYMMDD_HHMMSS)
+
+    Examples
+    ----------
+    >>> mjd = greg_to_mjd('19881103_000000')
+    >>> greg = mjd_to_greg(mjd)
+    >>> print('MJD={} ->'.format(round(mjd, 2)), 'GREG={}'.format(greg))
+    MJD=47468.0 -> GREG=19881103_000000
+    """
+    year, month, day, fracday, baddate = slalib.sla_djcl(mjd)
+
+    if baddate:
+        raise ValueError(BadMJD)
+
+    sign, (hour, minute, second, frac) = slalib.sla_dd2tf(2, fracday)
+
+    s = '{:4d}{:2d}{:2d}_{:2d}{:2d}{:2d}'.format(
+        year, month, day, hour, minute, second)
+    s = s.replace(' ', '0')
 
     return s
+
 
 if __name__ == "__main__":
     import doctest
