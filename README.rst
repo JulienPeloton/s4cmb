@@ -12,19 +12,20 @@ Requirements
 =============
 The pipeline is mainly written in python and it has the following dependencies:
 
-* numpy, scipy, matplotlib, etc.
-* f2py (for fortran to python interfacing)
-* mpi4py (for parallel computing)
-* ...
+* numpy, matplotlib
+* h5py (I/O)
+* astropy, ephem, pyslalib (astro lib)
+* f2py, weave (interfacing with python)
 
 While we use python 2.7, we try to make it compatible with python 3.x.
 If you are using python 3.x and you encounter an error, please open an issue or a
 pull request so that we fix it asap.
 
 Some parts of the pipeline are written in C (and compiled on-the-fly via the
-package weave), and in Fortran. The latter is interfaced with python using f2py.
-The compilation is done usually when you install the package (see setup.py), but
-we also provide a Makefile for more customized compilations (see dir/Makefile).
+package weave), and in Fortran (to come). The latter is interfaced with
+python using f2py. The compilation is done usually when you install the
+package (see setup.py), but we also provide a Makefile for more
+customized compilations (see dir/Makefile).
 
 Installation
 =============
@@ -48,10 +49,10 @@ Just add in your bashrc:
 ::
 
     s4cmbPATH=/path/to/the/package
-    export PYTHONPATH=$PYTHONPATH:$s4cmbPATH
+    export PYTHONPATH=$PYTHONPATH:$s4cmbPATH:$s4cmbPATH/instrument
 
 Alternatively if you do not want install the package on your computer,
-you can also use the dockerfile provided to create a docker image:
+you can also use the dockerfile provided to create a docker image (to come):
 
 ::
 
