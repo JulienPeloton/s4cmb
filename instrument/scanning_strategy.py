@@ -329,13 +329,15 @@ class scanning_strategy():
         self.telescope_location.date += num_pts * ephem.second / sampling_freq
 
         ## Save in file
+        scan_file['nCES'] = self.nCES
+        scan_file['CES'] = scan_number
         scan_file['sample_rate'] = sampling_freq
+        scan_file['sky_speed'] = self.sky_speed
         scan_file['lastmjd'] = pb_mjd_array[-1] + time_padding
 
-        scan_file['antenna0-tracker-actual-0'] = pb_az_array * np.pi / 180
-        scan_file['antenna0-tracker-actual-1'] = pb_el_array * np.pi / 180
-        scan_file['antenna0-tracker-utc-0'] = pb_mjd_array
-        scan_file['receiver-bolometers-utc'] = pb_mjd_array
+        scan_file['azimuth'] = pb_az_array * np.pi / 180
+        scan_file['elevation'] = pb_el_array * np.pi / 180
+        scan_file['clock-utc'] = pb_mjd_array
 
         scan_file['RA'] = pb_ra_array
         scan_file['Dec'] = pb_dec_array
@@ -470,7 +472,7 @@ class scanning_strategy():
         for scan_number in range(self.nCES):
             scan = getattr(self, 'scan{}'.format(scan_number))
 
-            num_pts = len(scan['antenna0-tracker-actual-0'])
+            num_pts = len(scan['clock-utc'])
             pix_global = hp.pixelfunc.ang2pix(
                 nside, (np.pi/2.) - scan['Dec'], scan['RA'])
 
@@ -648,15 +650,11 @@ class tod_io():
         """
 
         ## Azimuth / Elevation
-        dic['antenna0-tracker-actual-0'] = []
-        dic['antenna0-tracker-actual-1'] = []
+        dic['azimuth'] = []
+        dic['elevation'] = []
 
         ## Time UTC
-        dic['antenna0-tracker-utc-0'] = []
-
-        ## Receiver clock
-        dic['receiver-bolometers-utc'] = []
-        dic['receiver-bolometers-adcShort'] = []
+        dic['clock-utc'] = []
 
         return dic
 
