@@ -376,7 +376,6 @@ class scanning_strategy():
         >>> print(scan.scan0['firstmjd'], scan.scan0['lastmjd'])
         56293.6202546 56293.8230093
         """
-        dic_HWP = {}
         ## Loop over CESes
         for CES_position in range(self.nCES):
             ## Initialise the starting date of observation
@@ -395,7 +394,6 @@ class scanning_strategy():
                 if not silent:
                     print('-- Data already on disk: skipping --')
                 continue
-            # create_HWP(myargs, dic_HWP, scan, CES_position)
 
             # Save the CES on disk
             if save_on_disk and scan_is_new:
@@ -403,11 +401,6 @@ class scanning_strategy():
                 if not os.path.isdir(out_folder):
                     os.makedirs(out_folder)
                 tod_io.save_file(scan, output_folder=out_folder)
-
-        # if s is not False:
-        #     hwp_caltable = os.path.join(
-        #         config.get_cal_path(), 'hwp_caltable_{}.pkl'.format(args.tag))
-        #     so_util.pickle_save(dic_HWP, hwp_caltable)
 
     def visualize_my_scan(self, nside, reso=6.9, xsize=900, rot=[0, -57.5],
                           nfid_bolometer=6000, fp_size=180., boost=1.,
@@ -660,9 +653,6 @@ class tod_io():
 
         ## Time UTC
         dic['antenna0-tracker-utc-0'] = []
-
-        ## WHWP angles
-        dic['WHWPangle'] = []
 
         ## Receiver clock
         dic['receiver-bolometers-utc'] = []
