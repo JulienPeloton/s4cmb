@@ -145,6 +145,7 @@ class hardware():
                  FWHM=3.5, beam_seed=58347,
                  projected_fp_size=3.,
                  pm_name='5params',
+                 type_HWP='CRHWP', freq_HWP=2., angle_HWP=0.,
                  output_folder='./', name='_to_test_', debug=False):
         """
         This class creates the data used to model the instrument:
@@ -200,6 +201,8 @@ class hardware():
 
         self.polarisation_angle_model = polarisation_angle_model(
             self.focal_plane, output_folder, name)
+
+        self.half_wave_plate = half_wave_plate(type_HWP, freq_HWP, angle_HWP)
 
 class focal_plane():
     """ Class to handle the focal plane of the instrument. """
@@ -495,8 +498,8 @@ class focal_plane():
         >>> fp = focal_plane(debug=False)
 
         Return the id of the Crate boards in the focal plane (one here)
-        >>> fp.unpack_hwmap(fn='./focal_plane__to_test_.xml', tag='Crate', key='id')
-        ...     # doctest: +NORMALIZE_WHITESPACE
+        >>> fp.unpack_hwmap(fn='./focal_plane__to_test_.xml',
+        ...     tag='Crate', key='id') # doctest: +NORMALIZE_WHITESPACE
         array(['Cr0'], dtype='|S3')
 
         Return the id of the DfMux boards in the focal plane (one here)
@@ -1173,6 +1176,87 @@ class polarisation_angle_model():
             headerdict['date'] = str(datetime.date.today())
 
         savefits_todisk(headerdict, self.paprm, self.output_file)
+
+class half_wave_plate():
+    """ Class to handle the Half-Wave Plate (HWP) """
+    def __init__(self, type_HWP='CRHWP', freq_HWP=2., angle_HWP=0.):
+        """
+        This class provides routines to compute the HWP angles.
+        This can be use later to generate timestreams.
+
+        Parameters
+        ----------
+        type_HWP : string, optional
+            The type of HWP that you want to mount on your instrument.
+            * CRWHP: continously rotating HWP.
+            * stepped: stepped HWP (once a CES).
+        freq_HWP : float, optional
+            The frequency of rotation of the HWP in Hz.
+        angle_HWP : float, optional
+            The offset of the HWP in degree.
+
+        """
+        self.type_HWP = type_HWP
+        self.freq_HWP = freq_HWP
+        self.angle_HWP = angle_HWP
+
+        if self.type_HWP not in ['CRHWP', 'stepped']:
+            raise ValueError("`type_HWP` has to be 'CRHWP' or 'stepped'.")
+
+        if self.type_HWP is 'stepped' and freq_HWP != 0.0:
+            raise AssertionError("You cannot have a stepped HWP and non-" +
+                                 "zero frequency! set freq_HWP=0.0 " +
+                                 "if you want a stepped HWP.")
+
+    def compute_HWP_angles(self, sample_rate=1., size=1):
+        """
+        Generate HWP angles which can be use later to generate timestreams.
+
+        Parameters
+        ----------
+        sample_rate : float, optional
+            Sample rate of the detectors
+        size : int, optional
+            Length of the vector of angles (number of time samples).
+
+        Returns
+        ----------
+        HWP_angles : ndarray
+            1d array of size `size` containting the HWP angles in radian.
+
+        Examples
+        Continously rotating HWP at 2 Hz starting at 0 degree.
+        >>> hwp = half_wave_plate(type_HWP='CRHWP', freq_HWP=2., angle_HWP=0.)
+        >>> hwp.compute_HWP_angles(sample_rate=100., size=10)
+        ... # doctest: +NORMALIZE_WHITESPACE
+        array([ 0.        ,  0.12566371,  0.25132741,  0.37699112,  0.50265482,
+            0.62831853,  0.75398224,  0.87964594,  1.00530965,  1.13097336])
+
+        Stepped HWP with 30 degrees angle
+        >>> hwp = half_wave_plate(type_HWP='stepped',
+        ...     freq_HWP=0.0, angle_HWP=30.)
+        >>> hwp.compute_HWP_angles(sample_rate=100., size=10)
+        ... # doctest: +NORMALIZE_WHITESPACE
+        array([ 0.52359878,  0.52359878,  0.52359878,  0.52359878,  0.52359878,
+            0.52359878,  0.52359878,  0.52359878,  0.52359878,  0.52359878])
+
+        For a stepped HWP, the frequency must be zero
+        >>> hwp = half_wave_plate(type_HWP='stepped',
+        ...     freq_HWP=1.0, angle_HWP=30.)
+        ... # doctest: +NORMALIZE_WHITESPACE, +ELLIPSIS
+        Traceback (most recent call last):
+            ...
+        AssertionError: You cannot have a stepped HWP and non-zero frequency!
+        set freq_HWP=0.0 if you want a stepped HWP.
+        """
+        angle = self.angle_HWP * np.pi / 180.
+
+        HWP_angles = np.array(
+            [angle + t * (self.freq_HWP / sample_rate) *
+             2. * np.pi for t in range(size)])
+
+        return HWP_angles
+
 
 def savefits_todisk(headerdict, datadict, output_file):
     """
