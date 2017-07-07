@@ -13,8 +13,6 @@ import numpy as np
 import healpy as hp
 import weave
 
-# pyslalib now installs slalib.so to site-packages/pyslalib/slalib.so
-# This handles both cases. 2011-03-04
 from pyslalib import slalib
 
 # ## numerical constants
