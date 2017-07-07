@@ -59,6 +59,16 @@ you can also use the dockerfile provided to create a docker image (to come):
     docker build -t s4cmb .
     docker run -it s4cmb
 
+TODO
+=============
+
+* Make it public!
+* Write Fortran interface.
+* Update the version of the package.
+* Link to Travis.
+* Link to coverage.
+* Start the TOD module.
+
 Main developers
 =============
 * Julien Peloton (j.peloton at sussex.ac.uk)
