@@ -15,10 +15,7 @@ import weave
 
 # pyslalib now installs slalib.so to site-packages/pyslalib/slalib.so
 # This handles both cases. 2011-03-04
-try:
-    from pyslalib import slalib
-except ImportError:
-    import slalib
+from pyslalib import slalib
 
 # ## numerical constants
 radToDeg = 180 / np.pi
@@ -454,7 +451,7 @@ class scanning_strategy():
 
         Set test=False if you want to display the output.
         >>> scan.visualize_my_scan(nside=64, test=True)
-        test mode: nhits = 2946/49152 (fsky=5.99%), max hit = 1277119
+        Stats: nhits = 2946/49152 (fsky=5.99%), max hit = 1277119
 
         Note that you cannot yet perform visualisation if using speed up
         in C or fortran because RA and Dec are not computed.
@@ -510,27 +507,27 @@ class scanning_strategy():
             nhit += nhit_loc
 
         ## Display the result of not testing.
+        if test:
+            import matplotlib
+            matplotlib.use("Agg")
+        import pylab as pl
+
+        print('Stats: nhits = {}/{} (fsky={}%), max hit = {}'.format(
+            len(nhit[nhit > 0]),
+            len(nhit),
+            round(len(nhit[nhit > 0])/len(nhit) * 100, 2),
+            int(np.max(nhit))))
+        nhit[nhit == 0] = hp.UNSEEN
+        hp.gnomview(nhit, rot=rot, reso=reso, xsize=xsize,
+                    cmap=pl.cm.viridis,
+                    title='nbolos = {}, '.format(nfid_bolometer) +
+                    'fp size = {} arcmin, '.format(fp_size) +
+                    'nhit boost = {}'.format(boost))
         if not test:
-            import pylab as pl
-            print('visu mode: nhits = {}/{} (fsky={}%), max hit = {}'.format(
-                len(nhit[nhit > 0]),
-                len(nhit),
-                round(len(nhit[nhit > 0])/len(nhit) * 100, 2),
-                int(np.max(nhit))))
-            nhit[nhit == 0] = np.nan
-            hp.gnomview(nhit, rot=rot, reso=reso, xsize=xsize,
-                        cmap=pl.cm.viridis,
-                        title='nbolos = {}, '.format(nfid_bolometer) +
-                        'fp size = {} arcmin, '.format(fp_size) +
-                        'nhit boost = {}'.format(boost))
-            hp.graticule(dpar=1.)
-            pl.show()
-        else:
-            print('test mode: nhits = {}/{} (fsky={}%), max hit = {}'.format(
-                len(nhit[nhit > 0]),
-                len(nhit),
-                round(len(nhit[nhit > 0])/len(nhit) * 100, 2),
-                int(np.max(nhit))))
+            hp.graticule()
+
+        pl.show()
+        pl.clf()
 
     @staticmethod
     def convolve_focalplane(bore_nHits, nbolos, fp_radius_amin, boost):
@@ -636,12 +633,10 @@ class scanning_strategy():
         setattr(self, name, value)
 
 class tod_io():
-    """ Class to handle the I/O in the scanning strategy module """
-    def __init__(self):
-        """
-        Some static methods to manipulate the I/O.
-        """
-        pass
+    """
+    Class with static methods to manipulate the I/O
+    in the scanning strategy module
+    """
 
     @staticmethod
     def create_fields_in_file(dic):
