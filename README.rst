@@ -14,7 +14,7 @@ The pipeline is mainly written in python and it has the following dependencies:
 
 * numpy, matplotlib
 * h5py (I/O)
-* astropy, ephem, pyslalib (astro lib)
+* astropy, ephem, pyslalib, healpy (astro libs)
 * f2py, weave (interfacing with python)
 
 While we use python 2.7, we try to make it compatible with python 3.x.
