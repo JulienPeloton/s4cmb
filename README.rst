@@ -51,9 +51,6 @@ Just add in your bashrc:
 TODO
 =============
 
-* Make it public!
-* Write Fortran interface.
-* Update the version of the package.
 * Add the dockerfile.
 * Link to pip.
 * Link to coverage.

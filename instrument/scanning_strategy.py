@@ -504,7 +504,7 @@ class scanning_strategy():
                 weave.inline(c_code, [
                     'pix_global',
                     'num_pts',
-                    'nhit_loc'])
+                    'nhit_loc'], verbose=0)
             elif self.language == 'fortran':
                 from scanning_strategy_f import scanning_strategy_f
                 scanning_strategy_f.mapmaking(
@@ -627,7 +627,8 @@ class scanning_strategy():
                 for (i=0;i<npix_loc;i++)
                 {
                     pix = pixels[i];
-                    focalplane_nhits[pix] += bore_nhits[n] * bolo_per_pix * boost;
+                    focalplane_nhits[pix] += bore_nhits[n] * \
+                    bolo_per_pix * boost;
                 }
                 """
 
@@ -635,7 +636,8 @@ class scanning_strategy():
                 weave.inline(c_code, [
                     'bore_nhits',
                     'focalplane_nhits',
-                    'pixels', 'bolo_per_pix', 'npix_loc', 'n', 'boost'])
+                    'pixels', 'bolo_per_pix',
+                    'npix_loc', 'n', 'boost'], verbose=0)
 
             elif language == 'fortran':
                 from scanning_strategy_f import scanning_strategy_f
