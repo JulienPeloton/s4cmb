@@ -5,7 +5,8 @@ from setuptools import setup, find_packages
 from numpy.distutils.misc_util import Configuration
 
 def configuration(parent_package='', top_path=None):
-    config = Configuration('instrument', parent_package, top_path)
+    config = Configuration('s4cmb', parent_package, top_path,
+                           namespace_packages=['instrument'])
     config.add_extension('scanning_strategy_f',
                          sources=['instrument/scanning_strategy_f.f90'],
                          libraries=[], f2py_options=[],
@@ -29,7 +30,7 @@ setup(
     description='Simulate systematic effects in the context of CMB',
     long_description=open('README.rst', 'r').read(),
     platforms='any',
-    configuration=configuration(),
+    configuration=configuration,
     packages=find_packages(),
     install_requires=reqs,
     classifiers=[
