@@ -323,6 +323,14 @@ class scanning_strategy():
                 'lower_az', 'az_speed', 'pb_az_dir', 'pb_mjd_array',
                 'second', 'sampling_freq'], verbose=0)
 
+        elif self.language == 'fortran':
+            from scanning_strategy_f import scanning_strategy_f
+            second = 1./24./3600.
+            scanning_strategy_f.run_one_scan_f(
+                pb_az_array, pb_mjd_array,
+                running_az, upper_az, lower_az, az_speed, pb_az_dir,
+                second, sampling_freq, num_pts)
+
         ## Do not use that for precision - it truncates values
         self.telescope_location.date += num_pts * ephem.second / sampling_freq
 
@@ -474,28 +482,38 @@ class scanning_strategy():
             pix_global = hp.pixelfunc.ang2pix(
                 nside, (np.pi/2.) - scan['Dec'], scan['RA'])
 
-            c_code = r"""
-            int i, pix;
-            double c, s;
-            for (i=0;i<num_pts;i++)
-            {
-                pix = pix_global[i];
+            ## language = C or language = fortran are not yet supported
+            ## because they are not returning RA and Dec. So for the moment
+            ## only language == python is considered.
+            ## TODO Compute RA and Dec in C and Fortran.
+            if self.language in ['python', 'C']:
+                c_code = r"""
+                int i, pix;
+                double c, s;
+                for (i=0;i<num_pts;i++)
+                {
+                    pix = pix_global[i];
 
-                // Number of hits per pixel
-                nhit_loc[pix] += 1;
-            }
-            """
+                    // Number of hits per pixel
+                    nhit_loc[pix] += 1;
+                }
+                """
 
-            ## Boresight pointing healpix maps
-            nhit_loc = np.zeros(npix)
-            weave.inline(c_code, [
-                'pix_global',
-                'num_pts',
-                'nhit_loc'])
+                ## Boresight pointing healpix maps
+                nhit_loc = np.zeros(npix)
+                weave.inline(c_code, [
+                    'pix_global',
+                    'num_pts',
+                    'nhit_loc'])
+            elif self.language == 'fortran':
+                from scanning_strategy_f import scanning_strategy_f
+                scanning_strategy_f.mapmaking(
+                    pix_global, nhit_loc, npix, num_pts)
 
             ## Fake large focal plane with many bolometers for visualisation.
             nhit_loc = self.convolve_focalplane(nhit_loc, nfid_bolometer,
-                                                fp_size, boost)
+                                                fp_size, boost,
+                                                language=self.language)
 
             nhit += nhit_loc
 
@@ -523,7 +541,8 @@ class scanning_strategy():
         pl.clf()
 
     @staticmethod
-    def convolve_focalplane(bore_nHits, nbolos, fp_radius_amin, boost):
+    def convolve_focalplane(bore_nhits, nbolos,
+                            fp_radius_amin, boost, language='C'):
         """
         Given a nHits and bore_cos and bore_sin map,
         perform the focal plane convolution.
@@ -532,7 +551,7 @@ class scanning_strategy():
 
         Parameters
         ----------
-        bore_nHits : 1D array
+        bore_nhits : 1D array
             number of hits for the reference detector.
         bore_cos : 1D array
             cumulative cos**2 for the reference detector.
@@ -547,18 +566,22 @@ class scanning_strategy():
         boost : float
             boost factor to artificially increase the number of hits.
             It doesn't change the shape of the survey (just the amplitude).
+        language : string, optional
+            Language to use to perform core computation: C or fortran.
+            Default is C (compiled on-the-fly via weave). To use fortran,
+            you need to compile the source (see the Makefile provided).
 
         Returns
         ----------
-        focalplane_nHits : 1D array
+        focalplane_nhits : 1D array
             Number of hits for the all the detectors.
 
         """
         # Now we want to make the focalplane maps
-        focalplane_nHits = np.zeros(bore_nHits.shape)
+        focalplane_nhits = np.zeros(bore_nhits.shape)
 
         # Resolution of our healpix map
-        nside = hp.npix2nside(focalplane_nHits.shape[0])
+        nside = hp.npix2nside(focalplane_nhits.shape[0])
         resol_amin = hp.nside2resol(nside, arcmin=True)
         fp_rad_bins = int(fp_radius_amin * 2. / resol_amin)
         fp_diam_bins = (fp_rad_bins * 2) + 1
@@ -580,7 +603,7 @@ class scanning_strategy():
             (y_fp[fp_map].astype(float) * fp_radius_amin) / (
                 fp_rad_bins * 60. * (180. / (np.pi))))
 
-        pixels_global = np.array(np.where(bore_nHits != 0)[0], dtype=int)
+        pixels_global = np.array(np.where(bore_nhits != 0)[0], dtype=int)
         for n in pixels_global:
             n = int(n)
 
@@ -591,25 +614,36 @@ class scanning_strategy():
 
             pixels = hp.ang2pix(nside, theta, phi)
 
-            ## Necessary because the values in pixels
-            ## aren't necessarily unique!
+            ## Necessary because the values in pixels aren't necessarily unique
             ## This is a poor design choice and should probably be fixed
-            c_code = r"""
-            int i, pix;
-            for (i=0;i<npix_loc;i++)
-            {
-                pix = pixels[i];
-                focalplane_nHits[pix] += bore_nHits[n] * bolo_per_pix * boost;
-            }
-            """
 
-            npix_loc = len(pixels)
-            weave.inline(c_code, [
-                'bore_nHits',
-                'focalplane_nHits',
-                'pixels', 'bolo_per_pix', 'npix_loc', 'n', 'boost'])
+            ## language = C or language = fortran are not yet supported
+            ## because they are not returning RA and Dec. So for the moment
+            ## only language == python is considered.
+            ## TODO Compute RA and Dec in C and Fortran.
+            if language in ['python', 'C']:
+                c_code = r"""
+                int i, pix;
+                for (i=0;i<npix_loc;i++)
+                {
+                    pix = pixels[i];
+                    focalplane_nhits[pix] += bore_nhits[n] * bolo_per_pix * boost;
+                }
+                """
 
-        return focalplane_nHits
+                npix_loc = len(pixels)
+                weave.inline(c_code, [
+                    'bore_nhits',
+                    'focalplane_nhits',
+                    'pixels', 'bolo_per_pix', 'npix_loc', 'n', 'boost'])
+
+            elif language == 'fortran':
+                from scanning_strategy_f import scanning_strategy_f
+                scanning_strategy_f.convolve_focalplane_f(
+                    bore_nhits, focalplane_nhits, pixels,
+                    bolo_per_pix, boost, npix_loc)
+
+        return focalplane_nhits
 
     def _update(self, name, value):
         """
