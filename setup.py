@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 from numpy.distutils.misc_util import Configuration
 
 def configuration(parent_package='', top_path=None):
-    config = Configuration('src', parent_package, top_path)
+    config = Configuration('instrument', parent_package, top_path)
     config.add_extension('scanning_strategy_f',
                          sources=['instrument/scanning_strategy_f.f90'],
                          libraries=[], f2py_options=[],
