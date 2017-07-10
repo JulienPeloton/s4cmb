@@ -51,7 +51,6 @@ TODO
 * Make it public!
 * Write Fortran interface.
 * Update the version of the package.
-* Link to Travis (make a branch for testing before...).
 * Add the dockerfile.
 * Link to pip.
 * Link to coverage.
