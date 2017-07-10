@@ -383,6 +383,18 @@ class scanning_strategy():
         >>> scan.run()
         >>> print(scan.scan0['firstmjd'], scan.scan0['lastmjd'])
         56293.6202546 56293.8230093
+
+        By default, the language used for the core computation is the Python.
+        It can be quite slow for heavy configuration, and one can set up
+        the language to C or fortran for speeding up the computation (x1000).
+        Note that C codes are compiled on-the-fly (weave), but for fortran
+        codes you need first to compile it. See the setup.py or
+        the provided Makefile.
+        >>> scan = scanning_strategy(sampling_freq=1., nCES=2,
+        ...     language='fortran')
+        >>> scan.run()
+        >>> print(scan.scan0['firstmjd'], scan.scan0['lastmjd'])
+        56293.6202546 56293.8230093
         """
         ## Loop over CESes
         for CES_position in range(self.nCES):

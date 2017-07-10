@@ -2,6 +2,19 @@
 # Copyright 2017 Julien Peloton
 # Licensed under the GPL-3.0 License, see LICENSE file for details.
 from setuptools import setup, find_packages
+from numpy.distutils.misc_util import Configuration
+
+def configuration(parent_package='', top_path=None):
+    config = Configuration('src', parent_package, top_path)
+    config.add_extension('scanning_strategy_f',
+                         sources=['instrument/scanning_strategy_f.f90'],
+                         libraries=[], f2py_options=[],
+                         extra_f90_compile_args=[
+                             '-ffixed-line-length-1000',
+                             '-O3'],
+                         extra_compile_args=[''], extra_link_args=[''],)
+    return config
+
 
 reqs = open('requirements.txt', 'r').read().strip().splitlines()
 
@@ -16,6 +29,7 @@ setup(
     description='Simulate systematic effects in the context of CMB',
     long_description=open('README.rst', 'r').read(),
     platforms='any',
+    configuration=configuration,
     packages=find_packages(),
     install_requires=reqs,
     classifiers=[
