@@ -1,6 +1,9 @@
 #!/usr/bin/python
 """
 Script to simulate and handle input sky maps to be scanned.
+Default file format is .fits containing healpix maps, and it comes with a
+class HealpixFitsMap to handle it easily.
+If you have a different I/O in your pipeline, just add a new class.
 
 Author: Julien Peloton, j.peloton@sussex.ac.uk
 """
