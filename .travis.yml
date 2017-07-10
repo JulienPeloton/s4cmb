@@ -10,7 +10,8 @@ before_install:
     - export PATH="$HOME/miniconda/bin:$PATH"
     - conda update --yes conda
 install:
-    - conda install --yes python=$TRAVIS_PYTHON_VERSION pip numpy matplotlib mpi4py ephem astropy pyslalib h5py healpy weave
+    - conda install --yes python=$TRAVIS_PYTHON_VERSION pip numpy matplotlib mpi4py ephem astropy h5py healpy weave
+    - pip install pyslalib
     - python setup.py install
 
 # Tests are inside modules (doctest)
