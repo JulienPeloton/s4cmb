@@ -29,13 +29,7 @@ customized compilations (see dir/Makefile).
 
 Installation
 =============
-You can easily install the package using pip
-
-::
-
-    pip install s4cmb
-
-Otherwise, you can clone the repo from the github repository and
+Clone or fork the repo from the github repository and
 use the setup.py for the installation. Just run:
 
 ::
@@ -51,14 +45,6 @@ Just add in your bashrc:
     s4cmbPATH=/path/to/the/package
     export PYTHONPATH=$PYTHONPATH:$s4cmbPATH:$s4cmbPATH/instrument
 
-Alternatively if you do not want install the package on your computer,
-you can also use the dockerfile provided to create a docker image (to come):
-
-::
-
-    docker build -t s4cmb .
-    docker run -it s4cmb
-
 TODO
 =============
 
@@ -66,6 +52,8 @@ TODO
 * Write Fortran interface.
 * Update the version of the package.
 * Link to Travis (make a branch for testing before...).
+* Add the dockerfile.
+* Link to pip.
 * Link to coverage.
 * Start the TOD module.
 
