@@ -1,5 +1,7 @@
 ================
-s4cmb (public version) [![Build Status](https://travis-ci.org/JulienPeloton/s4cmb.svg?branch=master)](https://travis-ci.org/JulienPeloton/s4cmb)
+s4cmb (public version)
+.. image:: https://travis-ci.org/JulienPeloton/s4cmb.svg?branch=master
+    :target: https://travis-ci.org/JulienPeloton/s4cmb
 ================
 
 The package
