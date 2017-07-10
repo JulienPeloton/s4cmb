@@ -18,5 +18,5 @@ install:
 
 # Tests are inside modules (doctest)
 script:
-    - python instrument/hardware.py
+    - python instrument/instrument.py
     - python instrument/scanning_strategy.py
