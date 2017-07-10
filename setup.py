@@ -29,6 +29,6 @@ setup(
         'Programming Language :: Python :: 3',
         'Topic :: Instrumentation',
         'Topic :: Simulation',
-        'Topic :: CMB',
+        'Topic :: CMB'
     ]
 )

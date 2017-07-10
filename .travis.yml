@@ -3,17 +3,10 @@ language: python
 python:
     - "2.7"
 
-# Setup anaconda
-before_install:
-    - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
-    - bash miniconda.sh -b -p $HOME/miniconda
-    - export PATH="$HOME/miniconda/bin:$PATH"
-    - conda update --yes conda
 install:
-    - conda install --yes python=$TRAVIS_PYTHON_VERSION pip numpy matplotlib mpi4py ephem astropy h5py
-    - conda install --yes -c conda-forge healpy=1.10.3 
-    - conda install --yes -c kadrlica pyslalib=2016.09.08
-    - conda install --yes -c conda-forge weave=0.15.0
+    - sudo apt-get install -qq libhdf5-serial-dev
+    - pip install --upgrade pip setuptools wheel
+    - pip install -r requirements.txt
     - python setup.py install
 
 # Tests are inside modules (doctest)
