@@ -7,7 +7,7 @@ reqs = open('requirements.txt', 'r').read().strip().splitlines()
 
 setup(
     name='s4cmb',
-    version='0.1.0',
+    version='0.2.0',
     url='https://github.com/JulienPeloton/s4cmb',
     download_url='',
     license='GPL-3.0',
