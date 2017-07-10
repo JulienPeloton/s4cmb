@@ -29,7 +29,7 @@ setup(
     description='Simulate systematic effects in the context of CMB',
     long_description=open('README.rst', 'r').read(),
     platforms='any',
-    configuration=configuration,
+    configuration=configuration(),
     packages=find_packages(),
     install_requires=reqs,
     classifiers=[
