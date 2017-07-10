@@ -37,8 +37,7 @@ contains
     subroutine convolve_focalplane_f(bore_nhits, focalplane_nhits,&
     pixels, bolo_per_pix, npix_loc, boost)
         implicit none
-        ! Given a nHits and bore_cos and bore_sin map,
-        ! perform the focal plane convolution.
+        ! Given a number of hits map perform the focal plane convolution.
         ! Original author (python routine): Neil Goeckner-Wald.
         ! Modifications by Julien Peloton (including fortran interface).
 
