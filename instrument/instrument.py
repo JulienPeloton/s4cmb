@@ -632,8 +632,13 @@ class focal_plane():
         >>> fp.show_hwmap(fn_in='./focal_plane__to_test_.xml',
         ...     save_on_disk=False, display=False)
         """
-
-        import pylab as pl
+        if not display:
+            import matplotlib as mpl
+            mpl.use('Agg')
+            import matplotlib.pyplot as pl
+            pl.ioff()
+        else:
+            import matplotlib.pyplot as pl
 
         bolox = focal_plane.unpack_hwmap(
             fn_in, 'Bolometer', 'xCoordinate', dtype=float)
