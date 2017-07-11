@@ -5,16 +5,22 @@ scanning the sky.
 
 Author: Julien Peloton, j.peloton@sussex.ac.uk
 """
+from __future__ import division, absolute_import, print_function
+
 import healpy as hp
 import numpy as np
 from numpy import cos
 from numpy import sin
 from numpy import tan
+from pyslalib import slalib
 
 sec2deg = 360.0/86400.0
 d2r = np.pi / 180.0
+ASTROMETRIC_GEOCENTRIC = 0
+APPARENT_GEOCENTRIC = 1
+APPARENT_TOPOCENTRIC = 2
 
-class tod():
+class TimeOrderedData():
     """ Class to handle Time-Ordered Data (TOD) """
     def __init__(self, hardware, scanning_strategy, HealpixFitsMap):
         """
@@ -33,11 +39,22 @@ class tod():
         self.scanning_strategy = scanning_strategy
         self.HealpixFitsMap = HealpixFitsMap
 
+        self.pointing = None
+
     def ComputeBoresightPointing(self):
         """
         Compute the boresight pointing for all the focal plane bolometers.
         """
-        pass
+        lat = float(
+            self.scanning_strategy.telescope_location.lat) * 180. / np.pi
+
+        self.pointing = pointing(
+            az_enc=self.scanning_strategy.scan0['azimuth'],
+            el_enc=self.scanning_strategy.scan0['elevation'],
+            time=self.scanning_strategy.scan0['clock-utc'],
+            value_params=self.hardware.pointing_model.value_params,
+            allowed_params=self.hardware.pointing_model.allowed_params,
+            lat=lat)
 
     def get_tod(self):
         """
@@ -53,7 +70,9 @@ class tod():
 class pointing():
     """ """
     def __init__(self, az_enc, el_enc, time, value_params,
-                 allowed_params='ia ie ca an aw', lat=-22.958):
+                 allowed_params='ia ie ca an aw',
+                 ra_src=0.0, dec_src=0.0, lat=-22.958,
+                 ut1utc_fn='data/ut1utc.ephem'):
         """
         Apply pointing model with parameters `value_params` and
         names `allowed_params` to encoder az,el. Order of terms is
@@ -86,14 +105,28 @@ class pointing():
         el_enc : 1d array
             Encoder elevation in radians.
         time : 1d array
-            Encoder time (UTC)
+            Encoder time (UTC) in mjd
         value_params : 1d array
             Value of the pointing model parameters (see instrument.py).
             In degrees (see below for full description)
         allowed_params : list of string
             Name of the pointing model parameters used in `value_params`.
+        ra_src : float
+            RA of the source (center of the patch).
+        dec_src : float
+            Dec of the source (center of the patch).
         lat : float, optional
             Latitude of the telescope, in degree.
+        ut1utc_fn : string
+            File containing time correction to UTC.
+            The \Delta{UT} (UT1-UTC) is tabulated in IERS circulars
+            and elsewhere. It increases by exactly one second at the end
+            of each UTC leap second, introduced in order to
+            keep \Delta{UT} within \pm 0s.9.
+            The 'sidereal \Delta{UT}' which forms part of AOPRMS(13)
+            is the same quantity, but converted from solar to sidereal
+            seconds and expressed in radians.
+            WTF?
 
         Examples
         ----------
@@ -108,7 +141,7 @@ class pointing():
         >>> pointing = pointing(az_enc, el_enc, time, value_params,
         ...     allowed_params, lat=-22.)
         >>> print(az_enc[2:4], pointing.az[2:4])
-        (array([ 0.12533323,  0.18738131]), array([ 0.11717842,  0.17922137]))
+        [ 0.12533323  0.18738131] [ 0.11717842  0.17922137]
         """
         self.az_enc = az_enc
         self.el_enc = el_enc
@@ -116,8 +149,38 @@ class pointing():
         self.value_params = value_params
         self.allowed_params = allowed_params
         self.lat = lat * d2r
+        self.ut1utc_fn = ut1utc_fn
+        self.ra_src = ra_src
+        self.dec_src = dec_src
 
+        self.ut1utc = self.get_ut1utc(self.ut1utc_fn, self.time[0])
+
+        ## Initialise the object
         self.az, self.el = self.apply_pointing_model()
+        self.azel2radec()
+
+        ## And then for each det, apply offset_detector
+
+    @staticmethod
+    def get_ut1utc(ut1utc_fn, mjd):
+        """
+        Return the time correction to UTC.
+
+        Returns
+        ----------
+        ut1utc : float
+            Contain the time correction to apply to MJD values.
+
+        Examples
+        ----------
+        >>> round(pointing.get_ut1utc('data/ut1utc.ephem', 56293), 3)
+        0.277
+        """
+        umjds, ut1utcs = np.loadtxt(ut1utc_fn, usecols=(1, 2)).T
+        uindex = np.searchsorted(umjds, mjd)
+        ut1utc = ut1utcs[uindex]
+
+        return ut1utc
 
     def apply_pointing_model(self):
         """
@@ -196,6 +259,106 @@ class pointing():
         az = self.az_enc - azd
         el = self.el_enc - eld
 
+        return az, el
+
+    def azel2radec(self):
+        """
+        """
+        self.ra, self.dec, self.pa = self.azel2radecpa()
+        v_ra = self.ra
+        v_dec = self.dec
+        v_pa = self.pa
+        v_ra_src = self.ra_src
+        v_dec_src = self.dec_src
+
+        self.meanpa = np.median(v_pa)
+
+        # q = quat_pointing.offset_radecpa_makequat(
+        #     v_ra, v_dec, v_pa, v_ra_src, v_dec_src)
+        # assert q.shape == (self.az.size, 4)
+        # self.q = q
+
+    def azel2radecpa(self):
+        """
+        """
+        converter = Azel2Radec(self.time[0], self.ut1utc)
+        vconv = np.vectorize(converter.azel2radecpa)
+        ra, dec, pa = vconv(self.time, self.az, self.el)
+        return ra, dec, pa
+
+    def radec2azel(self):
+        """
+        """
+        converter = Azel2Radec(self.time[0], self.ut1utc)
+        vconv = np.vectorize(converter.radec2azel)
+        az, el = vconv(self.time, self.ra, self.dec)
+        return az, el
+
+    # def offset_detector(self, azd, eld):
+    #     """
+    #     """
+    #     ra, dec, pa = quat_pointing.offset_radecpa_applyquat(
+    #         self.q, -azd, -eld)
+    #     return ra, dec, pa
+
+class Azel2Radec(object):
+    """ Class to handle az/el <-> ra/dec conversion """
+    def __init__(self, mjd, ut1utc,
+                 lon=-67.786, lat=-22.958, height=5200,
+                 pressure=533.29, temp=273.15, humidity=0.1, epequi=2000.0):
+        """
+        """
+        self.lon = (360. - lon) * d2r
+        self.lat = lat * d2r
+        self.height = height
+        self.pressure = pressure
+        self.temp = temp
+        self.humidity = humidity
+        self.mjd = mjd
+
+        self.epequi = epequi
+        self.ut1utc = ut1utc
+
+        self.updateaoprms(mjd)
+
+    def updateaoprms(self, mjd):
+        """
+        """
+        xpm = 0.0
+        ypm = 0.0
+        wavelength = (299792458.0 / 150.0e9) * 1e6
+        lapserate = 0.0065
+        self.aoprms = slalib.sla_aoppa(mjd, self.ut1utc, self.lon, self.lat,
+                                       self.height, xpm, ypm, self.temp,
+                                       self.pressure, self.humidity,
+                                       wavelength, lapserate)
+
+    def azel2radecpa(self, mjd, az, el, lst_gcp=0):
+        """
+        This routine does not return a precisely correct parallactic angle
+        """
+        zd = np.pi / 2 - el
+        amprms = slalib.sla_mappa(self.epequi, mjd)
+        self.aoprms = slalib.sla_aoppat(mjd, self.aoprms)
+
+        ra_app1, dec_app1 = slalib.sla_oapqk('a', az, zd + 1e-8, self.aoprms)
+        ra1, dec1 = slalib.sla_ampqk(ra_app1, dec_app1, amprms)
+        ra_app2, dec_app2 = slalib.sla_oapqk('a', az, zd - 1e-8, self.aoprms)
+        ra2, dec2 = slalib.sla_ampqk(ra_app2, dec_app2, amprms)
+        pa = slalib.sla_dbear(ra1, dec1, ra2, dec2)
+        ra = 0.5 * (ra1 + ra2)
+        dec = 0.5 * (dec1 + dec2)
+
+        return ra, dec, pa
+
+    def radec2azel(self, mjd, ra, dec):
+        """
+        """
+        amprms = slalib.sla_mappa(self.epequi, mjd)
+        self.aoprms = slalib.sla_aoppat(mjd, self.aoprms)
+        ra_app, dec_app = slalib.sla_mapqkz(ra, dec, amprms)
+        az, zd, a, b, c = slalib.sla_aopqk(ra_app, dec_app, self.aoprms)
+        el = np.pi / 2 - zd
         return az, el
 
 
