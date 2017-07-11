@@ -1057,7 +1057,7 @@ class pointing_model():
 
     def five_parameter_pointing_model(self):
         """
-        Parameters based on Polarbear measurements.
+        Parameters based on Polarbear configuration.
         """
         self.allowed_params = 'ia ie ca an aw'
 
