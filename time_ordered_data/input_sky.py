@@ -59,6 +59,10 @@ class HealpixFitsMap():
         >>> hpmap.load_healpix_fits_map(force=True)
         >>> print(hpmap.nside)
         16
+
+        If the data is already loaded, it won't reload it by default
+        >>> hpmap.load_healpix_fits_map()
+        External data already present in memory
         """
         if self.nside is None or force:
             if self.do_pol:
@@ -69,8 +73,7 @@ class HealpixFitsMap():
                     self.input_filename, field=0, verbose=self.verbose)
             self.nside = hp.npix2nside(len(self.I))
         else:
-            if self.verbose:
-                print("External data already present in memory")
+            print("External data already present in memory")
 
     def set_leakage_to_zero(self):
         """
@@ -83,6 +86,12 @@ class HealpixFitsMap():
         >>> hpmap = HealpixFitsMap('myfits_to_test_.fits', no_ileak=True)
         >>> print(hpmap.I)
         [ 0.  0.  0. ...,  0.  0.  0.]
+
+        Test with no input polarisation
+        >>> write_dummy_map('myfits_to_test_.fits')
+        >>> hpmap = HealpixFitsMap('myfits_to_test_.fits', no_quleak=True)
+        >>> print(hpmap.Q, hpmap.U)
+        [ 0.  0.  0. ...,  0.  0.  0.] [ 0.  0.  0. ...,  0.  0.  0.]
         """
         ## Set temperature to zero to avoid I->QU leakage
         if self.no_ileak:
@@ -155,8 +164,14 @@ class HealpixFitsMap():
         Convert in correct format for fits header.
 
         Parameters
-        ------------
-            * lis: list, contains tuples (keyword, value [, comment])
+        ----------
+        lis: list of tuples
+            Contains tuples (keyword, value [, comment]).
+
+        Returns
+        ----------
+        lis : list of strings
+            Contains strings in the pyfits header format.
 
         """
         for i, item in enumerate(lis):
@@ -259,4 +274,4 @@ def remove_test_data(has_id='_to_test_', silent=True):
 if __name__ == "__main__":
     import doctest
     doctest.testmod()
-    remove_test_data(has_id='_to_test_', silent=False)
+    remove_test_data(has_id='_to_test_', silent=True)
