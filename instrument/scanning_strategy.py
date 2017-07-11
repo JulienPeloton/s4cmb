@@ -16,7 +16,7 @@ import weave
 from pyslalib import slalib
 
 # ## numerical constants
-radToDeg = 180 / np.pi
+radToDeg = 180. / np.pi
 sidDayToSec = 86164.0905
 
 class scanning_strategy():
@@ -165,6 +165,10 @@ class scanning_strategy():
                             '02:01:01.19', '02:01:01.19', '02:01:01.19',
                             '02:01:01.19', '02:01:01.19', '02:01:01.19',
                             '02:01:01.19', '02:01:01.19', '6:53:29.11']
+
+            ## Center of the patch in RA/Dec
+            self.ra_mid = 0.
+            self.dec_mid = -57.5 / radToDeg
         else:
             raise ValueError("Only name_strategy = deep_patch is " +
                              "currently available. For a custom usage " +
