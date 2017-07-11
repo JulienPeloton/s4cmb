@@ -242,7 +242,7 @@ def create_sky_map(cl_fn, nside=16):
     ----------
     Create a sky map. Seed is fixed for testing purposes.
     >>> np.random.seed(548397)
-    >>> sky_maps = create_sky_map('../data/test_data_set_lensedCls.dat')
+    >>> sky_maps = create_sky_map('data/test_data_set_lensedCls.dat')
     >>> print(sky_maps[0])
     [ 136.84250237  156.60082605   58.20315647 ...,    3.77406028  877.36959602
       634.47769939]
