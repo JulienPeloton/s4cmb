@@ -106,7 +106,7 @@ class HealpixFitsMap():
 
     @staticmethod
     def write_healpix_cmbmap(output_filename, data, nside, fits_IDL=False,
-                             coord=None, colnames=None, nest=False):
+                             coord=None, colnames=['I', 'Q', 'U'], nest=False):
         """
         Write healpix fits map in full sky mode or custom partial sky,
         i.e. file with obspix and CMB_fields. Input data have to be a list
@@ -181,49 +181,79 @@ class HealpixFitsMap():
                 lis[i] = ('HIERARCH ' + item[0], item[1])
         return lis
 
-    # def get_obspix(xmin,xmax,ymin,ymax,nside,verbose=False):
-    # 	# check that healpy version is compatible. If not load the old functions called in
-    # 	# the healpix map class and add them to the healpy namespace
-    # 	if not (hasattr(hp,'in_ring') and hasattr(hp,'ring2z') and hasattr(hp,'ring_num')):
-    # 		import tod_and_mapmaking.so_healpy_compatibility as hp_comp
-    # 		if (not hasattr(hp,'in_ring')):
-    # 			if verbose:
-    # 				print('WARNING: current healpy version does not support in_ring function. Added compatibility mode')
-    # 			hp.in_ring=hp_comp.in_ring
-    # 		if not hasattr(hp,'ring2z'):
-    # 			hp.ring2z=hp_comp.ring2z
-    # 		if (not hasattr(hp,'ring_num')):
-    # 			if verbose:
-    # 				print('WARNING: current healpy version does not support ring_num function. Added compatibility mode')
-    # 			hp.ring_num=hp_comp.ring_num
-    #
-    # 	theta_min=np.pi/2.-ymax
-    # 	theta_max=np.pi/2.-ymin
-    # 	fpix,lpix=hp.ang2pix(nside,[theta_min,theta_max],[0.,2.*np.pi])
-    # 	pixs=np.arange(fpix,lpix+1,dtype=np.int)
-    #
-    # 	theta,phi=hp.pix2ang(nside,pixs)
-    # 	if xmin<0:
-    # 		phi[phi>np.pi]=(phi[phi>np.pi]-2*np.pi)
-    # 	good = (theta>=theta_min)*(theta<=theta_max)*(phi<=xmax)*(phi>=xmin)
-    # 	obspix=pixs[good]
-    #
-    # 	### old method to retrive observed pixel in a patch.
-    # 	### Changed to optimize it for large patches on 2014-10-09 by GF
-    # 	#first_ring = hp.ring_num(nside,np.cos(np.pi/2.-ymax))
-    # 	#last_ring = hp.ring_num(nside,np.cos(np.pi/2.-ymin))
-    # 	#obspix = hp.in_ring(nside,first_ring,(2*np.pi + (xmin+xmax)/2.),abs(xmax-xmin)/2.)
-    # 	#for i in range(first_ring+1,last_ring+1):
-    # 	#	# in_ring healpy func to be rewritten in C for speed-up?
-    # 	#	# the following commented line retrieved a wrong list of pixels. in_ring function
-    # 	#	# appear to give back the pixel list [phi-dphi,phi+dphi] instad of what's written
-    # 	#	# in the doc
-    # 	#	#obspix = np.concatenate((obspix,hp.in_ring(nside,i,xmin,xmax-xmin)))
-    # 	#	obspix = np.concatenate((obspix,hp.in_ring(nside,i,(2*np.pi + (xmin+xmax)/2.)%(2*np.pi),(xmax-xmin)/2.)))
-    #
-    # 	obspix.sort()
-    #
-    # 	return obspix
+    @staticmethod
+    def get_obspix(xmin, xmax, ymin, ymax, nside):
+        """
+        Given boundaries, return the observed pixels in the healpix scheme.
+
+        Parameters
+        ----------
+        xmin : float
+        xmax : float
+        ymin : float
+        ymax : float
+        nside : int
+
+        Returns
+        ----------
+        obspix : 1d array of int
+            The list of observed pixels.
+
+        Examples
+        ----------
+        >>> HealpixFitsMap.get_obspix(-np.pi/2, np.pi/2,
+        ...     -np.pi/2, np.pi/2, nside=2) # doctest: +NORMALIZE_WHITESPACE
+        array([ 0,  3,  4,  5, 10, 11, 12, 13, 14,
+               18, 19, 20, 21, 26, 27, 28, 29,
+               30, 34, 35, 36, 37, 42, 43, 44])
+        """
+        theta_min = np.pi / 2. - ymax
+        theta_max = np.pi / 2. - ymin
+        fpix, lpix = hp.ang2pix(nside, [theta_min, theta_max], [0., 2.*np.pi])
+        pixs = np.arange(fpix, lpix + 1, dtype=np.int)
+
+        theta, phi = hp.pix2ang(nside, pixs)
+        if xmin < 0:
+            phi[phi > np.pi] = (phi[phi > np.pi] - 2 * np.pi)
+        good = (theta >= theta_min) * (theta <= theta_max) * \
+            (phi <= xmax) * (phi >= xmin)
+        obspix = pixs[good]
+        obspix.sort()
+
+        return obspix
+
+def create_sky_map(cl_fn, nside=16):
+    """
+    Create full sky map from input cl.
+
+    Parameters
+    ----------
+    cl_fn : string
+        Name of the file containing cl (CAMB lensed cl format)
+    nside : int, optional
+        Resolution for the output map.
+
+    Returns
+    ----------
+    maps : ndarray
+        Maps of the sky (I, Q, U) of size 12 * nside**2.
+
+    Examples
+    ----------
+    Create a sky map. Seed is fixed for testing purposes.
+    >>> np.random.seed(548397)
+    >>> sky_maps = create_sky_map('../data/test_data_set_lensedCls.dat')
+    >>> print(sky_maps[0])
+    [ 136.84250237  156.60082605   58.20315647 ...,    3.77406028  877.36959602
+      634.47769939]
+    """
+    ell, TT, EE, BB, TE = np.loadtxt(cl_fn).T
+    I, Q, U = hp.synfast([TT, EE, BB, TE], nside,
+                         lmax=2*nside, mmax=None, alm=False,
+                         pol=True, pixwin=False,
+                         fwhm=0.0, sigma=None, new=True,
+                         verbose=False)
+    return I, Q, U
 
 def write_dummy_map(filename='myfits_to_test_.fits', nside=16):
     """
