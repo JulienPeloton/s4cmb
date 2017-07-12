@@ -352,6 +352,8 @@ class scanning_strategy():
         scan_file['RA'] = pb_ra_array
         scan_file['Dec'] = pb_dec_array
 
+        scan_file['nts'] = len(pb_mjd_array)
+
         if not silent:
             print('+-----------------------------------+')
             print(' CES starts at %s and finishes at %s' % (
