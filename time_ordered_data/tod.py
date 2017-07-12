@@ -7,13 +7,20 @@ Author: Julien Peloton, j.peloton@sussex.ac.uk
 """
 from __future__ import division, absolute_import, print_function
 
+import sys
+import os
+
 import numpy as np
+import healpy as hp
 
 import detector_pointing
 
+d2r = np.pi / 180.0
+
 class TimeOrderedData():
     """ Class to handle Time-Ordered Data (TOD) """
-    def __init__(self, hardware, scanning_strategy, HealpixFitsMap):
+    def __init__(self, hardware, scanning_strategy, HealpixFitsMap,
+                 nside_out=None):
         """
         C'est parti!
 
@@ -25,16 +32,50 @@ class TimeOrderedData():
             Instance of scanning_strategy containing scan parameters.
         HealpixFitsMap : HealpixFitsMap instance
             Instance of HealpixFitsMap containing input sky parameters.
+        nside_out : int, optional
+            The resolution for the output maps. Default is nside of the
+            input map.
         """
         self.hardware = hardware
         self.scanning_strategy = scanning_strategy
         self.HealpixFitsMap = HealpixFitsMap
+        if nside_out is None:
+            self.nside_out = self.HealpixFitsMap.nside
+        else:
+            self.nside_out = nside_out
 
-        self.pointing = None
+        self.prepare_boresightpointing()
 
-    def ComputeBoresightPointing(self, ut1utc_fn=None):
+        self.hwpangle = self.hardware.half_wave_plate.compute_HWP_angles(
+            sample_rate=self.scanning_strategy.scan0['sample_rate'],
+            size=len(self.scanning_strategy.scan0['clock-utc']))
+
+        self.npair = self.hardware.focal_plane.npair
+
+        self.pair_list = np.reshape(
+            self.hardware.focal_plane.unpack_hwmap(
+                self.hardware.focal_plane.output_file,
+                'Bolometer', 'channel', dtype=int),
+            (self.npair, 2))
+
+        self.intrinsic_polangle = self.hardware.focal_plane.unpack_hwmap(
+            self.hardware.focal_plane.output_file,
+            'Bolometer', 'polangle_orientation', dtype=float)
+
+        self.xpos = self.hardware.beam_model.beamprm['xpos']
+
+        self.ypos = self.hardware.beam_model.beamprm['ypos']
+
+    def prepare_boresightpointing(self, ut1utc_fn='data/ut1utc.ephem'):
         """
-        Compute the boresight pointing for all the focal plane bolometers.
+        Prepare the boresight pointing for all the focal plane bolometers.
+        The actual pointing (RA/Dec/Parallactic angle) is computed on-the-fly
+        when we load the data.
+
+        Parameters
+        ----------
+        ut1utc_fn : string
+            File containing time correction to UTC.
         """
         lat = float(
             self.scanning_strategy.telescope_location.lat) * 180. / np.pi
@@ -50,17 +91,145 @@ class TimeOrderedData():
             dec_src=self.scanning_strategy.dec_mid,
             lat=lat)
 
-    def get_tod(self):
+    def compute_simpolangle(self, ch, parallactic_angle, do_demodulation=False,
+                            polangle_err=False):
         """
-        Scan the input sky maps to generate timestreams.
-        """
-        pass
+        Compute the full polarisation angles used to generate timestreams.
+        The polarisation angle contains intrinsic polarisation angle (from
+        focal plane design), parallactic angle (from pointing), and the angle
+        from the half-wave plate.
 
-    def map_tod(self):
+        Parameters
+        ----------
+        ch : int
+            Channel index in the focal plane.
+        parallactic_angle : 1d array
+            All parallactic angles for detector ch.
+        do_demodulation : bool, optional
+            If True, use the convention for the demodulation (extra minus sign)
+        polangle_err : bool, optional
+            If True, inject systematic effect.
+            TODO: remove that in the systematic module.
+
+        Returns
+        ----------
+        pol_ang : 1d array
+            Vector containing the values of the polarisation angle for the
+            whole scan.
+
+        Examples
+        ----------
+        >>> inst, scan, sky_in = load_fake_instrument()
+        >>> tod = TimeOrderedData(inst, scan, sky_in)
+        >>> print(tod.compute_simpolangle(0, [np.pi] * scan.scan0['nts'])[:4])
+        [  0.          25.13274123  50.26548246  75.39822369]
+        """
+        if not polangle_err:
+            ang_pix = (90.0 - self.intrinsic_polangle[ch]) * d2r
+            if not do_demodulation:
+                pol_ang = parallactic_angle + ang_pix + 2.0 * self.hwpangle
+            else:
+                pol_ang = parallactic_angle - ang_pix - 2.0 * self.hwpangle
+        else:
+            print("This is where you call the systematic module!")
+            sys.exit()
+            pass
+
+        return pol_ang
+
+    def map2tod(self, ch):
+        """
+        Scan the input sky maps to generate timestream for channel ch.
+
+        Parameters
+        ----------
+        ch : int
+            Channel index in the focal plane.
+
+        Examples
+        ----------
+        >>> inst, scan, sky_in = load_fake_instrument()
+        >>> tod = TimeOrderedData(inst, scan, sky_in)
+        >>> d = tod.map2tod(0)
+        >>> print(d[:10]) #doctest: +NORMALIZE_WHITESPACE
+        [-320.35905445 -320.35905445 -320.35905445 -320.35905445  119.87109209
+         -108.91872588 -108.91872588 -108.91872588 -108.91872588 -108.91872588]
+        """
+        ## Use bolometer beam offsets.
+        azd, eld = self.xpos[ch], self.ypos[ch]
+
+        ra, dec, pa = self.pointing.offset_detector(azd, eld)
+        theta = np.pi / 2 - dec
+        phi = ra
+
+        if self.HealpixFitsMap.ext_map_gal:
+            r = hp.Rotator(coord=['C', 'G'])
+            theta, phi = r(theta, phi)
+
+        pixnum = hp.ang2pix(self.nside_out, theta, phi)
+
+        ## Gain mode. Not yet implemented, but this is the place!
+        norm = 1.0
+
+        if self.HealpixFitsMap.do_pol:
+            pol_ang = self.compute_simpolangle(ch, pa, do_demodulation=False,
+                                               polangle_err=False)
+            pol_ang = 0.0
+            return (self.HealpixFitsMap.I[pixnum] +
+                    self.HealpixFitsMap.Q[pixnum] * np.cos(2 * pol_ang) +
+                    self.HealpixFitsMap.U[pixnum] * np.sin(2 * pol_ang)) * norm
+        else:
+            return norm * self.HealpixFitsMap.I[pixnum]
+
+    def tod2map(self):
         """
         Project time-ordered data into sky maps.
         """
 
+def load_fake_instrument():
+    """
+    For test purposes.
+    """
+    sys.path.insert(0, os.path.realpath(os.path.join(os.getcwd(), '.')))
+    sys.path.insert(
+        0,
+        os.path.realpath(os.path.join(os.getcwd(), 'instrument')))
+    sys.path.insert(
+        0,
+        os.path.realpath(os.path.join(os.getcwd(), 'time_ordered_data')))
+    from input_sky import HealpixFitsMap
+    from input_sky import create_sky_map
+    from instrument import hardware
+    from scanning_strategy import scanning_strategy
+    ## Create a fake input
+    sky = create_sky_map('data/test_data_set_lensedCls.dat', nside=16)
+    HealpixFitsMap.write_healpix_cmbmap(output_filename='mymaps.fits',
+                                        data=sky, nside=16)
+    sky_in = HealpixFitsMap('mymaps.fits', do_pol=True,
+                            verbose=False, no_ileak=False, no_quleak=False)
+    ## Initialise our instrument
+    ## Generate a focal plane with 4 Crate boards, each with 1 MUX board,
+    ## each with 1 Squid, each with 16 pairs of bolometers.
+    ## The focal plane is 60 cm wide (square),
+    ## and each detector beam is Gaussian with FWHM of 3.5 arcmin.
+    inst = hardware(ncrate=1, ndfmux_per_crate=1,
+                    nsquid_per_mux=1, npair_per_squid=4,
+                    fp_size=60., FWHM=3.5,
+                    beam_seed=58347, projected_fp_size=3., pm_name='5params',
+                    type_HWP='CRHWP', freq_HWP=2., angle_HWP=0.,
+                    output_folder='./', name='test', debug=False)
+    ## Initialize our scanning strategy
+    scan = scanning_strategy(nCES=1, start_date='2013/1/1 00:00:00',
+                             telescope_longitude='-67:46.816',
+                             telescope_latitude='-22:56.396',
+                             telescope_elevation=5200.,
+                             name_strategy='deep_patch',
+                             sampling_freq=1., sky_speed=0.4,
+                             language='python')
+    scan.run()
+
+    ## Initialize our TOD (pointing)
+    return inst, scan, sky_in
 
 if __name__ == "__main__":
     import doctest
