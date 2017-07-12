@@ -113,8 +113,6 @@ class pointing():
         self.az, self.el = self.apply_pointing_model()
         self.azel2radec()
 
-        ## And then for each det, apply offset_detector
-
     @staticmethod
     def get_ut1utc(ut1utc_fn, mjd):
         """
@@ -346,7 +344,6 @@ class pointing():
 
         return allowed_params, value_params, az_enc, el_enc, time
 
-
 class Azel2Radec(object):
     """ Class to handle az/el <-> ra/dec conversion """
     def __init__(self, mjd, ut1utc,
@@ -506,7 +503,7 @@ class quaternion():
 
         return q
 
-    def offset_radecpa_applyquat(q, azd, eld):
+    def offset_radecpa_applyquat(self, q, azd, eld):
         """
         """
         assert len(q.shape) == 2, AssertionError("Wrong quaternion size!")
@@ -523,9 +520,9 @@ class quaternion():
 
         n = seq.shape[0]
         if n > 1024:
-            phi, theta, psi = quat_to_radecpa_c(seq)
+            phi, theta, psi = self.quat_to_radecpa_c(seq)
         else:
-            phi, theta, psi = quat_to_radecpa_python(seq)
+            phi, theta, psi = self.quat_to_radecpa_python(seq)
 
         return psi, -theta, -phi
 
@@ -746,6 +743,39 @@ class quaternion():
         c = np.cos(alpha * 0.5)
         s = np.sin(alpha * 0.5)
         return np.array([z, z, s, c]).T
+
+    @staticmethod
+    def quat_to_radecpa_c(seq):
+        q1, q2, q3, q0 = seq.T
+        c_code = '''
+        int i;
+        for(i=0;i<n;i++)
+        {
+            phi(i) = atan2(2.0 * (q0(i) * q1(i) + q2(i) * q3(i)), \
+                1.0 - 2.0 * (q1(i) * q1(i) + q2(i) * q2(i)));
+            theta(i) = asin(2.0 * (q0(i) * q2(i) - q3(i) * q1(i)));
+            psi(i) = atan2(2.0 * (q0(i) * q3(i) + q1(i) * q2(i)), \
+                1.0 - 2.0 * (q2(i) * q2(i) + q3(i) * q3(i)));
+        }
+        '''
+        n = q0.size
+        phi = np.zeros_like(q0)
+        theta = np.zeros_like(q0)
+        psi = np.zeros_like(q0)
+        weave.inline(c_code,
+                     ['phi', 'theta', 'psi', 'q0', 'q1', 'q2', 'q3', 'n'],
+                     type_converters=weave.converters.blitz)
+        return phi, theta, psi
+
+    @staticmethod
+    def quat_to_radecpa_python(seq):
+        q1, q2, q3, q0 = seq.T
+        phi = np.arctan2(2 * (q0 * q1 + q2 * q3),
+                         1. - 2. * (q1 * q1 + q2 * q2))
+        theta = np.arcsin(2 * (q0 * q2 - q3 * q1))
+        psi = np.arctan2(2 * (q0 * q3 + q1 * q2),
+                         1. - 2. * (q2 * q2 + q3 * q3))
+        return phi, theta, psi
 
 
 if __name__ == "__main__":
