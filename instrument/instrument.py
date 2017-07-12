@@ -330,7 +330,11 @@ class focal_plane():
                                 'polarizationMode', '1')
                             ## Position of the bolometer within the SQUID
                             HWmap[crate][dfmux][squid][boloQ].set(
-                                'channel', '%d' % boloQ)
+                                'channel_in_squid', '%d' % boloQ)
+
+                            ## Position of the bolometer within the focal plane
+                            HWmap[crate][dfmux][squid][boloQ].set(
+                                'channel', '%d' % bolo_id)
 
                             name_bolo_tmp = 'Cr%dDf%dSq%d_%dt' % (
                                 crate, dfmux, squid, pair_id)
@@ -377,7 +381,11 @@ class focal_plane():
                                 'polarizationMode', '1')
                             ## Position of the bolometer within the SQUID
                             HWmap[crate][dfmux][squid][boloU].set(
-                                'channel', '%d' % boloU)
+                                'channel_in_squid', '%d' % boloU)
+
+                            ## Position of the bolometer within the focal plane
+                            HWmap[crate][dfmux][squid][boloU].set(
+                                'channel', '%d' % bolo_id)
 
                             name_bolo_tmp = 'Cr%dDf%dSq%d_%db' % (
                                 crate, dfmux, squid, pair_id)
