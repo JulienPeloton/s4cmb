@@ -20,8 +20,27 @@ class HealpixFitsMap():
     """ Class to handle fits file containing healpix maps """
     def __init__(self, input_filename,
                  do_pol=True, verbose=False,
-                 no_ileak=False, no_quleak=False):
+                 no_ileak=False, no_quleak=False, ext_map_gal=False):
         """
+
+        Parameters
+        ----------
+        input_filename : string
+            Name of the file containing the sky maps.
+        do_pol : bool, optional
+            If True, load temperature and polarisation. Temperature only
+            otherwise. Default is True.
+        verbose : bool, optional
+            If True, print out plenty of useless messages.
+        no_ileak : bool, optional
+            If True, load temperature and polarisation, but set the temperature
+            to zero to avoid leakages.
+        no_quleak : bool, optional
+            If True, load temperature and polarisation, but set the
+            polarisation to zero to avoid leakages.
+        ext_map_gal : bool, optional
+            Set it to True if you are reading a map in Galactic coordinate.
+            (Planck maps for example).
 
         """
         self.input_filename = input_filename
@@ -29,6 +48,7 @@ class HealpixFitsMap():
         self.verbose = verbose
         self.no_ileak = no_ileak
         self.no_quleak = no_quleak
+        self.ext_map_gal = ext_map_gal
 
         self.nside = None
         self.I = None
@@ -222,7 +242,7 @@ class HealpixFitsMap():
 
         return obspix
 
-def create_sky_map(cl_fn, nside=16):
+def create_sky_map(cl_fn, nside=16, seed=548397):
     """
     Create full sky map from input cl.
 
@@ -248,6 +268,8 @@ def create_sky_map(cl_fn, nside=16):
       634.47769939]
     """
     ell, TT, EE, BB, TE = np.loadtxt(cl_fn).T
+
+    np.random.seed(seed)
     I, Q, U = hp.synfast([TT, EE, BB, TE], nside,
                          lmax=2*nside, mmax=None, alm=False,
                          pol=True, pixwin=False,
