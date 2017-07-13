@@ -334,14 +334,14 @@ def construct_beammap(beamprm, ct, cb, nx, pix_size):
     xy2f = coordinates_on_grid(pix_size=pix_size, nx=nx)
 
     tmap = gauss2d(xy2f, tx, ty,
-                              beamprm.Amp[ct], beamprm.sig_1[ct],
-                              beamprm.sig_2[ct],
-                              beamprm.ellip_ang[ct]).reshape((nx, nx))
+                   beamprm.Amp[ct], beamprm.sig_1[ct],
+                   beamprm.sig_2[ct],
+                   beamprm.ellip_ang[ct]).reshape((nx, nx))
 
     bmap = gauss2d(xy2f, bx, by,
-                              beamprm.Amp[cb], beamprm.sig_1[cb],
-                              beamprm.sig_2[cb],
-                              beamprm.ellip_ang[cb]).reshape((nx, nx))
+                   beamprm.Amp[cb], beamprm.sig_1[cb],
+                   beamprm.sig_2[cb],
+                   beamprm.ellip_ang[cb]).reshape((nx, nx))
 
     summap = 0.5 * (tmap + bmap)
     diffmap = 0.5 * (tmap - bmap)
@@ -479,6 +479,7 @@ class focal_plane():
         """
         Initialise our focal plane.
 
+        Note.
         The polarisation angle model consists in defining detector polarisation
         angle. The focal plane is cut in quadrants (Crate).
         Within a quadrant, pixels are categorized into two: Q and U pixels.
@@ -523,7 +524,7 @@ class focal_plane():
     def make_focal_plane(self):
         """
         Create the hardware map of the instrument,
-        that is the xml file containing the focal plane geometry,
+        taht is the focal plane geometry,
         the bolometers id, the wiring, and so on.
         The terminology used here is taken from the Polarbear experiment.
         The hierarchy is the following:
@@ -533,9 +534,8 @@ class focal_plane():
         |  |        |        |          |
         |  v        v        v          v
         |  id       id       id         id, xCoordinate, yCoordinate,
-        |                               focalPlaneIndex, polangle_orientation
-        |                               polarizationMode,
-        |                               polarizationOrientation, channel
+        |                               IndexInFocalPlane, polangle_orientation
+        |                               IndexInSquid.
         +--------------------------------------------------------------------+
 
         Examples
@@ -630,20 +630,6 @@ class focal_plane():
                                 crate, dfmux, squid, pair_index))
                             self.bolo_xcoord.append(xcoord[pair_index])
                             self.bolo_ycoord.append(ycoord[pair_index])
-
-                            ## Q/U pixels
-                            # if xcoord[pair_index] < 0 and \
-                            #         ycoord[pair_index] >= 0:
-                            #     angle = 90. + shift
-                            # elif xcoord[pair_index] >= 0 and \
-                            #         ycoord[pair_index] >= 0:
-                            #     angle = 180. + shift_
-                            # elif xcoord[pair_index] >= 0 and \
-                            #         ycoord[pair_index] <= 0:
-                            #     angle = 270. + shiftinv
-                            # elif xcoord[pair_index] <= 0 and \
-                            #         ycoord[pair_index] <= 0:
-                            #     angle = shiftinv_
 
                             ## 90 degree difference wrt top bolometer
                             self.bolo_polangle.append((angle + 90) % 360)
