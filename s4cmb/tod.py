@@ -185,7 +185,8 @@ class TimeOrderedData():
         ----------
         >>> inst, scan, sky_in = load_fake_instrument()
         >>> tod = TimeOrderedData(inst, scan, sky_in)
-        >>> print(tod.compute_simpolangle(0, [np.pi] * scan.scan0['nts'])[:4])
+        >>> print(tod.compute_simpolangle(0,
+        ...     np.array([np.pi] * scan.scan0['nts']))[:4])
         [  0.          25.13274123  50.26548246  75.39822369]
         """
         if not polangle_err:
@@ -216,8 +217,8 @@ class TimeOrderedData():
         >>> tod = TimeOrderedData(inst, scan, sky_in)
         >>> d = tod.map2tod(0)
         >>> print(d[:10]) #doctest: +NORMALIZE_WHITESPACE
-        [-320.35905445 -320.35905445 -320.35905445 -320.35905445  119.87109209
-         -108.91872588 -108.91872588 -108.91872588 -108.91872588 -108.91872588]
+        [  77.14047019   77.1380591    77.13568942   77.13336348   77.13108377
+           77.12885305  -61.4004047   120.05901259  120.06668205  120.07449681]
         """
         ## Use bolometer beam offsets.
         azd, eld = self.xpos[ch], self.ypos[ch]
@@ -322,18 +323,14 @@ def load_fake_instrument():
     sys.path.insert(0, os.path.realpath(os.path.join(os.getcwd(), '.')))
     sys.path.insert(
         0,
-        os.path.realpath(os.path.join(os.getcwd(), 'instrument')))
-    sys.path.insert(
-        0,
-        os.path.realpath(os.path.join(os.getcwd(), 'time_ordered_data')))
+        os.path.realpath(os.path.join(os.getcwd(), 's4cmb')))
     from input_sky import HealpixFitsMap
-    from input_sky import create_sky_map
+    from input_sky import create_sky_map, write_healpix_cmbmap
     from instrument import hardware
     from scanning_strategy import scanning_strategy
     ## Create a fake input
     sky = create_sky_map('data/test_data_set_lensedCls.dat', nside=16)
-    HealpixFitsMap.write_healpix_cmbmap(output_filename='mymaps.fits',
-                                        data=sky, nside=16)
+    write_healpix_cmbmap(output_filename='mymaps.fits', data=sky, nside=16)
     sky_in = HealpixFitsMap('mymaps.fits', do_pol=True,
                             verbose=False, no_ileak=False, no_quleak=False)
     ## Initialise our instrument
@@ -345,8 +342,7 @@ def load_fake_instrument():
                     nsquid_per_mux=1, npair_per_squid=4,
                     fp_size=60., FWHM=3.5,
                     beam_seed=58347, projected_fp_size=3., pm_name='5params',
-                    type_HWP='CRHWP', freq_HWP=2., angle_HWP=0.,
-                    output_folder='./', name='test', debug=False)
+                    type_HWP='CRHWP', freq_HWP=2., angle_HWP=0., debug=False)
     ## Initialize our scanning strategy
     scan = scanning_strategy(nCES=1, start_date='2013/1/1 00:00:00',
                              telescope_longitude='-67:46.816',
