@@ -14,15 +14,13 @@ else
 	OPT = --opt=-ffixed-line-length-none --opt=-O3
 endif
 
-all: s4cmb
+all: cmb
 
-s4cmb:
-	${FPY} -c instrument/scanning_strategy_f.f90 -m scanning_strategy_f ${OPT}
-	-mv scanning_strategy_f.so instrument/
-	${FPY} -c time_ordered_data/detector_pointing_f.f90 -m detector_pointing_f ${OPT}
-	-mv detector_pointing_f.so time_ordered_data/
-	${FPY} -c time_ordered_data/tod_f.f90 -m tod_f ${OPT}
-	-mv tod_f.so time_ordered_data/
+cmb:
+	${FPY} -c s4cmb/scanning_strategy_f.f90 -m scanning_strategy_f ${OPT}
+	${FPY} -c s4cmb/detector_pointing_f.f90 -m detector_pointing_f ${OPT}
+	${FPY} -c s4cmb/tod_f.f90 -m tod_f ${OPT}
+	-mv *.so s4cmb/
 
 clean:
-	-rm *.o *.so
+	-rm s4cmb/*.o s4cmb/*.so
