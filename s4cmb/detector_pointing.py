@@ -503,7 +503,7 @@ class quaternion():
 
         return q
 
-    def offset_radecpa_applyquat(self, q, azd, eld, language='fortran'):
+    def offset_radecpa_applyquat(self, q, azd, eld):
         """
         Apply pre-computed quaternions to obtain
         desired RA/Dec and parallactic angle from az/el of the detector.
@@ -536,17 +536,12 @@ class quaternion():
         qpix = mult(qazd, qeld)[0]
 
         # Inlining this is a 30x speed up
-        seq = mult_inline(q, qpix)
+        seq = mult_fortran(q, qpix)
 
         assert seq.shape[1] == 4, AssertionError("Wrong size!")
 
         n = seq.shape[0]
-        if language == 'fortran':
-            phi, theta, psi = quat_to_radecpa_fortran(seq)
-        elif language == 'C':
-            phi, theta, psi = quat_to_radecpa_c(seq)
-        else:
-            phi, theta, psi = quat_to_radecpa_python(seq)
+        phi, theta, psi = quat_to_radecpa_fortran(seq)
 
         return psi, -theta, -phi
 
