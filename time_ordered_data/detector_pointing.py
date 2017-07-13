@@ -68,15 +68,15 @@ class pointing():
         value_params : 1d array
             Value of the pointing model parameters (see instrument.py).
             In degrees (see below for full description)
-        allowed_params : list of string
+        allowed_params : list of string, optional
             Name of the pointing model parameters used in `value_params`.
-        ra_src : float
+        ra_src : float, optional
             RA of the source (center of the patch).
-        dec_src : float
+        dec_src : float, optional
             Dec of the source (center of the patch).
         lat : float, optional
             Latitude of the telescope, in degree.
-        ut1utc_fn : string
+        ut1utc_fn : string, optional
             File containing time correction to UTC.
             The \Delta{UT} (UT1-UTC) is tabulated in IERS circulars
             and elsewhere. It increases by exactly one second at the end
@@ -104,8 +104,8 @@ class pointing():
         self.allowed_params = allowed_params
         self.lat = lat * d2r
         self.ut1utc_fn = ut1utc_fn
-        self.ra_src = ra_src
-        self.dec_src = dec_src
+        self.ra_src = ra_src * 0.0
+        self.dec_src = dec_src * 0.0
 
         self.ut1utc = self.get_ut1utc(self.ut1utc_fn, self.time[0])
 
@@ -376,7 +376,7 @@ class Azel2Radec(object):
             Epoch of mean equinox to be used (Julian).
 
         """
-        self.lon = (360. - lon) * d2r
+        self.lon = lon * d2r #(360. - lon) * d2r
         self.lat = lat * d2r
         self.height = height
         self.pressure = pressure
