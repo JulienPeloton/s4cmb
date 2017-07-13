@@ -25,7 +25,7 @@ class scanning_strategy():
                  telescope_longitude='-67:46.816',
                  telescope_latitude='-22:56.396', telescope_elevation=5200.,
                  name_strategy='deep_patch', sampling_freq=30., sky_speed=0.4,
-                 ut1utc_fn='data/ut1utc.ephem', language='python'):
+                 ut1utc_fn='s4cmb/data/ut1utc.ephem', language='python'):
         """
         A scanning strategy consists in defining the site of observation
         on earth for which we will make the observation, the region
