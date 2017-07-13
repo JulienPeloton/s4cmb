@@ -21,6 +21,8 @@ s4cmb:
 	-mv scanning_strategy_f.so instrument/
 	${FPY} -c time_ordered_data/detector_pointing_f.f90 -m detector_pointing_f ${OPT}
 	-mv detector_pointing_f.so time_ordered_data/
+	${FPY} -c time_ordered_data/tod_f.f90 -m tod_f ${OPT}
+	-mv tod_f.so time_ordered_data/
 
 clean:
 	-rm *.o *.so

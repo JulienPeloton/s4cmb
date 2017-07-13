@@ -15,7 +15,7 @@ import weave
 
 from pyslalib import slalib
 
-# ## numerical constants
+## numerical constants
 radToDeg = 180. / np.pi
 sidDayToSec = 86164.0905
 
@@ -25,7 +25,8 @@ class scanning_strategy():
                  telescope_longitude='-67:46.816',
                  telescope_latitude='-22:56.396', telescope_elevation=5200.,
                  name_strategy='deep_patch', sampling_freq=30., sky_speed=0.4,
-                 language='python', output_folder='./'):
+                 ut1utc_fn='../data/ut1utc.ephem', language='python',
+                 output_folder='./'):
         """
         A scanning strategy consists in defining the site of observation
         on earth for which we will make the observation, the region
@@ -51,6 +52,9 @@ class scanning_strategy():
             Sampling frequency of the bolometers in Hz.
         sky_speed : float, optional
             Azimuth speed of the telescope in deg/s.
+        ut1utc_fn : string, optional
+            File containing time correction to UTC.
+            This is not used here, but pass to the pointing module later on.
         language : string, optional
             Language used for core computations. For big experiments, the
             computational time can be big, and some part of the code can be
@@ -70,6 +74,7 @@ class scanning_strategy():
         self.sky_speed = sky_speed
         self.output_folder = output_folder
         self.language = language
+        self.ut1utc_fn = ut1utc_fn
 
         self.telescope_location = self.define_telescope_location(
             telescope_longitude, telescope_latitude, telescope_elevation)
