@@ -18,5 +18,4 @@ install:
 
 # Tests are inside modules (doctest)
 script:
-    - python instrument/instrument.py
-    - python instrument/scanning_strategy.py
+    - ./coverage.sh
