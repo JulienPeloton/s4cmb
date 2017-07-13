@@ -58,7 +58,7 @@ class pointing():
     def __init__(self, az_enc, el_enc, time, value_params,
                  allowed_params='ia ie ca an aw',
                  ra_src=0.0, dec_src=0.0, lat=-22.958,
-                 ut1utc_fn='data/ut1utc.ephem'):
+                 ut1utc_fn='s4cmb/data/ut1utc.ephem'):
         """
         Apply pointing model with parameters `value_params` and
         names `allowed_params` to encoder az,el. Order of terms is

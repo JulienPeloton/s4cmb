@@ -329,7 +329,7 @@ def load_fake_instrument():
     from instrument import hardware
     from scanning_strategy import scanning_strategy
     ## Create a fake input
-    sky = create_sky_map('data/test_data_set_lensedCls.dat', nside=16)
+    sky = create_sky_map('s4cmb/data/test_data_set_lensedCls.dat', nside=16)
     write_healpix_cmbmap(output_filename='mymaps.fits', data=sky, nside=16)
     sky_in = HealpixFitsMap('mymaps.fits', do_pol=True,
                             verbose=False, no_ileak=False, no_quleak=False)
