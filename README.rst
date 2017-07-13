@@ -5,7 +5,7 @@ s4cmb (public version)
 .. image:: https://travis-ci.org/JulienPeloton/s4cmb.svg?branch=master
     :target: https://travis-ci.org/JulienPeloton/s4cmb
 
-.. figure:: https://travis-ci.org/JulienPeloton/s4cmb/blob/master/s4cmb/data/intro.png
+.. figure:: https://github.com/JulienPeloton/s4cmb/blob/master/s4cmb/data/intro.png
     :scale: 50 %
 
 The package
