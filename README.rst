@@ -6,7 +6,7 @@ s4cmb (public version)
     :target: https://travis-ci.org/JulienPeloton/s4cmb
 
 .. figure:: https://github.com/JulienPeloton/s4cmb/blob/master/s4cmb/data/intro.png
-    :scale: 50 %
+    :scale: 25 %
 
 The package
 =============
