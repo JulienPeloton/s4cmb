@@ -12,6 +12,7 @@ import os
 
 import numpy as np
 import healpy as hp
+import weave
 
 import detector_pointing
 
@@ -20,7 +21,7 @@ d2r = np.pi / 180.0
 class TimeOrderedData():
     """ Class to handle Time-Ordered Data (TOD) """
     def __init__(self, hardware, scanning_strategy, HealpixFitsMap,
-                 nside_out=None):
+                 nside_out=None, width=20.):
         """
         C'est parti!
 
@@ -35,6 +36,8 @@ class TimeOrderedData():
         nside_out : int, optional
             The resolution for the output maps. Default is nside of the
             input map.
+        width : float
+            Width for the output map in degree.
         """
         self.hardware = hardware
         self.scanning_strategy = scanning_strategy
@@ -44,11 +47,14 @@ class TimeOrderedData():
         else:
             self.nside_out = nside_out
 
+        self.width = width
+
         self.prepare_boresightpointing()
 
+        self.nsamples = len(self.scanning_strategy.scan0['clock-utc'])
         self.hwpangle = self.hardware.half_wave_plate.compute_HWP_angles(
             sample_rate=self.scanning_strategy.scan0['sample_rate'],
-            size=len(self.scanning_strategy.scan0['clock-utc']))
+            size=self.nsamples)
 
         self.npair = self.hardware.focal_plane.npair
 
@@ -62,11 +68,73 @@ class TimeOrderedData():
             self.hardware.focal_plane.output_file,
             'Bolometer', 'polangle_orientation', dtype=float)
 
-        self.xpos = self.hardware.beam_model.beamprm['xpos']
-
         self.ypos = self.hardware.beam_model.beamprm['ypos']
+        self.xpos = self.hardware.beam_model.beamprm['xpos']
+        self.xpos = self.xpos / np.cos(self.ypos)
 
-    def prepare_boresightpointing(self, ut1utc_fn='data/ut1utc.ephem'):
+        self.pixnums = np.zeros((self.npair, self.nsamples), dtype=np.int32)
+        self.pol_angs = np.zeros((self.npair, self.nsamples))
+        self.wafermask_pixel = np.ones((self.npair, self.nsamples), dtype=int)
+
+        self.genhealpix()
+        self.get_weights()
+
+        # To accumulate A^T N^-1 d
+        self.d = np.zeros(self.npix)
+        self.dc = np.zeros(self.npix)
+        self.ds = np.zeros(self.npix)
+
+        # To accumulate A^T N^-1 A
+        self.w = np.zeros(self.npix)
+        self.cc = np.zeros(self.npix)
+        self.cs = np.zeros(self.npix)
+        self.ss = np.zeros(self.npix)
+
+        self.nhit = np.zeros(self.npix, dtype=np.int32)
+
+    def genhealpix(self):
+        """
+        Generate an instance of a healpix map info class
+        """
+
+        ra_src, dec_src = \
+            self.scanning_strategy.ra_mid, self.scanning_strategy.dec_mid
+
+        try:
+            xmin, xmax, ymin, ymax = np.array(self.width) * d2r
+        except TypeError:
+            xmin = xmax = ymin = ymax = d2r * self.width/2.
+
+        ra_min = (ra_src - xmin)
+        # If map bound crosses zero make coordinates
+        ## bounds monotonic in [-pi,pi]
+        if (ra_src + xmax) >= 2 * np.pi:
+            ra_max = (ra_src + xmax) % (2 * np.pi)
+            # if ra_min > np.pi:
+            #     ra_min = ra_min - 2 * np.pi
+            ra_min = ra_min if ra_min <= np.pi else ra_min - 2 * np.pi
+        else:
+            ra_min = (ra_src - xmin)
+            ra_max = (ra_src + xmax)
+            dec_min = max([(dec_src - ymin), -np.pi/2])
+            dec_max = min([dec_src + ymax, np.pi/2])
+
+        # print "Map center coords",ra_src/d2r,dec_src/d2r
+        # print "Map Bounds",np.array([ra_min,ra_max,dec_min,dec_max])/d2r
+
+        self.obspix = self.HealpixFitsMap.get_obspix(ra_min, ra_max,
+                                                     dec_min, dec_max,
+                                                     self.nside_out)
+        self.npix = len(self.obspix)
+
+    def get_weights(self):
+        """
+        TBD
+        """
+        self.sum_weight = np.ones(self.npair, dtype=float)
+        self.diff_weight = np.ones(self.npair, dtype=float)
+
+    def prepare_boresightpointing(self):
         """
         Prepare the boresight pointing for all the focal plane bolometers.
         The actual pointing (RA/Dec/Parallactic angle) is computed on-the-fly
@@ -86,7 +154,7 @@ class TimeOrderedData():
             time=self.scanning_strategy.scan0['clock-utc'],
             value_params=self.hardware.pointing_model.value_params,
             allowed_params=self.hardware.pointing_model.allowed_params,
-            ut1utc_fn=ut1utc_fn,
+            ut1utc_fn=self.scanning_strategy.ut1utc_fn,
             ra_src=self.scanning_strategy.ra_mid,
             dec_src=self.scanning_strategy.dec_mid,
             lat=lat)
@@ -159,14 +227,15 @@ class TimeOrderedData():
         azd, eld = self.xpos[ch], self.ypos[ch]
 
         ra, dec, pa = self.pointing.offset_detector(azd, eld)
-        theta = np.pi / 2 - dec
-        phi = ra
 
-        if self.HealpixFitsMap.ext_map_gal:
-            r = hp.Rotator(coord=['C', 'G'])
-            theta, phi = r(theta, phi)
+        pixnum, loc_pix = mapindex1d(
+            self.obspix, ra, dec, self.nside_out,
+            cut_outliers=True, ext_map_gal=self.HealpixFitsMap.ext_map_gal)
+        # pixnum = hp.ang2pix(self.nside_out, theta, phi)
 
-        pixnum = hp.ang2pix(self.nside_out, theta, phi)
+        ## Store list of hit pixels only for top bolometers
+        if ch % 2 == 0:
+            self.pixnums[int(ch/2)] = loc_pix
 
         ## Gain mode. Not yet implemented, but this is the place!
         norm = 1.0
@@ -174,17 +243,133 @@ class TimeOrderedData():
         if self.HealpixFitsMap.do_pol:
             pol_ang = self.compute_simpolangle(ch, pa, do_demodulation=False,
                                                polangle_err=False)
-            pol_ang = 0.0
+
+            ## Store list polangle only for top bolometers
+            if ch % 2 == 0:
+                self.pol_angs[int(ch/2)] = pol_ang
             return (self.HealpixFitsMap.I[pixnum] +
                     self.HealpixFitsMap.Q[pixnum] * np.cos(2 * pol_ang) +
                     self.HealpixFitsMap.U[pixnum] * np.sin(2 * pol_ang)) * norm
         else:
             return norm * self.HealpixFitsMap.I[pixnum]
 
-    def tod2map(self):
+    def tod2map_alldet(self, waferts, language='fortran'):
         """
         Project time-ordered data into sky maps.
         """
+        '''
+        Coadd timestream data in to a map
+        '''
+        nchwedge = waferts.shape[0]
+        npix = nchwedge / 2
+        nt = int(waferts.shape[1])
+        nces = 1
+        nts = np.array([nt])
+
+        assert npix == self.pixnums.shape[0]
+        assert nt == self.pixnums.shape[1]
+        assert nt == self.pol_angs.shape[1]
+        assert npix == self.pol_angs.shape[0]
+        assert npix == self.diff_weight.shape[0]
+        assert npix == self.sum_weight.shape[0]
+
+        c_code = r'''
+            int npix = nchwedge/2;
+            int i,j,ipix,pixel,ic,iw;
+            int istop;
+            int ict,icb;
+            double sum,diff,c,s;
+
+            for(j=0;j<npix;j++)
+            {
+                istop=0;
+                for (ic=0;ic<nces;ic++)
+                {
+                    iw=ic+j*nces;
+                    for(i=istop;i<nts[ic]+istop;i++)
+                    {
+                        ipix=i+j*nt;
+                        if(wafermask_pixel[ipix] > 0)
+                        {
+                            ict = i+2*j*nt;
+                            icb = i+(2*j+1)*nt;
+
+                            pixel = waferi1d[ipix];
+
+                            sum = 0.5*(waferts[ict] + waferts[icb]);
+                            diff = 0.5*(waferts[ict] - waferts[icb]);
+                            c = cos(2.0*waferpa[ipix]);
+                            s = sin(2.0*waferpa[ipix]);
+
+                            nhit[pixel]++;
+                            w[pixel] += sum_weight[iw];
+                            d[pixel] += sum*sum_weight[iw];
+
+                            dc[pixel] += c*diff*diff_weight[iw];
+                            ds[pixel] += s*diff*diff_weight[iw];
+                            cc[pixel] += c*c*diff_weight[iw];
+                            cs[pixel] += c*s*diff_weight[iw];
+                            ss[pixel] += s*s*diff_weight[iw];
+                        }
+                    }
+                    istop+=nts[ic];
+                }
+            }
+        '''
+
+        d, w, nhit, dc, ds, cc, cs, ss = \
+            self.d, self.w, self.nhit, self.dc, \
+            self.ds, self.cc, self.cs, self.ss
+
+        waferi1d = self.pixnums.flatten()
+        waferpa = self.pol_angs.flatten()
+        waferts = waferts.flatten()
+        diff_weight = self.diff_weight.flatten()
+        sum_weight = self.sum_weight.flatten()
+        wafermask_pixel = self.wafermask_pixel.flatten()
+        wafermask_pixel = np.array(wafermask_pixel, dtype=int)
+
+        if language == 'C':
+            weave.inline(
+                c_code,
+                ['d', 'w', 'dc', 'ds', 'cc', 'cs', 'ss', 'nhit', 'waferi1d',
+                    'waferpa', 'waferts', 'diff_weight', 'sum_weight',
+                    'nchwedge', 'nt', 'wafermask_pixel', 'nts', 'nces'])
+            wafermask_pixel
+        elif language == 'fortran':
+            from tod_f import tod_f
+            ## /!\ npix = focal plane pixel, self.npix = sky pixel
+            tod_f.tod2map_alldet_f(d, w, dc, ds, cc, cs, ss, nhit,
+                                   waferi1d, waferpa, waferts,
+                                   diff_weight, sum_weight, nt,
+                                   wafermask_pixel, nts, npix,
+                                   nces, self.npix)
+            # Garbage collector guard
+            wafermask_pixel
+
+def mapindex1d(obspix, ra, dec, nside, cut_outliers=True, ext_map_gal=False):
+    """
+    Convert projected x,y coordinates to integer index into a flat map vector
+    """
+    npix = len(obspix)
+    theta = np.pi / 2 - dec
+    phi = ra
+    if ext_map_gal:
+        r = hp.Rotator(coord=['C', 'G'])
+        theta, phi = r(theta, phi)
+
+    i1d = hp.ang2pix(nside, theta, phi)
+    idxs = obspix.searchsorted(i1d)
+    mask1 = idxs < npix
+    loc = mask1
+    loc[mask1] = obspix[idxs[mask1]] == i1d[mask1]
+    outside_pixels = np.invert(loc)
+    if (np.sum(outside_pixels) and (not cut_outliers)):
+        raise ValueError(
+            "Pixels outside patch boundaries. Patch width insufficient")
+    else:
+        idxs[outside_pixels] = -1
+    return i1d, idxs
 
 def load_fake_instrument():
     """
