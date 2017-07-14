@@ -9,17 +9,16 @@ contains
 
     subroutine tod2map_alldet_f(d, w, dc, ds, cc, cs, ss, nhit, waferi1d, &
     waferpa, waferts, diff_weight, sum_weight, npix, nt, &
-    wafermask_pixel, nts, nces, nskypix)
+    wafermask_pixel, nskypix)
         implicit none
 
         integer, parameter       :: I4B = 4
         integer, parameter       :: DP = 8
         real(DP), parameter      :: pi = 3.141592
 
-        integer(I4B), intent(in) :: npix, nt, nces, nskypix
+        integer(I4B), intent(in) :: npix, nt, nskypix
         integer(I4B), intent(in) :: waferi1d(0:npix*nt - 1)
         integer(I4B), intent(in) :: wafermask_pixel(0:npix*nt - 1)
-        integer(I4B), intent(in) :: nts(0:nces - 1)
         real(DP), intent(in)     :: waferpa(0:npix*nt - 1), waferts(0:npix*nt*2 - 1)
         real(DP), intent(in)     :: diff_weight(0:npix - 1), sum_weight(0:npix - 1)
 
@@ -28,40 +27,34 @@ contains
         real(DP), intent(inout)  :: cs(0:nskypix - 1), ss(0:nskypix - 1)
         integer(I4B), intent(inout) :: nhit(0:nskypix - 1)
 
-        integer(I4B)             :: i, j, ipix, ic, iw
-        integer(I4B)             :: pixel, istop
+        integer(I4B)             :: i, j, ipix, pixel
         integer(I4B)             :: ict, icb
         real(DP)                 :: sum, diff, c, s
 
         do j=0, npix - 1
-            istop=0
-            do ic=0, nces - 1
-                iw = ic + j*nces
-                do i=istop, nts(ic) + istop - 1
-                    ipix = i + j * nt
-                    if (wafermask_pixel(ipix) .gt. 0 .and. waferi1d(ipix) .gt. 0) then
-                        ict = i + 2*j*nt
-                        icb = i + (2*j + 1)*nt
+            do i=0, nt - 1
+                ipix = i + j * nt
+                if (wafermask_pixel(ipix) .gt. 0 .and. waferi1d(ipix) .gt. 0) then
+                    ict = i + 2*j*nt
+                    icb = i + (2*j + 1)*nt
 
-                        pixel = waferi1d(ipix)
+                    pixel = waferi1d(ipix)
 
-                        sum = 0.5*(waferts(ict) + waferts(icb))
-                        diff = 0.5*(waferts(ict) - waferts(icb))
-                        c = cos(2.0*waferpa(ipix))
-                        s = sin(2.0*waferpa(ipix))
+                    sum = 0.5*(waferts(ict) + waferts(icb))
+                    diff = 0.5*(waferts(ict) - waferts(icb))
+                    c = cos(2.0*waferpa(ipix))
+                    s = sin(2.0*waferpa(ipix))
 
-                        nhit(pixel) = nhit(pixel) + 1
-                        w(pixel) = w(pixel) + sum_weight(iw)
-                        d(pixel) = d(pixel) + sum * sum_weight(iw)
+                    nhit(pixel) = nhit(pixel) + 1
+                    w(pixel) = w(pixel) + sum_weight(j)
+                    d(pixel) = d(pixel) + sum * sum_weight(j)
 
-                        dc(pixel) = dc(pixel) + c * diff * diff_weight(iw)
-                        ds(pixel) = ds(pixel) + s * diff * diff_weight(iw)
-                        cc(pixel) = cc(pixel) + c * c * diff_weight(iw)
-                        cs(pixel) = cs(pixel) + c * s * diff_weight(iw)
-                        ss(pixel) = ss(pixel) + s * s * diff_weight(iw)
-                    endif
-                enddo
-                istop = istop + nts(ic)
+                    dc(pixel) = dc(pixel) + c * diff * diff_weight(j)
+                    ds(pixel) = ds(pixel) + s * diff * diff_weight(j)
+                    cc(pixel) = cc(pixel) + c * c * diff_weight(j)
+                    cs(pixel) = cs(pixel) + c * s * diff_weight(j)
+                    ss(pixel) = ss(pixel) + s * s * diff_weight(j)
+                endif
             enddo
         enddo
 
