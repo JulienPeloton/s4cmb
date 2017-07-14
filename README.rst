@@ -51,13 +51,16 @@ Just add in your bashrc:
     s4cmbPATH=/path/to/the/package
     export PYTHONPATH=$PYTHONPATH:$s4cmbPATH:$s4cmbPATH/instrument
 
+Examples
+=============
+You can find notebooks describing how to use basic functionalities of s4cmb
+in the folder jupyter_doc.
+
 TODO
 =============
 
 * Add the dockerfile.
 * Link to pip.
-* Link to coverage.
-* Start the TOD module.
 
 Main developers
 =============
