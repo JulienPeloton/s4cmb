@@ -86,7 +86,7 @@ contains
 
         ! Loop. Start at one since the initialisation
         ! of the scan is done outside.
-        do t=1, num_pts
+        do t=1, num_pts - 1
             ! Set the Azimuth and time
             pb_az_array(t) = running_az
 

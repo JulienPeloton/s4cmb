@@ -218,8 +218,8 @@ def create_sky_map(cl_fn, nside=16, seed=548397):
     >>> np.random.seed(548397)
     >>> sky_maps = create_sky_map('s4cmb/data/test_data_set_lensedCls.dat')
     >>> print(sky_maps[0])
-    [ 136.84250237  156.60082605   58.20315647 ...,    3.77406028  877.36959602
-      634.47769939]
+    [  55.51567033   50.94330727   39.69851524 ...,   36.2265932   107.64964085
+       80.8613084 ]
     """
     ell, TT, EE, BB, TE = np.loadtxt(cl_fn).T
 

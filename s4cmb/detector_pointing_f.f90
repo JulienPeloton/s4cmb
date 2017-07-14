@@ -76,7 +76,7 @@ contains
         ! LOCAL
         integer(I4B)             :: i
 
-        do i=0, n
+        do i=0, n - 1
             phi(i) = atan2(2.0 * (q0(i) * q1(i) + q2(i) * q3(i)), &
                 1.0 - 2.0 * (q1(i) * q1(i) + q2(i) * q2(i)))
             theta(i) = asin(2.0 * (q0(i) * q2(i) - q3(i) * q1(i)))
