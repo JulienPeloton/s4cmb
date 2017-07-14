@@ -157,7 +157,7 @@ def convert_pair_to_bolometer_position(xcoord_pairs, ycoord_pairs):
 
     Examples
     ----------
-    >>> fp = focal_plane(debug=False)
+    >>> fp = FocalPlane(debug=False)
     >>> xp, yp = coordinates_on_grid(row_size=fp.fp_size, nx2=4)
     >>> print(xp, yp)
     [-15.  15. -15.  15.] [-15. -15.  15.  15.]
@@ -200,7 +200,7 @@ def show_focal_plane(bolo_xcoord, bolo_ycoord, bolo_polangle=None,
 
     Examples
     ---------
-    >>> fp = focal_plane(debug=False)
+    >>> fp = FocalPlane(debug=False)
     >>> show_focal_plane(fp.bolo_xcoord, fp.bolo_ycoord, fp.bolo_polangle,
     ...     save_on_disk=False, display=False)
     """
@@ -269,7 +269,7 @@ def convert_cm_to_rad(xcm, ycm, conversion):
     ----------
     Focal plane of 60 cm diameter and mirror
     giving a 3 deg projection on the sky by default
-    >>> fp = focal_plane(debug=False)
+    >>> fp = FocalPlane(debug=False)
     >>> projected_fp_size = 3. ## degrees
     >>> xcm, ycm = coordinates_on_grid(
     ...                 row_size=fp.fp_size, nx2=fp.npair)
@@ -311,8 +311,8 @@ def construct_beammap(beamprm, ct, cb, nx, pix_size):
     ----------
     Note that bolometers within the same pixel are neighbour bolometers
     that is (ct, cb) = (0, 1) for example.
-    >>> fp = focal_plane(debug=False)
-    >>> bm = beam_model(fp, debug=False)
+    >>> fp = FocalPlane(debug=False)
+    >>> bm = BeamModel(fp, debug=False)
     >>> pix_size = 0.5 / 180. * np.pi / 60. # 0.5 arcmin in rad
     >>> summap, diffmap = construct_beammap(
     ...     beamprm=bm, ct=0, cb=1, nx=4, pix_size=pix_size)
@@ -379,8 +379,8 @@ def gauss2d(xy, x_0, y_0, Amp, sig_xp, sig_yp, psi):
 
     Examples
     ----------
-    >>> fp = focal_plane(debug=False)
-    >>> bm = beam_model(fp, debug=False)
+    >>> fp = FocalPlane(debug=False)
+    >>> bm = BeamModel(fp, debug=False)
     >>> pix_size = 0.5 / 180. * np.pi / 60. # 0.5 arcmin in rad
     >>> xy = coordinates_on_grid(pix_size=pix_size, nx=4)
     >>> gauss2d(xy, x_0=0, y_0=0, Amp=1.,
@@ -413,7 +413,7 @@ def gauss2d(xy, x_0, y_0, Amp, sig_xp, sig_yp, psi):
 
     return z
 
-class hardware():
+class Hardware():
     """ Class to load all the hardware and models of the instrument in once """
     def __init__(self,
                  ncrate=1, ndfmux_per_crate=1, nsquid_per_mux=1,
@@ -458,20 +458,20 @@ class hardware():
 
         Examples
         ----------
-        >>> instrument = hardware()
+        >>> instrument = Hardware()
         """
-        self.focal_plane = focal_plane(ncrate, ndfmux_per_crate,
-                                       nsquid_per_mux, npair_per_squid,
-                                       fp_size, debug)
+        self.focal_plane = FocalPlane(ncrate, ndfmux_per_crate,
+                                      nsquid_per_mux, npair_per_squid,
+                                      fp_size, debug)
 
-        self.beam_model = beam_model(self.focal_plane, FWHM, beam_seed,
-                                     projected_fp_size, debug)
+        self.beam_model = BeamModel(self.focal_plane, FWHM, beam_seed,
+                                    projected_fp_size, debug)
 
-        self.pointing_model = pointing_model(pm_name)
+        self.pointing_model = PointingModel(pm_name)
 
-        self.half_wave_plate = half_wave_plate(type_HWP, freq_HWP, angle_HWP)
+        self.half_wave_plate = HalfWavePlate(type_HWP, freq_HWP, angle_HWP)
 
-class focal_plane():
+class FocalPlane():
     """ Class to handle the focal plane of the instrument. """
     def __init__(self,
                  ncrate=1, ndfmux_per_crate=1, nsquid_per_mux=1,
@@ -540,7 +540,7 @@ class focal_plane():
 
         Examples
         ----------
-        >>> fp = focal_plane(debug=True)
+        >>> fp = FocalPlane(debug=True)
         Hardware map generated...
         """
         ## Retrieve coordinate of the pairs inside the focal plane
@@ -653,7 +653,7 @@ class focal_plane():
                                 max_hit = True
                                 break
 
-class beam_model():
+class BeamModel():
     """ Class to handle the beams of the detectors """
     def __init__(self,
                  focal_plane, FWHM=3.5, beam_seed=58347,
@@ -700,8 +700,8 @@ class beam_model():
 
         Examples
         ----------
-        >>> fp = focal_plane(debug=False)
-        >>> bm = beam_model(fp, debug=False)
+        >>> fp = FocalPlane(debug=False)
+        >>> bm = BeamModel(fp, debug=False)
         >>> bm.generate_beam_parameters()
         >>> print(bm.xpos) # doctest: +NORMALIZE_WHITESPACE
         [-0.01308997 -0.01308997 -0.01308997 -0.01308997
@@ -750,7 +750,7 @@ class beam_model():
         ## Default is one.
         self.Amp = np.ones(self.focal_plane.nbolometer)
 
-class pointing_model():
+class PointingModel():
     """ Class to handle the pointing model of the telescope """
     def __init__(self, pm_name='5params'):
         """
@@ -773,7 +773,7 @@ class pointing_model():
 
         Examples
         --------
-        >>> pm = pointing_model()
+        >>> pm = PointingModel()
         >>> [(i, round(j,3)) for i, j in zip(
         ...     pm.allowed_params.split(), pm.value_params)]
         ... # doctest: +NORMALIZE_WHITESPACE
@@ -781,7 +781,7 @@ class pointing_model():
          ('ca', -15.598), ('an', -0.51),
          ('aw', 0.109)]
 
-        >>> pm = pointing_model(pm_name='super-model-trop-bien')
+        >>> pm = PointingModel(pm_name='super-model-trop-bien')
         ... # doctest: +NORMALIZE_WHITESPACE, +ELLIPSIS
         Traceback (most recent call last):
          ...
@@ -811,7 +811,7 @@ class pointing_model():
         self.RMS_EL = 0.0
         self.RMS_RESID = 0.0
 
-class half_wave_plate():
+class HalfWavePlate():
     """ Class to handle the Half-Wave Plate (HWP) """
     def __init__(self, type_HWP='CRHWP', freq_HWP=2., angle_HWP=0.):
         """
@@ -860,14 +860,14 @@ class half_wave_plate():
 
         Examples
         Continously rotating HWP at 2 Hz starting at 0 degree.
-        >>> hwp = half_wave_plate(type_HWP='CRHWP', freq_HWP=2., angle_HWP=0.)
+        >>> hwp = HalfWavePlate(type_HWP='CRHWP', freq_HWP=2., angle_HWP=0.)
         >>> hwp.compute_HWP_angles(sample_rate=100., size=10)
         ... # doctest: +NORMALIZE_WHITESPACE
         array([ 0.        ,  0.12566371,  0.25132741,  0.37699112,  0.50265482,
             0.62831853,  0.75398224,  0.87964594,  1.00530965,  1.13097336])
 
         Stepped HWP with 30 degrees angle
-        >>> hwp = half_wave_plate(type_HWP='stepped',
+        >>> hwp = HalfWavePlate(type_HWP='stepped',
         ...     freq_HWP=0.0, angle_HWP=30.)
         >>> hwp.compute_HWP_angles(sample_rate=100., size=10)
         ... # doctest: +NORMALIZE_WHITESPACE
@@ -875,7 +875,7 @@ class half_wave_plate():
             0.52359878,  0.52359878,  0.52359878,  0.52359878,  0.52359878])
 
         For a stepped HWP, the frequency must be zero
-        >>> hwp = half_wave_plate(type_HWP='stepped',
+        >>> hwp = HalfWavePlate(type_HWP='stepped',
         ...     freq_HWP=1.0, angle_HWP=30.)
         ... # doctest: +NORMALIZE_WHITESPACE, +ELLIPSIS
         Traceback (most recent call last):
@@ -909,7 +909,7 @@ class half_wave_plate():
         Examples
         ----------
         Continously rotating HWP at 2 Hz starting at 0 degree.
-        >>> hwp = half_wave_plate(type_HWP='CRHWP', freq_HWP=2., angle_HWP=0.)
+        >>> hwp = HalfWavePlate(type_HWP='CRHWP', freq_HWP=2., angle_HWP=0.)
         >>> hwp.compute_HWP_angles(sample_rate=100., size=10)
         ... # doctest: +NORMALIZE_WHITESPACE
         array([ 0.        ,  0.12566371,  0.25132741,  0.37699112,  0.50265482,
