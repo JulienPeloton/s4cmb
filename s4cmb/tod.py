@@ -454,6 +454,40 @@ class TimeOrderedDataPairDiff():
 
         return Q, U
 
+def partial2full(partial_obs, obspix, nside, fill_with=0.0):
+    """
+    Reconstruct full sky map from a partial observation and a list of observed
+    pixels.
+
+    Parameters
+    ----------
+    partial_obs : 1d array
+        Array containg the values of observed pixels.
+    obspix : 1d array
+        Array containing the healpix indices of observed pixels.
+    nside : int
+        The resolution of the map (obspix and partial_obs should have the same
+        nside).
+    fill_with : optional
+        Fill the initial array with `fill_with`. Default is 0.0.
+
+    Returns
+    ----------
+    fullsky : 1d array
+        Full sky map of size 12 * nside**2.
+
+    Examples
+    ----------
+    >>> nside = 16
+    >>> data = np.random.rand(10)
+    >>> obspix = np.arange(12 * nside**2, dtype=int)[30:40]
+    >>> fullsky = partial2full(data, obspix, nside)
+    >>> print(fullsky)
+    """
+    fullsky = np.zeros(12 * nside**2) * fill_with
+    fullsky[obspix] = partial_obs
+    return fullsky
+
 def build_pointing_matrix(ra, dec, nside, obspix=None,
                           cut_outliers=True, ext_map_gal=False):
     """
