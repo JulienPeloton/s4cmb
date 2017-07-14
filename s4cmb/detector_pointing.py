@@ -98,9 +98,9 @@ class pointing():
         allowed_params : list of string, optional
             Name of the pointing model parameters used in `value_params`.
         ra_src : float, optional
-            RA of the source (center of the patch).
+            RA of the reference (keep it to zero).
         dec_src : float, optional
-            Dec of the source (center of the patch).
+            Dec of the reference (keep it to zero).
         lat : float, optional
             Latitude of the telescope, in degree.
         ut1utc_fn : string, optional
@@ -131,8 +131,8 @@ class pointing():
         self.allowed_params = allowed_params
         self.lat = lat * d2r
         self.ut1utc_fn = ut1utc_fn
-        self.ra_src = ra_src * 0.0
-        self.dec_src = dec_src * 0.0
+        self.ra_src = ra_src
+        self.dec_src = dec_src
 
         self.ut1utc = get_ut1utc(self.ut1utc_fn, self.time[0])
 
