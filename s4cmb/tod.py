@@ -29,10 +29,10 @@ class TimeOrderedDataPairDiff():
 
         Parameters
         ----------
-        hardware : hardware instance
-            Instance of hardware containing instrument parameters and models.
-        scanning_strategy : scanning_strategy instance
-            Instance of scanning_strategy containing scan parameters.
+        hardware : Hardware instance
+            Instance of Hardware containing instrument parameters and models.
+        scanning_strategy : ScanningStrategy instance
+            Instance of ScanningStrategy containing scan parameters.
         HealpixFitsMap : HealpixFitsMap instance
             Instance of HealpixFitsMap containing input sky parameters.
         nside_out : int, optional
@@ -219,7 +219,7 @@ class TimeOrderedDataPairDiff():
         lat = float(
             self.scanning_strategy.telescope_location.lat) * 180. / np.pi
 
-        self.pointing = detector_pointing.pointing(
+        self.pointing = detector_pointing.Pointing(
             az_enc=self.scanning_strategy.scan0['azimuth'],
             el_enc=self.scanning_strategy.scan0['elevation'],
             time=self.scanning_strategy.scan0['clock-utc'],
@@ -299,8 +299,8 @@ class TimeOrderedDataPairDiff():
         >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in)
         >>> d = tod.map2tod(0)
         >>> print(d[:10]) #doctest: +NORMALIZE_WHITESPACE
-        [  77.14047019   77.1380591    77.13568942   77.13336348   77.13108377
-           77.12885305  -61.4004047   120.05901259  120.06668205  120.07449681]
+        [  6.26582278   6.26493725   6.26404887   6.26315767   6.2622637
+           6.26136703 -27.75380615  -7.17440009  -7.17411792  -7.17382723]
         """
         ## Use bolometer beam offsets.
         azd, eld = self.xpos[ch], self.ypos[ch]
@@ -482,7 +482,6 @@ def partial2full(partial_obs, obspix, nside, fill_with=0.0):
     >>> data = np.random.rand(10)
     >>> obspix = np.arange(12 * nside**2, dtype=int)[30:40]
     >>> fullsky = partial2full(data, obspix, nside)
-    >>> print(fullsky)
     """
     fullsky = np.zeros(12 * nside**2) * fill_with
     fullsky[obspix] = partial_obs
@@ -579,10 +578,10 @@ def load_fake_instrument(nside=16):
 
     Returns
     ----------
-    hardware : hardware instance
-        Instance of hardware containing instrument parameters and models.
-    scanning_strategy : scanning_strategy instance
-        Instance of scanning_strategy containing scan parameters.
+    hardware : Hardware instance
+        Instance of Hardware containing instrument parameters and models.
+    scanning_strategy : ScanningStrategy instance
+        Instance of ScanningStrategy containing scan parameters.
     HealpixFitsMap : HealpixFitsMap instance
         Instance of HealpixFitsMap containing input sky parameters.
     """
@@ -591,8 +590,8 @@ def load_fake_instrument(nside=16):
     sys.path.insert(0, os.path.realpath(os.path.join(os.getcwd(), 's4cmb')))
     from input_sky import HealpixFitsMap
     from input_sky import create_sky_map, write_healpix_cmbmap
-    from instrument import hardware
-    from scanning_strategy import scanning_strategy
+    from instrument import Hardware
+    from scanning_strategy import ScanningStrategy
 
     ## Create fake inputs
 
@@ -603,20 +602,20 @@ def load_fake_instrument(nside=16):
                             verbose=False, no_ileak=False, no_quleak=False)
 
     ## Instrument
-    inst = hardware(ncrate=1, ndfmux_per_crate=1,
+    inst = Hardware(ncrate=1, ndfmux_per_crate=1,
                     nsquid_per_mux=1, npair_per_squid=4,
                     fp_size=60., FWHM=3.5,
                     beam_seed=58347, projected_fp_size=3., pm_name='5params',
                     type_HWP='CRHWP', freq_HWP=2., angle_HWP=0., debug=False)
 
     ## Scanning strategy
-    scan = scanning_strategy(nCES=1, start_date='2013/1/1 00:00:00',
-                             telescope_longitude='-67:46.816',
-                             telescope_latitude='-22:56.396',
-                             telescope_elevation=5200.,
-                             name_strategy='deep_patch',
-                             sampling_freq=1., sky_speed=0.4,
-                             language='fortran')
+    scan = ScanningStrategy(nCES=1, start_date='2013/1/1 00:00:00',
+                            telescope_longitude='-67:46.816',
+                            telescope_latitude='-22:56.396',
+                            telescope_elevation=5200.,
+                            name_strategy='deep_patch',
+                            sampling_freq=1., sky_speed=0.4,
+                            language='fortran')
     scan.run()
 
     return inst, scan, sky_in
