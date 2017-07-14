@@ -223,8 +223,11 @@ def create_sky_map(cl_fn, nside=16, seed=548397):
     """
     ell, TT, EE, BB, TE = np.loadtxt(cl_fn).T
 
+    ## Take out the normalisation...
+    llp = ell * (ell + 1.) / (2 * np.pi)
+
     np.random.seed(seed)
-    I, Q, U = hp.synfast([TT, EE, BB, TE], nside,
+    I, Q, U = hp.synfast([TT / llp, EE / llp, BB / llp, TE / llp], nside,
                          lmax=2*nside, mmax=None, alm=False,
                          pol=True, pixwin=False,
                          fwhm=0.0, sigma=None, new=True,
