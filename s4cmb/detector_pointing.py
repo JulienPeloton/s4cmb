@@ -53,7 +53,7 @@ def get_ut1utc(ut1utc_fn, mjd):
 
     return ut1utc
 
-class pointing():
+class Pointing():
     """ Class to handle detector pointing """
     def __init__(self, az_enc, el_enc, time, value_params,
                  allowed_params='ia ie ca an aw',
@@ -119,7 +119,7 @@ class pointing():
         See hardware.py for more information on the pointing model.
         >>> allowed_params, value_params, az_enc, el_enc, time = \
             load_fake_pointing()
-        >>> pointing = pointing(az_enc, el_enc, time, value_params,
+        >>> pointing = Pointing(az_enc, el_enc, time, value_params,
         ...     allowed_params, lat=-22.)
         >>> print(az_enc[2:4], pointing.az[2:4])
         [ 0.12533323  0.18738131] [ 0.11717842  0.17922137]
@@ -229,7 +229,7 @@ class pointing():
         Go from az/el -> ra/dec
         >>> allowed_params, value_params, az_enc, el_enc, time = \
             load_fake_pointing()
-        >>> pointing = pointing(az_enc, el_enc, time, value_params,
+        >>> pointing = Pointing(az_enc, el_enc, time, value_params,
         ...     allowed_params, lat=-22.)
         >>> print(pointing.ra[2:4], pointing.dec[2:4])
         [ 0.70299234  0.77062902] [ 0.6596503   0.65038499]
@@ -243,7 +243,7 @@ class pointing():
 
         self.meanpa = np.median(v_pa)
 
-        self.quaternion = quaternion(v_ra, v_dec, v_pa,
+        self.quaternion = Quaternion(v_ra, v_dec, v_pa,
                                      v_ra_src, v_dec_src)
 
         q = self.quaternion.offset_radecpa_makequat()
@@ -263,7 +263,7 @@ class pointing():
         Go from az/el -> ra/dec/pa
         >>> allowed_params, value_params, az_enc, el_enc, time = \
             load_fake_pointing()
-        >>> pointing = pointing(az_enc, el_enc, time, value_params,
+        >>> pointing = Pointing(az_enc, el_enc, time, value_params,
         ...     allowed_params, lat=-22.)
         >>> ra, dec, pa = pointing.azel2radecpa()
         >>> print(ra[2:4], dec[2:4], pa[2:4]) # doctest: +NORMALIZE_WHITESPACE
@@ -284,7 +284,7 @@ class pointing():
         Make sure that we go back to our feet az/el -> ra/dec -> az/el
         >>> allowed_params, value_params, az_enc, el_enc, time = \
             load_fake_pointing()
-        >>> pointing = pointing(az_enc, el_enc, time, value_params,
+        >>> pointing = Pointing(az_enc, el_enc, time, value_params,
         ...     allowed_params, lat=-22.)
         >>> az, el = pointing.radec2azel()
         >>> assert np.all(np.round(az[2:4],2) == np.round(pointing.az[2:4],2))
@@ -450,7 +450,7 @@ class Azel2Radec(object):
         el = np.pi / 2 - zd
         return az, el
 
-class quaternion():
+class Quaternion():
     """ Class to handle quaternions """
     def __init__(self, ra, dec, pa, v_ra_src, v_dec_src):
         """
