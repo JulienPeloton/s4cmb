@@ -19,7 +19,7 @@ from pyslalib import slalib
 radToDeg = 180. / np.pi
 sidDayToSec = 86164.0905
 
-class scanning_strategy():
+class ScanningStrategy():
     """ Class to handle the scanning strategy of the telescope """
     def __init__(self, nCES=12, start_date='2013/1/1 00:00:00',
                  telescope_longitude='-67:46.816',
@@ -103,7 +103,7 @@ class scanning_strategy():
 
         Examples
         ----------
-        >>> scan = scanning_strategy()
+        >>> scan = ScanningStrategy()
         >>> telescope_location = scan.define_telescope_location()
         >>> telescope_location.elevation
         5200.0
@@ -124,7 +124,7 @@ class scanning_strategy():
 
         Examples
         ----------
-        >>> scan = scanning_strategy(name_strategy='deep_patch')
+        >>> scan = ScanningStrategy(name_strategy='deep_patch')
         >>> scan.elevation # doctest: +NORMALIZE_WHITESPACE
         [30.0, 45.5226, 47.7448, 49.967,
          52.1892, 54.4114, 56.6336, 58.8558,
@@ -132,7 +132,7 @@ class scanning_strategy():
 
         Only the observation of a deep patch (5 percent of the sky
         in the southern hemisphere) is currently available.
-        >>> scan = scanning_strategy(name_strategy='toto')
+        >>> scan = ScanningStrategy(name_strategy='toto')
         ... # doctest: +NORMALIZE_WHITESPACE, +ELLIPSIS
         Traceback (most recent call last):
          ...
@@ -367,7 +367,7 @@ class scanning_strategy():
 
         Examples
         ----------
-        >>> scan = scanning_strategy(sampling_freq=1., nCES=2)
+        >>> scan = ScanningStrategy(sampling_freq=1., nCES=2)
         >>> scan.run()
         >>> print(scan.scan0['firstmjd'], scan.scan0['lastmjd'])
         56293.6202546 56293.8230093
@@ -378,7 +378,7 @@ class scanning_strategy():
         Note that C codes are compiled on-the-fly (weave), but for fortran
         codes you need first to compile it. See the setup.py or
         the provided Makefile.
-        >>> scan = scanning_strategy(sampling_freq=1., nCES=2,
+        >>> scan = ScanningStrategy(sampling_freq=1., nCES=2,
         ...     language='fortran')
         >>> scan.run()
         >>> print(scan.scan0['firstmjd'], scan.scan0['lastmjd'])
@@ -435,7 +435,7 @@ class scanning_strategy():
         Examples
         ----------
         Set your scan
-        >>> scan = scanning_strategy(sampling_freq=1., nCES=12)
+        >>> scan = ScanningStrategy(sampling_freq=1., nCES=12)
         >>> scan.run()
 
         Set test=False if you want to display the output.
@@ -444,7 +444,7 @@ class scanning_strategy():
 
         Note that you cannot yet perform visualisation if using speed up
         in C or fortran because RA and Dec are not computed.
-        >>> scan = scanning_strategy(sampling_freq=1., nCES=1, language='C')
+        >>> scan = ScanningStrategy(sampling_freq=1., nCES=1, language='C')
         >>> scan.run()
         >>> scan.visualize_my_scan(nside=64, test=True)
         ... # doctest: +NORMALIZE_WHITESPACE, +ELLIPSIS
@@ -452,14 +452,14 @@ class scanning_strategy():
          ...
         ValueError: Visualisation is available only in pure python
         because we do not provide (yet) RA and Dec in C or fortran.
-        Relaunch using language='python' in the class scanning_strategy.
+        Relaunch using language='python' in the class ScanningStrategy.
         """
         if self.language != 'python':
             raise ValueError("Visualisation is available only in pure " +
                              "python because we do not provide (yet) " +
                              "RA and Dec in C or fortran. Relaunch " +
                              "using language='python' in the class " +
-                             "scanning_strategy.")
+                             "ScanningStrategy.")
 
         npix = hp.pixelfunc.nside2npix(nside)
         nhit = np.zeros(npix)
