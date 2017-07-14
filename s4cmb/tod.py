@@ -15,11 +15,12 @@ import healpy as hp
 import weave
 
 import detector_pointing
+from detector_pointing import radec2thetaphi
 import input_sky
 
 d2r = np.pi / 180.0
 
-class TimeOrderedData():
+class TimeOrderedDataPairDiff():
     """ Class to handle Time-Ordered Data (TOD) """
     def __init__(self, hardware, scanning_strategy, HealpixFitsMap,
                  nside_out=None, width=20.):
@@ -40,6 +41,7 @@ class TimeOrderedData():
         width : float, optional
             Width for the output map in degree.
         """
+        ## Initialise args
         self.hardware = hardware
         self.scanning_strategy = scanning_strategy
         self.HealpixFitsMap = HealpixFitsMap
@@ -47,15 +49,16 @@ class TimeOrderedData():
             self.nside_out = self.HealpixFitsMap.nside
         else:
             self.nside_out = nside_out
-
         self.width = width
+
+        ## Initialise internal parameters
         self.nsamples = self.scanning_strategy.scan0['nts']
         self.npair = self.hardware.focal_plane.npair
         self.pair_list = np.reshape(
             self.hardware.focal_plane.bolo_index_in_fp, (self.npair, 2))
 
         ## Pre-compute boresight pointing objects
-        self.prepare_boresightpointing()
+        self.get_boresightpointing()
 
         ## Polarisation angles: intrinsic and HWP angles
         self.get_angles()
@@ -151,6 +154,14 @@ class TimeOrderedData():
             RA of the center of the patch in degree.
         dec_src : float
             Dec of the center of the patch in degree.
+
+        Examples
+        ----------
+        >>> inst, scan, sky_in = load_fake_instrument()
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in)
+        >>> obspix, npix = tod.get_obspix(10., 0., 0.)
+        >>> print(obspix)
+        [1376 1439 1440 1504 1567 1568 1632 1695]
         """
         ## Change to radian
         ra_src = ra_src * d2r
@@ -199,16 +210,11 @@ class TimeOrderedData():
         """
         return np.ones((2, self.npair), dtype=int)
 
-    def prepare_boresightpointing(self):
+    def get_boresightpointing(self):
         """
-        Prepare the boresight pointing for all the focal plane bolometers.
+        Initialise the boresight pointing for all the focal plane bolometers.
         The actual pointing (RA/Dec/Parallactic angle) is computed on-the-fly
         when we load the data.
-
-        Parameters
-        ----------
-        ut1utc_fn : string
-            File containing time correction to UTC.
         """
         lat = float(
             self.scanning_strategy.telescope_location.lat) * 180. / np.pi
@@ -251,9 +257,10 @@ class TimeOrderedData():
         Examples
         ----------
         >>> inst, scan, sky_in = load_fake_instrument()
-        >>> tod = TimeOrderedData(inst, scan, sky_in)
-        >>> print(tod.compute_simpolangle(0,
-        ...     np.array([np.pi] * scan.scan0['nts']))[:4])
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in)
+        >>> angles = tod.compute_simpolangle(ch=0,
+        ...     parallactic_angle=np.array([np.pi] * tod.nsamples))
+        >>> print(angles[:4])
         [  0.          25.13274123  50.26548246  75.39822369]
         """
         if not polangle_err:
@@ -272,16 +279,24 @@ class TimeOrderedData():
     def map2tod(self, ch):
         """
         Scan the input sky maps to generate timestream for channel ch.
+        /!\ this is currently the bottleneck in computation. Need to speed
+        up this routine!
 
         Parameters
         ----------
         ch : int
             Channel index in the focal plane.
 
+        Returns
+        ----------
+        ts : 1d array
+            The timestream for detector ch. If `self.HealpixFitsMap.do_pol` is
+            True it returns intensity+polarisation, otherwise just intensity.
+
         Examples
         ----------
         >>> inst, scan, sky_in = load_fake_instrument()
-        >>> tod = TimeOrderedData(inst, scan, sky_in)
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in)
         >>> d = tod.map2tod(0)
         >>> print(d[:10]) #doctest: +NORMALIZE_WHITESPACE
         [  77.14047019   77.1380591    77.13568942   77.13336348   77.13108377
@@ -294,13 +309,13 @@ class TimeOrderedData():
         ra, dec, pa = self.pointing.offset_detector(azd, eld)
 
         ## Retrieve corresponding pixels on the sky, and their index locally.
-        pixnum, loc_pix = mapindex1d(
-            self.obspix, ra, dec, self.nside_out,
+        index_global, index_local = build_pointing_matrix(
+            ra, dec, self.nside_out, obspix=self.obspix,
             cut_outliers=True, ext_map_gal=self.HealpixFitsMap.ext_map_gal)
 
         ## Store list of hit pixels only for top bolometers
         if ch % 2 == 0:
-            self.point_matrix[int(ch/2)] = loc_pix
+            self.point_matrix[int(ch/2)] = index_local
 
         ## Gain mode. Not yet implemented, but this is the place!
         norm = 1.0
@@ -314,23 +329,48 @@ class TimeOrderedData():
             if ch % 2 == 0:
                 self.pol_angs[int(ch/2)] = pol_ang
 
-            return (self.HealpixFitsMap.I[pixnum] +
-                    self.HealpixFitsMap.Q[pixnum] * np.cos(2 * pol_ang) +
-                    self.HealpixFitsMap.U[pixnum] * np.sin(2 * pol_ang)) * norm
+            return (self.HealpixFitsMap.I[index_global] +
+                    self.HealpixFitsMap.Q[index_global] * np.cos(2 * pol_ang) +
+                    self.HealpixFitsMap.U[index_global] *
+                    np.sin(2 * pol_ang)) * norm
         else:
-            return norm * self.HealpixFitsMap.I[pixnum]
+            return norm * self.HealpixFitsMap.I[index_global]
 
-    def tod2map_alldet(self, waferts, language='fortran'):
+    def tod2map(self, waferts):
         """
-        Project time-ordered data into sky maps.
+        Project time-ordered data into sky maps for the whole array.
+        Maps are updated on-the-fly. Massive speed-up thanks to the
+        interface with fortran. Memory consuming though...
+
+        Parameters
+        ----------
+        waferts : ndarray
+            Array of timestreams. Size (ndetectors, ntimesamples).
+
+        Examples
+        ----------
+        Test the routines MAP -> TOD -> MAP.
+        >>> inst, scan, sky_in = load_fake_instrument()
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in)
+        >>> d = np.array([tod.map2tod(det) for det in range(2 * tod.npair)])
+        >>> tod.tod2map(d)
+
+        Check intensity map
+        >>> sky_out = np.zeros(12 * tod.nside_out**2)
+        >>> sky_out[tod.obspix] = tod.get_I()
+        >>> mask = sky_out != 0.0
+        >>> assert np.allclose(sky_out[mask], sky_in.I[mask])
+
+        Check polarisation maps
+        >>> sky_out = np.zeros((2, 12 * tod.nside_out**2))
+        >>> sky_out[0][tod.obspix], sky_out[1][tod.obspix] = tod.get_QU()
+        >>> mask = (sky_out[0] != 0.0) * (sky_out[1] != 0.0)
+        >>> assert np.allclose(sky_out[0][mask], sky_in.Q[mask])
+        >>> assert np.allclose(sky_out[1][mask], sky_in.U[mask])
         """
-        '''
-        Coadd timestream data in to a map
-        '''
-        nchwedge = waferts.shape[0]
-        npixfp = nchwedge / 2
+        npair = waferts.shape[0]
+        npixfp = npair / 2
         nt = int(waferts.shape[1])
-        nces = 1
 
         ## Check sizes
         assert npixfp == self.point_matrix.shape[0]
@@ -342,86 +382,207 @@ class TimeOrderedData():
         assert npixfp == self.diff_weight.shape[0]
         assert npixfp == self.sum_weight.shape[0]
 
-        d, w, nhit, dc, ds, cc, cs, ss = \
-            self.d, self.w, self.nhit, self.dc, \
-            self.ds, self.cc, self.cs, self.ss
+        d, dc, ds = self.d, self.dc, self.ds
+        w, nhit = self.w, self.nhit
+        cc, ss, cs = self.cc, self.ss, self.cs
 
-        waferi1d = self.point_matrix.flatten()
-        waferpa = self.pol_angs.flatten()
+        point_matrix = self.point_matrix.flatten()
+        pol_angs = self.pol_angs.flatten()
         waferts = waferts.flatten()
         diff_weight = self.diff_weight.flatten()
         sum_weight = self.sum_weight.flatten()
         wafermask_pixel = self.wafermask_pixel.flatten()
-        wafermask_pixel = np.array(wafermask_pixel, dtype=int)
 
         from tod_f import tod_f
-        ## /!\ npixfp = focal plane pixel, self.npixsky = sky pixel
         tod_f.tod2map_alldet_f(d, w, dc, ds, cc, cs, ss, nhit,
-                               waferi1d, waferpa, waferts,
+                               point_matrix, pol_angs, waferts,
                                diff_weight, sum_weight, nt,
                                wafermask_pixel, npixfp, self.npixsky)
         # Garbage collector guard
         wafermask_pixel
 
-def mapindex1d(obspix, ra, dec, nside, cut_outliers=True, ext_map_gal=False):
+    def get_I(self):
+        """
+        Solve for the intensity map I from projected sum timestream map d
+        and weights w: w * I = d.
+
+        Returns
+        ----------
+        I : 1d array
+            Intensity map. Note that only the observed pixels defined in
+            obspix are returned (and not the full sky map).
+        """
+        hit = self.w > 0
+        I = np.zeros_like(self.d)
+        I[hit] = self.d[hit]/self.w[hit]
+        return I
+
+    def get_QU(self):
+        """
+        Solve for the polarisation maps from projected difference timestream
+        maps and weights:
+
+        [cc cs]   [Q]   [dc]
+        [cs ss] * [U] = [ds]
+
+        Returns
+        ----------
+        Q : 1d array
+            Stokes Q map. Note that only the observed pixels defined in
+            obspix are returned (and not the full sky map).
+        U : 1d array
+            Stokes U map. Note that only the observed pixels defined in
+            obspix are returned (and not the full sky map).
+        """
+        testcc = self.cc * self.ss - self.cs * self.cs
+        idet = np.zeros(testcc.shape)
+        inonzero = (testcc != 0.)
+        idet[inonzero] = 1. / testcc[inonzero]
+
+        thresh = np.finfo(np.float32).eps
+        try:
+            izero = (np.abs(testcc) < thresh)
+        except FloatingPointError:
+            izero = inan = np.isnan(testcc)
+            izero[~inan] = (np.abs(testcc[~inan]) < thresh)
+
+        idet[izero] = 0.0
+        self.idet = idet
+
+        Q = idet * (self.ss * self.dc - self.cs * self.ds)
+        U = idet * (-self.cs * self.dc + self.cc * self.ds)
+
+        return Q, U
+
+def build_pointing_matrix(ra, dec, nside, obspix=None,
+                          cut_outliers=True, ext_map_gal=False):
     """
-    Convert projected x,y coordinates to integer index into a flat map vector
+    Given pointing coordinates (RA/Dec), retrieve the corresponding healpix
+    pixel index for a full sky map. This acts effectively as an operator
+    to go from time domain to map domain.
+
+    If a list of observed pixel in a sky patch provided (obspix),
+    the routines returns also local indices of pixels relative
+    to where they are in obspix.
+    Note that the indexing is done relatively to the sky patch defined by
+    (width, ra_src, dec_src). So if for some reason your scanning strategy
+    goes outside the defined sky patch, the routine will assign -1 to the
+    pixel index (or crash if cut_outliers is False).
+
+    Long story short: make sure that (width, ra_src, dec_src) returns a
+    sky patch bigger than what has been defined in the scanning strategy, or
+    you will have truncated output sky maps.
+
+    Parameters
+    ----------
+    ra : float or 1d array
+        RA coordinates of the detector in radian.
+    dec : float or 1d array
+        Dec coordinates of the detector in radian.
+    nside : int
+        Resolution for the output map.
+    obspix : 1d array, optional
+        Array with indices of observed pixels for the sky patch (used to make
+        the conversion global indices to local indices).
+        Should have been built with nside. Default is None.
+    cut_outliers : bool, optional
+        If True assign -1 to pixels not in obspix. If False, the routine
+        crashes if there are pixels outside. No effet if obspix
+        is not provided. Default is True.
+    ext_map_gal : bool, optional
+        If True, perform a rotation of the RA/Dec coordinate to Galactic
+        coordinates prior to compute healpix indices. Defaut is False.
+
+    Returns
+    ----------
+    index_global : float or 1d array
+        The indices of pixels for a full sky healpix map.
+    index_local : None or float or 1d array
+        The indices of pixels relative to where they are in obspix. None if
+        obspix is not provided.
+
+    Examples
+    ----------
+    >>> index_global, index_local = build_pointing_matrix(0.0, -np.pi/4, 16)
+    >>> print(index_global)
+    2592
+
+    >>> index_global, index_local = build_pointing_matrix(
+    ... np.array([0.0, 0.0]), np.array([-np.pi/4, np.pi/4]),
+    ...  nside=16, obspix=np.array([0, 1200, 2592]))
+    >>> print(index_global, index_local)
+    [2592  420] [ 2 -1]
     """
-    npixsky = len(obspix)
-    theta = np.pi / 2 - dec
-    phi = ra
+    theta, phi = radec2thetaphi(ra, dec)
     if ext_map_gal:
         r = hp.Rotator(coord=['C', 'G'])
         theta, phi = r(theta, phi)
 
-    i1d = hp.ang2pix(nside, theta, phi)
-    idxs = obspix.searchsorted(i1d)
-    mask1 = idxs < npixsky
-    loc = mask1
-    loc[mask1] = obspix[idxs[mask1]] == i1d[mask1]
-    outside_pixels = np.invert(loc)
-    if (np.sum(outside_pixels) and (not cut_outliers)):
-        raise ValueError(
-            "Pixels outside patch boundaries. Patch width insufficient")
-    else:
-        idxs[outside_pixels] = -1
-    return i1d, idxs
+    index_global = hp.ang2pix(nside, theta, phi)
 
-def load_fake_instrument():
+    if obspix is not None:
+        npixsky = len(obspix)
+        index_local = obspix.searchsorted(index_global)
+        mask1 = index_local < npixsky
+        loc = mask1
+        loc[mask1] = obspix[index_local[mask1]] == index_global[mask1]
+        outside_pixels = np.invert(loc)
+        if (np.sum(outside_pixels) and (not cut_outliers)):
+            raise ValueError(
+                "Pixels outside patch boundaries. Patch width insufficient")
+        else:
+            index_local[outside_pixels] = -1
+    else:
+        index_local = None
+
+    return index_global, index_local
+
+def load_fake_instrument(nside=16):
     """
     For test purposes.
+    Create instances of HealpixFitsMap, hardware, and
+    scanning_strategy to feed TimeOrderedDataPairDiff in tests.
+
+    Returns
+    ----------
+    hardware : hardware instance
+        Instance of hardware containing instrument parameters and models.
+    scanning_strategy : scanning_strategy instance
+        Instance of scanning_strategy containing scan parameters.
+    HealpixFitsMap : HealpixFitsMap instance
+        Instance of HealpixFitsMap containing input sky parameters.
     """
+    ## Add paths to load modules
     sys.path.insert(0, os.path.realpath(os.path.join(os.getcwd(), '.')))
-    sys.path.insert(
-        0,
-        os.path.realpath(os.path.join(os.getcwd(), 's4cmb')))
+    sys.path.insert(0, os.path.realpath(os.path.join(os.getcwd(), 's4cmb')))
     from input_sky import HealpixFitsMap
     from input_sky import create_sky_map, write_healpix_cmbmap
     from instrument import hardware
     from scanning_strategy import scanning_strategy
-    ## Create a fake input
-    sky = create_sky_map('s4cmb/data/test_data_set_lensedCls.dat', nside=16)
-    write_healpix_cmbmap(output_filename='mymaps.fits', data=sky, nside=16)
+
+    ## Create fake inputs
+
+    ## Sky
+    sky = create_sky_map('s4cmb/data/test_data_set_lensedCls.dat', nside=nside)
+    write_healpix_cmbmap(output_filename='mymaps.fits', data=sky, nside=nside)
     sky_in = HealpixFitsMap('mymaps.fits', do_pol=True,
                             verbose=False, no_ileak=False, no_quleak=False)
-    ## Initialise our instrument
-    ## Generate a focal plane with 4 Crate boards, each with 1 MUX board,
-    ## each with 1 Squid, each with 16 pairs of bolometers.
-    ## The focal plane is 60 cm wide (square),
-    ## and each detector beam is Gaussian with FWHM of 3.5 arcmin.
+
+    ## Instrument
     inst = hardware(ncrate=1, ndfmux_per_crate=1,
                     nsquid_per_mux=1, npair_per_squid=4,
                     fp_size=60., FWHM=3.5,
                     beam_seed=58347, projected_fp_size=3., pm_name='5params',
                     type_HWP='CRHWP', freq_HWP=2., angle_HWP=0., debug=False)
-    ## Initialize our scanning strategy
+
+    ## Scanning strategy
     scan = scanning_strategy(nCES=1, start_date='2013/1/1 00:00:00',
                              telescope_longitude='-67:46.816',
                              telescope_latitude='-22:56.396',
                              telescope_elevation=5200.,
                              name_strategy='deep_patch',
                              sampling_freq=1., sky_speed=0.4,
-                             language='python')
+                             language='fortran')
     scan.run()
 
     return inst, scan, sky_in
