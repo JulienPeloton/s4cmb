@@ -8,9 +8,13 @@ else ifeq (${NERSC_HOST}, cori)
 	FF = gfortran
 	FPY = f2py
 	OPT = --opt=-O3
-else
+else ifeq(${HOSTNAME}, Juliens-MBP)
 	FF = gfortran
 	FPY = f2py-2.7
+	OPT = --opt=-ffixed-line-length-none --opt=-O3
+else
+	FF = gfortran
+	FPY = f2py
 	OPT = --opt=-ffixed-line-length-none --opt=-O3
 endif
 

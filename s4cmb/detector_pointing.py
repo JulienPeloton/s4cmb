@@ -266,9 +266,8 @@ class Pointing():
         >>> pointing = Pointing(az_enc, el_enc, time, value_params,
         ...     allowed_params, lat=-22.)
         >>> ra, dec, pa = pointing.azel2radecpa()
-        >>> print(ra[2:4], dec[2:4], pa[2:4]) # doctest: +NORMALIZE_WHITESPACE
-        [ 0.70299234  0.77062902] [ 0.6596503   0.65038499]
-        [-3.00595723 -2.93490361]
+        >>> print(round(ra[0], 2), round(dec[0], 2), round(pa[0], 2))
+        0.56 0.67 3.13
         """
         converter = Azel2Radec(self.time[0], self.ut1utc)
         vconv = np.vectorize(converter.azel2radecpa)
