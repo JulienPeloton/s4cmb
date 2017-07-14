@@ -169,7 +169,7 @@ class scanning_strategy():
 
             ## Center of the patch in RA/Dec
             self.ra_mid = 0.
-            self.dec_mid = -57.5 / radToDeg
+            self.dec_mid = -57.5
         else:
             raise ValueError("Only name_strategy = deep_patch is " +
                              "currently available. For a custom usage " +
