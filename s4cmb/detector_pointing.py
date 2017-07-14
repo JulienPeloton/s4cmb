@@ -617,13 +617,7 @@ def mult_inline(p, q):
     Inline version for when p is an array of quaternions
     and q is a single quaternion. Big speed-up.
 
-    Examples
-    ----------
-    >>> mult_inline(np.array([[3., 4., 5., 2.],
-    ...     [2., 2., 2., 2.]]), np.array([1., 2., 3., 4.]))
-    ... #doctest +NORMALIZE_WHITESPACE
-    array([[ 16.,  16.,  28., -18.],
-           [ 12.,   8.,  16.,  -4.]])
+    DO NOT USE FOR TEST - prefer the fortran version instead
     """
 
     assert p.ndim == 2, AssertionError("Wrong size!")

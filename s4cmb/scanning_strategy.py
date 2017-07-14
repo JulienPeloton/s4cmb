@@ -432,27 +432,6 @@ class ScanningStrategy():
         ----------
             * nhit_loc: 1D array, sky map with cumulative hit counts
 
-        Examples
-        ----------
-        Set your scan
-        >>> scan = ScanningStrategy(sampling_freq=1., nCES=12)
-        >>> scan.run()
-
-        Set test=False if you want to display the output.
-        >>> scan.visualize_my_scan(nside=64, test=True)
-        Stats: nhits = 2946/49152 (fsky=5.99%), max hit = 1277119
-
-        Note that you cannot yet perform visualisation if using speed up
-        in C or fortran because RA and Dec are not computed.
-        >>> scan = ScanningStrategy(sampling_freq=1., nCES=1, language='C')
-        >>> scan.run()
-        >>> scan.visualize_my_scan(nside=64, test=True)
-        ... # doctest: +NORMALIZE_WHITESPACE, +ELLIPSIS
-        Traceback (most recent call last):
-         ...
-        ValueError: Visualisation is available only in pure python
-        because we do not provide (yet) RA and Dec in C or fortran.
-        Relaunch using language='python' in the class ScanningStrategy.
         """
         if self.language != 'python':
             raise ValueError("Visualisation is available only in pure " +
@@ -469,6 +448,9 @@ class ScanningStrategy():
             num_pts = len(scan['clock-utc'])
             pix_global = hp.pixelfunc.ang2pix(
                 nside, (np.pi/2.) - scan['Dec'], scan['RA'])
+
+            ## Boresight pointing healpix maps
+            nhit_loc = np.zeros(npix)
 
             ## language = C or language = fortran are not yet supported
             ## because they are not returning RA and Dec. So for the moment
@@ -487,8 +469,6 @@ class ScanningStrategy():
                 }
                 """
 
-                ## Boresight pointing healpix maps
-                nhit_loc = np.zeros(npix)
                 weave.inline(c_code, [
                     'pix_global',
                     'num_pts',
@@ -614,6 +594,7 @@ def convolve_focalplane(bore_nhits, nbolos,
         theta = theta_bore + dDec
 
         pixels = hp.ang2pix(nside, theta, phi)
+        npix_loc = len(pixels)
 
         ## Necessary because the values in pixels aren't necessarily unique
         ## This is a poor design choice and should probably be fixed
@@ -633,7 +614,6 @@ def convolve_focalplane(bore_nhits, nbolos,
             }
             """
 
-            npix_loc = len(pixels)
             weave.inline(c_code, [
                 'bore_nhits',
                 'focalplane_nhits',
