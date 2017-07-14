@@ -545,6 +545,34 @@ class quaternion():
 
         return psi, -theta, -phi
 
+def radec2thetaphi(ra, dec):
+    """
+    Correspondance between RA/Dec and theta/phi coordinate systems.
+
+    Parameters
+    ----------
+    ra : float or 1d array
+        RA angle in radian.
+    dec : float or 1d array
+        Dec angle in radian.
+
+    Returns
+    ----------
+    theta : float or 1d array
+        Theta angle in radian
+    phi : float or 1d array
+        Phi angle in radian
+
+    Examples
+    ----------
+    >>> theta, phi = radec2thetaphi(-np.pi/2., 0.)
+    >>> print(round(theta, 2), round(phi, 2))
+    1.57 -1.57
+    """
+    theta = np.pi / 2 - dec
+    phi = ra
+    return theta, phi
+
 def mult(p, q):
     """
     Multiply arrays of quaternions,
