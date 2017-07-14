@@ -18,4 +18,5 @@ install:
 
 # Tests are inside modules (doctest)
 script:
+    - make
     - ./coverage.sh
