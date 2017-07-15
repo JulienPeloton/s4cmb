@@ -6,7 +6,7 @@
 for i in s4cmb/*.py
 do
     echo 'coverage for '$i
-    coverage run $i
+    coverage run $i -v
     coverage report $i
     coverage html $i
 done
