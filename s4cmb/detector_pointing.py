@@ -269,6 +269,7 @@ class Pointing():
         >>> print(round(ra[0], 2), round(dec[0], 2), round(pa[0], 2))
         0.56 0.67 3.13
         """
+        ## TODO pass lon, lat, etc from the ScanningStrategy module!
         converter = Azel2Radec(self.time[0], self.ut1utc)
         vconv = np.vectorize(converter.azel2radecpa)
         ra, dec, pa = vconv(self.time, self.az, self.el)
@@ -289,6 +290,7 @@ class Pointing():
         >>> assert np.all(np.round(az[2:4],2) == np.round(pointing.az[2:4],2))
         >>> assert np.all(np.round(el[2:4],2) == np.round(pointing.el[2:4],2))
         """
+        ## TODO pass lon, lat, etc from the ScanningStrategy module!
         converter = Azel2Radec(self.time[0], self.ut1utc)
         vconv = np.vectorize(converter.radec2azel)
         az, el = vconv(self.time, self.ra, self.dec)

@@ -23,7 +23,7 @@ d2r = np.pi / 180.0
 class TimeOrderedDataPairDiff():
     """ Class to handle Time-Ordered Data (TOD) """
     def __init__(self, hardware, scanning_strategy, HealpixFitsMap,
-                 nside_out=None, width=20.):
+                 CESnumber, nside_out=None, width=20.):
         """
         C'est parti!
 
@@ -35,6 +35,9 @@ class TimeOrderedDataPairDiff():
             Instance of ScanningStrategy containing scan parameters.
         HealpixFitsMap : HealpixFitsMap instance
             Instance of HealpixFitsMap containing input sky parameters.
+        CESnumber : int
+            Number of the scan to simulate. Must be between 0 and
+            scanning_strategy.nCES - 1.
         nside_out : int, optional
             The resolution for the output maps. Default is nside of the
             input map.
@@ -51,8 +54,16 @@ class TimeOrderedDataPairDiff():
             self.nside_out = nside_out
         self.width = width
 
+        self.CESnumber = CESnumber
+        assert self.CESnumber < self.scanning_strategy.nCES, \
+            ValueError("The scan index must be between 0 and {}.".format(
+                self.scanning_strategy.nCES - 1
+            ))
+
         ## Initialise internal parameters
-        self.nsamples = self.scanning_strategy.scan0['nts']
+        self.scan = getattr(self.scanning_strategy, 'scan{}'.format(
+            self.CESnumber))
+        self.nsamples = self.scan['nts']
         self.npair = self.hardware.focal_plane.npair
         self.pair_list = np.reshape(
             self.hardware.focal_plane.bolo_index_in_fp, (self.npair, 2))
@@ -123,7 +134,7 @@ class TimeOrderedDataPairDiff():
         and initialise total polarisation angle.
         """
         self.hwpangle = self.hardware.half_wave_plate.compute_HWP_angles(
-            sample_rate=self.scanning_strategy.scan0['sample_rate'],
+            sample_rate=self.scan['sample_rate'],
             size=self.nsamples)
 
         self.intrinsic_polangle = self.hardware.focal_plane.bolo_polangle
@@ -158,7 +169,7 @@ class TimeOrderedDataPairDiff():
         Examples
         ----------
         >>> inst, scan, sky_in = load_fake_instrument()
-        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in)
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in, CESnumber=0)
         >>> obspix, npix = tod.get_obspix(10., 0., 0.)
         >>> print(obspix)
         [1376 1439 1440 1504 1567 1568 1632 1695]
@@ -220,9 +231,9 @@ class TimeOrderedDataPairDiff():
             self.scanning_strategy.telescope_location.lat) * 180. / np.pi
 
         self.pointing = detector_pointing.Pointing(
-            az_enc=self.scanning_strategy.scan0['azimuth'],
-            el_enc=self.scanning_strategy.scan0['elevation'],
-            time=self.scanning_strategy.scan0['clock-utc'],
+            az_enc=self.scan['azimuth'],
+            el_enc=self.scan['elevation'],
+            time=self.scan['clock-utc'],
             value_params=self.hardware.pointing_model.value_params,
             allowed_params=self.hardware.pointing_model.allowed_params,
             ut1utc_fn=self.scanning_strategy.ut1utc_fn,
@@ -257,7 +268,7 @@ class TimeOrderedDataPairDiff():
         Examples
         ----------
         >>> inst, scan, sky_in = load_fake_instrument()
-        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in)
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in, CESnumber=0)
         >>> angles = tod.compute_simpolangle(ch=0,
         ...     parallactic_angle=np.array([np.pi] * tod.nsamples))
         >>> print(angles[:4])
@@ -296,11 +307,11 @@ class TimeOrderedDataPairDiff():
         Examples
         ----------
         >>> inst, scan, sky_in = load_fake_instrument()
-        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in)
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in, CESnumber=1)
         >>> d = tod.map2tod(0)
         >>> print(d[:10]) #doctest: +NORMALIZE_WHITESPACE
-        [  6.26582278   6.26493725   6.26404887   6.26315767   6.2622637
-           6.26136703 -27.75380615  -7.17440009  -7.17411792  -7.17382723]
+        [-85.5691445  -85.57058157 -85.57187141   2.55714085   2.55538013
+           2.5539101    2.55273145   2.55184351   2.55124425   2.55093039]
         """
         ## Use bolometer beam offsets.
         azd, eld = self.xpos[ch], self.ypos[ch]
@@ -351,7 +362,7 @@ class TimeOrderedDataPairDiff():
         ----------
         Test the routines MAP -> TOD -> MAP.
         >>> inst, scan, sky_in = load_fake_instrument()
-        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in)
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in, CESnumber=0)
         >>> d = np.array([tod.map2tod(det) for det in range(2 * tod.npair)])
         >>> tod.tod2map(d)
 
@@ -609,7 +620,7 @@ def load_fake_instrument(nside=16):
                     type_HWP='CRHWP', freq_HWP=2., angle_HWP=0., debug=False)
 
     ## Scanning strategy
-    scan = ScanningStrategy(nCES=1, start_date='2013/1/1 00:00:00',
+    scan = ScanningStrategy(nCES=2, start_date='2013/1/1 00:00:00',
                             telescope_longitude='-67:46.816',
                             telescope_latitude='-22:56.396',
                             telescope_elevation=5200.,

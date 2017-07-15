@@ -352,7 +352,7 @@ class ScanningStrategy():
         self.telescope_location.date += 24 * ephem.second * 3600
 
         ## Add the scan into the instance
-        self._update('scan{}'.format(scan_number), scan_file)
+        # self._update('scan{}'.format(scan_number), scan_file)
 
         return True
 
@@ -384,14 +384,12 @@ class ScanningStrategy():
         >>> print(scan.scan0['firstmjd'], scan.scan0['lastmjd'])
         56293.6202546 56293.8230093
         """
-        ## Loop over CESes
+        ## Initialise the date and loop over CESes
+        self.telescope_location.date = self.start_date
         for CES_position in range(self.nCES):
             ## Initialise the starting date of observation
             ## It will be updated then automatically
             setattr(self, 'scan{}'.format(CES_position), {})
-
-            if CES_position == 0:
-                self.telescope_location.date = self.start_date
 
             # Create the scan strategy
             self.run_one_scan(
