@@ -20,6 +20,8 @@ from numpy import tan
 from pyslalib import slalib
 import weave
 
+from s4cmb.detector_pointing_f import detector_pointing_f
+
 sec2deg = 360.0/86400.0
 d2r = np.pi / 180.0
 ASTROMETRIC_GEOCENTRIC = 0
@@ -684,7 +686,6 @@ def mult_fortran(p, q):
     p = p.flatten()
     q = q.flatten()
 
-    from detector_pointing_f import detector_pointing_f
     detector_pointing_f.mult_fortran_f(p, q, pq, n)
 
     pq = pq.reshape(shape)
@@ -802,7 +803,7 @@ def quat_to_radecpa_fortran(seq):
     phi = np.zeros_like(q0)
     theta = np.zeros_like(q0)
     psi = np.zeros_like(q0)
-    from detector_pointing_f import detector_pointing_f
+
     detector_pointing_f.quat_to_radecpa_fortran_f(
         q0, q1, q2, q3, phi, theta, psi, n)
     return phi, theta, psi

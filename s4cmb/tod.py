@@ -14,9 +14,11 @@ import numpy as np
 import healpy as hp
 import weave
 
-import detector_pointing
-from detector_pointing import radec2thetaphi
-import input_sky
+from s4cmb import detector_pointing
+from s4cmb.detector_pointing import radec2thetaphi
+from s4cmb import input_sky
+from s4cmb.tod_f import tod_f
+
 
 d2r = np.pi / 180.0
 
@@ -373,7 +375,6 @@ class TimeOrderedDataPairDiff():
         sum_weight = self.sum_weight.flatten()
         wafermask_pixel = self.wafermask_pixel.flatten()
 
-        from tod_f import tod_f
         tod_f.tod2map_alldet_f(output_maps.d, output_maps.w, output_maps.dc,
                                output_maps.ds, output_maps.cc, output_maps.cs,
                                output_maps.ss, output_maps.nhit,

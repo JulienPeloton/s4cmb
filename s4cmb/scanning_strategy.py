@@ -13,6 +13,8 @@ import numpy as np
 import healpy as hp
 import weave
 
+from s4cmb.scanning_strategy_f import scanning_strategy_f
+
 from pyslalib import slalib
 
 ## numerical constants
@@ -313,7 +315,6 @@ class ScanningStrategy():
                 'second', 'sampling_freq'], verbose=0)
 
         elif self.language == 'fortran':
-            from scanning_strategy_f import scanning_strategy_f
             second = 1./24./3600.
             scanning_strategy_f.run_one_scan_f(
                 pb_az_array, pb_mjd_array,
@@ -472,7 +473,6 @@ class ScanningStrategy():
                     'num_pts',
                     'nhit_loc'], verbose=0)
             elif self.language == 'fortran':
-                from scanning_strategy_f import scanning_strategy_f
                 scanning_strategy_f.mapmaking(
                     pix_global, nhit_loc, npix, num_pts)
 
@@ -619,7 +619,6 @@ def convolve_focalplane(bore_nhits, nbolos,
                 'npix_loc', 'n', 'boost'], verbose=0)
 
         elif language == 'fortran':
-            from scanning_strategy_f import scanning_strategy_f
             scanning_strategy_f.convolve_focalplane_f(
                 bore_nhits, focalplane_nhits, pixels,
                 bolo_per_pix, boost, npix_loc)
