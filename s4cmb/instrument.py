@@ -590,7 +590,7 @@ class FocalPlane():
                             self.bolo_index_in_squid.append(boloQ)
                             self.bolo_index_in_fp.append(bolo_index)
                             self.bolo_id.append('Cr{}Df{}Sq{}_{}t'.format(
-                                crate, dfmux, squid, pair_index))
+                                crate, dfmux, squid, boloQ))
                             self.bolo_xcoord.append(xcoord[pair_index])
                             self.bolo_ycoord.append(ycoord[pair_index])
 
@@ -627,7 +627,7 @@ class FocalPlane():
                             self.bolo_index_in_squid.append(boloU)
                             self.bolo_index_in_fp.append(bolo_index)
                             self.bolo_id.append('Cr{}Df{}Sq{}_{}b'.format(
-                                crate, dfmux, squid, pair_index))
+                                crate, dfmux, squid, boloU))
                             self.bolo_xcoord.append(xcoord[pair_index])
                             self.bolo_ycoord.append(ycoord[pair_index])
 
