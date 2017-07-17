@@ -49,7 +49,7 @@ Just add in your bashrc:
 ::
 
     s4cmbPATH=/path/to/the/package
-    export PYTHONPATH=$PYTHONPATH:$s4cmbPATH:$s4cmbPATH/instrument
+    export PYTHONPATH=$PYTHONPATH:$s4cmbPATH
 
 Examples
 =============
