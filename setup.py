@@ -8,7 +8,7 @@ from numpy.distutils.core import setup
 from numpy.distutils.misc_util import Configuration
 
 def configuration(parent_package='', top_path=None):
-    config = Configuration('s4cmb', parent_package, top_path)
+    config = Configuration(name='s4cmb', parent_package, top_path)
     config.add_extension('scanning_strategy_f',
                          sources=['s4cmb/scanning_strategy_f.f90'],
                          libraries=[], f2py_options=[],
@@ -36,34 +36,38 @@ def configuration(parent_package='', top_path=None):
 if __name__ == "__main__":
     reqs = open('requirements.txt', 'r').read().strip().splitlines()
 
-    package_data = {'s4cmb': ['data']}
+    package_data = {'s4cmb/data': ['test_data_set_lensedCls.dat',
+                                   'ut1utc.ephem'],
+                    'jupyter_doc': ['end_to_end_simulation.ipynb',
+                                    'crosstalk_simulation.ipynb',
+                                    'instrument_doc.ipynb',
+                                    'scanning_strategy_doc.ipynb',
+                                    'using_C_or_Fortran_for_speed_up.ipynb']}
 
     setup(
-        name='s4cmb',
-        version='0.3.1',
+        configuration=configuration,
+        version='0.3.2',
         url='https://github.com/JulienPeloton/s4cmb',
-        download_url='',
+        download_url='https://github.com/JulienPeloton/s4cmb/archive/0.3.2.tar.gz',
         license='GPL-3.0',
         author='Julien Peloton',
         author_email='j.peloton@sussex.ac.uk',
         description='Simulate systematic effects in the context of CMB',
         long_description=open('README.rst', 'r').read(),
         platforms='any',
-        configuration=configuration,
         packages=find_packages(),
+        include_package_data=True,
         package_data=package_data,
         install_requires=reqs,
         classifiers=[
-            'Development Status :: 0 - Development',
+            'Development Status :: 3 - Alpha',
             'Environment :: Console',
             'Intended Audience :: Developers',
-            'License :: GPL-3.0 License',
+            'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
             'Operating System :: OS Independent',
             'Programming Language :: Python',
             'Programming Language :: Python :: 2',
             'Programming Language :: Python :: 3',
-            'Topic :: Instrumentation',
-            'Topic :: Simulation',
-            'Topic :: CMB'
+            'Topic :: Scientific/Engineering :: Astronomy'
         ]
     )

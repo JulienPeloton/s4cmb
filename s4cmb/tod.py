@@ -14,7 +14,7 @@ import numpy as np
 import healpy as hp
 import weave
 
-from s4cmb import detector_pointing
+from s4cmb.detector_pointing import Pointing
 from s4cmb.detector_pointing import radec2thetaphi
 from s4cmb import input_sky
 from s4cmb.tod_f import tod_f
@@ -201,7 +201,7 @@ class TimeOrderedDataPairDiff():
         lat = float(
             self.scanning_strategy.telescope_location.lat) * 180. / np.pi
 
-        self.pointing = detector_pointing.Pointing(
+        self.pointing = Pointing(
             az_enc=self.scan['azimuth'],
             el_enc=self.scan['elevation'],
             time=self.scan['clock-utc'],
@@ -666,10 +666,10 @@ def load_fake_instrument(nside=16):
     ## Add paths to load modules
     sys.path.insert(0, os.path.realpath(os.path.join(os.getcwd(), '.')))
     sys.path.insert(0, os.path.realpath(os.path.join(os.getcwd(), 's4cmb')))
-    from input_sky import HealpixFitsMap
-    from input_sky import create_sky_map, write_healpix_cmbmap
-    from instrument import Hardware
-    from scanning_strategy import ScanningStrategy
+    from s4cmb.input_sky import HealpixFitsMap
+    from s4cmb.input_sky import create_sky_map, write_healpix_cmbmap
+    from s4cmb.instrument import Hardware
+    from s4cmb.scanning_strategy import ScanningStrategy
 
     ## Create fake inputs
 

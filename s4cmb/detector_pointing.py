@@ -584,7 +584,15 @@ def mult(p, q):
 
     Parameters
     ----------
-    p : array
+    p : ndarray
+        Array of quaternions of size (np, 4)
+    q : ndarray
+        Array of quaternions of size (nq, 4)
+
+    Returns
+    ----------
+    pq : ndarray
+        Array of size (np, 4)
 
     Examples
     ----------
@@ -622,6 +630,18 @@ def mult_inline(p, q):
     and q is a single quaternion. Big speed-up.
 
     DO NOT USE FOR TEST - prefer the fortran version instead
+
+    Parameters
+    ----------
+    p : ndarray
+        Array of quaternions of size (np, 4)
+    q : ndarray
+        Array of quaternions of size (1, 4)
+
+    Returns
+    ----------
+    pq : ndarray
+        Array of size (np, 4)
     """
 
     assert p.ndim == 2, AssertionError("Wrong size!")
@@ -664,6 +684,18 @@ def mult_fortran(p, q):
     """
     Inline version for when p is an array of quaternions
     and q is a single quaternion. Big speed-up.
+
+    Parameters
+    ----------
+    p : ndarray
+        Array of quaternions of size (np, 4)
+    q : ndarray
+        Array of quaternions of size (1, 4)
+
+    Returns
+    ----------
+    pq : ndarray
+        Array of size (np, 4)
 
     Examples
     ----------
