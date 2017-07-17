@@ -35,8 +35,8 @@ customized compilations (see dir/Makefile).
 
 Installation
 =============
-Clone or fork the repo from the github repository and
-use the setup.py for the installation. Just run:
+Fork the repo from the github repository and clone it to your machine.
+Use the setup.py for the installation. Just run:
 
 ::
 
@@ -50,6 +50,8 @@ Just add in your bashrc:
 
     s4cmbPATH=/path/to/the/package
     export PYTHONPATH=$PYTHONPATH:$s4cmbPATH
+
+Coming soon: pip package + dockerfile :-)
 
 Examples
 =============
