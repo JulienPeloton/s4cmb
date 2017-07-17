@@ -501,36 +501,71 @@ class OutputSkyMap():
         Q, U = self.get_QU()
         return I, Q, U
 
-    def coadd(self, other):
+    def coadd(self, other, to_coadd='d dc ds w cc cs ss nhit'):
         """
         Add other\'s vectors into our vectors.
-        Especially useful if you are using MPI (where each process stores its
-        own map).
+
+        Note:
+        You do not need this routine most of the case as
+        tod2map operates a coaddition internally if you pass the
+        same OutputSkyMap instance.
 
         Parameters
         ----------
         other : OutputSkyMap instance
             Instance of OutputSkyMap to be coadded with this one.
+        to_coadd : string, optional
+            String with names of vectors to coadd separated by a space.
+            Names must be attributes of other and self.
 
         Examples
         ---------
         Coadd two maps together.
         >>> m1 = OutputSkyMap(nside=16, obspix=np.array([0, 1, 2, 3]))
-        >>> m1.d = np.ones(4)
+        >>> m1.nhit = np.ones(4)
         >>> m2 = OutputSkyMap(nside=16, obspix=np.array([0, 1, 2, 3]))
-        >>> m2.d = np.ones(4)
+        >>> m2.nhit = np.ones(4)
         >>> m1.coadd(m2)
-        >>> print(m1.d)
+        >>> print(m1.nhit)
         [ 2.  2.  2.  2.]
         """
         assert np.all(self.obspix == other.obspix), \
             ValueError("To add maps together, they must have the same obspix!")
 
-        to_copy = 'd dc ds w cc cs ss nhit'.split(' ')
-        for k in to_copy:
+        to_coadd_split = to_coadd.split(' ')
+        for k in to_coadd_split:
             a = getattr(self, k)
             b = getattr(other, k)
             a += b
+
+    def coadd_MPI(self, other, MPI, to_coadd='d dc ds w cc cs ss nhit'):
+        """
+        Crappy way of coadding vectors through different processors.
+
+        Parameters
+        ----------
+        other : OutputSkyMap instance
+            Instance of OutputSkyMap to be coadded with this one.
+        MPI : module
+            Module for communication. It has been tested through mpi4py only
+            for the moment.
+        to_coadd : string, optional
+            String with names of vectors to coadd separated by a space.
+            Names must be attributes of other and self.
+
+        Examples
+        ---------
+        Coadd maps from different processors together.
+        >>> from mpi4py import MPI
+        >>> m = OutputSkyMap(nside=16, obspix=np.array([0, 1, 2, 3]))
+        >>> ## do whatever you want with the maps
+        >>> m.coadd_MPI(m, MPI)
+        """
+        to_coadd_split = to_coadd.split(' ')
+        for k in to_coadd_split:
+            setattr(self, k, MPI.COMM_WORLD.allreduce(
+                getattr(other, k), op=MPI.SUM))
+
 
 def partial2full(partial_obs, obspix, nside, fill_with=0.0):
     """
