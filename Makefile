@@ -24,6 +24,7 @@ cmb:
 	${FPY} -c s4cmb/scanning_strategy_f.f90 -m scanning_strategy_f ${OPT}
 	${FPY} -c s4cmb/detector_pointing_f.f90 -m detector_pointing_f ${OPT}
 	${FPY} -c s4cmb/tod_f.f90 -m tod_f ${OPT}
+	${FPY} -c s4cmb/systematics_f.f90 -m systematics_f ${OPT}
 	-mv *.so s4cmb/
 
 clean:

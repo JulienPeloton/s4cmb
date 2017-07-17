@@ -4,11 +4,16 @@ Module to handle instrument systematics.
 
 Author: Julien Peloton, j.peloton@sussex.ac.uk
 """
+from __future__ import division, absolute_import, print_function
+
 import numpy as np
+
+from s4cmb.systematics_f import systematics_f
 
 def inject_crosstalk_inside_SQUID(bolo_data, squid_ids, bolo_ids,
                                   mu=-0.3, sigma=0.1, radius=1, beta=2,
-                                  seed=5438765, new_array=None):
+                                  seed=5438765, new_array=None,
+                                  language='python'):
     """
     Introduce leakage between neighboring bolometers within a SQUID.
     You have to provide the list of bolometers, to which SQUID they
@@ -50,6 +55,9 @@ def inject_crosstalk_inside_SQUID(bolo_data, squid_ids, bolo_ids,
     new_array : None or bolo_data-like array, optional
         If not None, return a new array of timestreams with the modifications.
         Modify bolo_data directly otherwise. Default is None.
+    fortan : string, optional
+        Language to perform computations to be chosen in ['python', 'fortran'].
+        Default is fortran.
 
     Example
     ----------
@@ -75,13 +83,15 @@ def inject_crosstalk_inside_SQUID(bolo_data, squid_ids, bolo_ids,
     >>> d = np.array([tod.map2tod(det) for det in range(2 * tod.npair)])
     >>> d_new = np.zeros_like(d)
     >>> inject_crosstalk_inside_SQUID(d, squid_ids, bolo_ids, radius=1,
-    ...     new_array=d_new)
+    ...     new_array=d_new, language='python')
     >>> print(d[0], d_new[0]) #doctest: +NORMALIZE_WHITESPACE
-    (array([  6.26582278,   6.26493725,   6.26404887, ...,  50.26347916,
-            50.26509513,  50.26675296]),
-     array([  6.24417681,   6.24328831,   6.24239694, ...,  50.09461575,
-            50.09623715,  50.09790055]))
+    [  6.26582278   6.26493725   6.26404887 ...,  50.26347916  50.26509513
+      50.26675296]
+    [  6.24417681   6.24328831   6.24239694 ...,  50.09461575  50.09623715
+      50.09790055]
 
+    For large number of bolometers per SQUID, you would prefer fortran
+    to python to perform the loops. Choose python otherwise.
     """
     ## Make mu and sigma unitless (user provides percentage)
     mu = mu/100.
@@ -98,13 +108,26 @@ def inject_crosstalk_inside_SQUID(bolo_data, squid_ids, bolo_ids,
     # How much to leak from one bolometer to its neighboring channels
     state = np.random.RandomState(seed)
     cross_amp = state.normal(mu, sigma, len(bolo_data))
-    for sq in combs:
-        for ch, i in combs[sq]:
-            for ch2, i2 in combs[sq]:
-                separation_length = abs(ch - ch2)
-                if separation_length > 0 and separation_length <= radius:
-                    tsout[i] += cross_amp[i2] / \
-                        separation_length**beta * tsout[i2]
+
+    if language == 'python':
+        for sq in combs:
+            for ch, i in combs[sq]:
+                for ch2, i2 in combs[sq]:
+                    separation_length = abs(ch - ch2)
+                    if separation_length > 0 and separation_length <= radius:
+                        tsout[i] += cross_amp[i2] / \
+                            separation_length**beta * tsout[i2]
+
+    elif language == 'fortran':
+        ## F2PY convention
+        tsout = np.array(tsout, order='F')
+        for sq in combs:
+            local_indices = np.array(combs[sq]).flatten()[:: 2]
+            global_indices = np.array(combs[sq]).flatten()[1:: 2]
+            systematics_f.inject_crosstalk_inside_squid_f(
+                tsout, local_indices, global_indices,
+                radius, cross_amp, beta,
+                len(local_indices), len(bolo_data), len(bolo_data[0]))
 
     # squid_attenuation = 100.
     # ## Take one squid
