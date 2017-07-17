@@ -67,8 +67,8 @@ def inject_crosstalk_inside_SQUID(bolo_data, squid_ids, bolo_ids,
     >>> bolo_ids = inst.focal_plane.bolo_index_in_squid
     >>> inject_crosstalk_inside_SQUID(d, squid_ids, bolo_ids, radius=1)
     >>> print(d[0]) #doctest: +NORMALIZE_WHITESPACE
-    [  4.10122554   4.10004251   4.09885565 ...,  33.37713868  33.37929757
-      33.38151239]
+    [  6.24417681   6.24328831   6.24239694 ...,  50.09461575  50.09623715
+      50.09790055]
 
     One can also keep the original timestreams, and return a new array
     containing modified timestreams.
@@ -79,10 +79,14 @@ def inject_crosstalk_inside_SQUID(bolo_data, squid_ids, bolo_ids,
     >>> print(d[0], d_new[0]) #doctest: +NORMALIZE_WHITESPACE
     (array([  6.26582278,   6.26493725,   6.26404887, ...,  50.26347916,
             50.26509513,  50.26675296]),
-     array([  4.10122554,   4.10004251,   4.09885565, ...,  33.37713868,
-            33.37929757,  33.38151239]))
+     array([  6.24417681,   6.24328831,   6.24239694, ...,  50.09461575,
+            50.09623715,  50.09790055]))
 
     """
+    ## Make mu and sigma unitless (user provides percentage)
+    mu = mu/100.
+    sigma = sigma/100.
+
     combs = {}
     for bolo in range(len(bolo_data)):
         sq = squid_ids[bolo]
