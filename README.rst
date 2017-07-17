@@ -35,7 +35,13 @@ customized compilations (see dir/Makefile).
 
 Installation
 ===============
-Fork the repo from the github repository and clone it to your machine.
+You can easily install the package using pip
+
+::
+
+    pip install s4cmb
+
+Otherwise you can fork the repo from the github repository and clone it to your machine.
 Use the setup.py for the installation. Just run:
 
 ::
@@ -51,7 +57,7 @@ Just add in your bashrc:
     s4cmbPATH=/path/to/the/package
     export PYTHONPATH=$PYTHONPATH:$s4cmbPATH
 
-Coming soon: pip package + dockerfile :-)
+Coming soon: dockerfile :-)
 
 Examples
 ===============
@@ -62,7 +68,6 @@ TODO
 ===============
 
 * Add the dockerfile.
-* Link to pip.
 
 Main developers
 ===============
