@@ -558,18 +558,21 @@ class FocalPlane():
         while max_hit is False:
             bolo_index = 0
             pair_index = 0
+            squid_index = 0
+            dfmux_index = 0
             for crate in range(self.ncrate):
                 ## CRATE
-                self.crate_id.append('Cr{}'.format(crate))
+                self.crate_id.append('Cr{:03}'.format(crate))
 
                 for dfmux in range(self.ndfmux_per_crate):
                     ## DFMUX
-                    self.dfmux_id.append('Cr{}Df{}'.format(crate, dfmux))
+                    self.dfmux_id.append('Cr{:03}Df{:03}'.format(
+                            crate, dfmux_index))
 
                     for squid in range(self.nsquid_per_mux):
                         ## SQUID
-                        self.squid_id.append('Cr{}Df{}Sq{}'.format(
-                            crate, dfmux, squid))
+                        self.squid_id.append('Cr{:03}Df{:03}Sq{:03}'.format(
+                            crate, dfmux_index, squid_index))
 
                         for pair in range(self.npair_per_squid):
                             ## BOLOMETER
@@ -589,8 +592,9 @@ class FocalPlane():
                             ## Position of the bolometer within the SQUID
                             self.bolo_index_in_squid.append(boloQ)
                             self.bolo_index_in_fp.append(bolo_index)
-                            self.bolo_id.append('Cr{}Df{}Sq{}_{}t'.format(
-                                crate, dfmux, squid, boloQ))
+                            self.bolo_id.append(
+                                'Cr{:03}Df{:03}Sq{:03}Bo{:03}t'.format(
+                                    crate, dfmux_index, squid_index, boloQ))
                             self.bolo_xcoord.append(xcoord[pair_index])
                             self.bolo_ycoord.append(ycoord[pair_index])
 
@@ -626,8 +630,9 @@ class FocalPlane():
                             ## Position of the bolometer within the SQUID
                             self.bolo_index_in_squid.append(boloU)
                             self.bolo_index_in_fp.append(bolo_index)
-                            self.bolo_id.append('Cr{}Df{}Sq{}_{}b'.format(
-                                crate, dfmux, squid, boloU))
+                            self.bolo_id.append(
+                                'Cr{:03}Df{:03}Sq{:03}Bo{:03}b'.format(
+                                    crate, dfmux_index, squid_index, boloU))
                             self.bolo_xcoord.append(xcoord[pair_index])
                             self.bolo_ycoord.append(ycoord[pair_index])
 
@@ -652,6 +657,42 @@ class FocalPlane():
                                     print(str(e))
                                 max_hit = True
                                 break
+                        squid_index += 1
+                    dfmux_index += 1
+
+    def get_indices(self, name='Cr'):
+        """
+        Returns Cr(ate), Df(mux) or Sq(uid) indices.
+
+        Parameters
+        ----------
+        name : string
+            Which component you want the indices.
+            Should be in ['Cr', 'Sq', 'Df'].
+            Note that if you want bolometer indices, just use
+            self.bolo_index_in_fp (for global indices in the focal plane) or
+            self.bolo_index_in_squid (for local indices in SQUIDs).
+
+        Returns
+        ----------
+        indices : list of int
+            List containing the indices of the component for all bolometers.
+
+        Examples
+        ----------
+        >>> fp = FocalPlane()
+        >>> squid_indices = fp.get_indices('Sq')
+        >>> print(squid_indices)
+        [0, 0, 0, 0, 0, 0, 0, 0]
+
+        """
+        assert name in ['Cr', 'Sq', 'Df'], \
+            ValueError("name must be in ['Cr', 'Sq', 'Df'].")
+
+        indices = [
+            int(comp.split(name)[-1][:3]) for comp in self.bolo_id]
+
+        return indices
 
 class BeamModel():
     """ Class to handle the beams of the detectors """
