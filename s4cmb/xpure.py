@@ -239,8 +239,7 @@ def create_batch(batch_file, params_s4cmb, params_xpure):
     params_xpure : NormaliseXpureParser instance
         Object with xpure parameter values.
     """
-    # host = os.environ['NERSC_HOST']
-    host = 'cori'
+    host = os.environ['NERSC_HOST']
     with open(batch_file, 'w') as f:
         print('#!/bin/bash -l', file=f)
         print('#SBATCH -p {}'.format(params_xpure.queue), file=f)
