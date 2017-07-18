@@ -12,4 +12,4 @@ cd $SLURM_SUBMIT_DIR
 path_to_scripts=
 
 time srun -n 12 python-mpi ${path_to_scripts}/simple_app.py \
-    -inifile ${path_to_script}/simple_parameters.ini
+    -inifile ${path_to_scripts}/simple_parameters.ini
