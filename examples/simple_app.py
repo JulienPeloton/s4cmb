@@ -46,6 +46,7 @@ def addargs(parser):
         required=True,
         help='Configuration file with parameter values.')
 
+
 if __name__ == "__main__":
     """
     Launch the pipeline!
@@ -165,5 +166,18 @@ if __name__ == "__main__":
             ValueError("Output not equal to input!")
 
         print("All OK! Greetings from processor 0!")
+
+    if rank == 0:
+        from s4cmb.xpure import write_maps_a_la_xpure
+        from s4cmb.xpure import write_weights_a_la_xpure
+        ## Save data on disk into fits file for later use in xpure
+        name_out = '{}_{}_{}'.format(params.tag,
+                                     params.name_instrument,
+                                     params.name_strategy)
+        write_maps_a_la_xpure(sky_out_tot, name_out=name_out,
+                              output_path='xpure/maps')
+        write_weights_a_la_xpure(sky_out_tot, name_out=name_out,
+                                 output_path='xpure/masks',
+                                 epsilon=0.08, HWP=False)
 
     MPI.COMM_WORLD.barrier()
