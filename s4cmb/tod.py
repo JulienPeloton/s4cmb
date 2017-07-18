@@ -280,9 +280,8 @@ class TimeOrderedDataPairDiff():
         >>> inst, scan, sky_in = load_fake_instrument()
         >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in, CESnumber=1)
         >>> d = tod.map2tod(0)
-        >>> print(d[:10]) #doctest: +NORMALIZE_WHITESPACE
-        [-85.5691445  -85.57058157 -85.57187141   2.55714085   2.55538013
-           2.5539101    2.55273145   2.55184351   2.55124425   2.55093039]
+        >>> print(round(d[0], 3)) #doctest: +NORMALIZE_WHITESPACE
+        -42.874
         """
         ## Use bolometer beam offsets.
         azd, eld = self.xpos[ch], self.ypos[ch]
@@ -709,9 +708,9 @@ def load_fake_instrument(nside=16):
     ## Create fake inputs
 
     ## Sky
-    sky = create_sky_map('s4cmb/data/test_data_set_lensedCls.dat', nside=nside)
-    write_healpix_cmbmap(output_filename='mymaps.fits', data=sky, nside=nside)
-    sky_in = HealpixFitsMap('mymaps.fits', do_pol=True,
+    sky_in = HealpixFitsMap('s4cmb/data/test_data_set_lensedCls.dat',
+                            do_pol=True, FWHM_in=0.0,
+                            nside_in=nside, map_seed=48584937,
                             verbose=False, no_ileak=False, no_quleak=False)
 
     ## Instrument

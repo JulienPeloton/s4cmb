@@ -67,14 +67,14 @@ def inject_crosstalk_inside_SQUID(bolo_data, squid_ids, bolo_ids,
     >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in, CESnumber=0)
     >>> d = np.array([tod.map2tod(det) for det in range(2 * tod.npair)])
     >>> print(round(d[0][0], 3))
-    6.266
+    40.95
 
     Inject crosstalk between neighbour bolometers (radius=1)
     >>> squid_ids = inst.focal_plane.get_indices('Sq')
     >>> bolo_ids = inst.focal_plane.bolo_index_in_squid
     >>> inject_crosstalk_inside_SQUID(d, squid_ids, bolo_ids, radius=1)
     >>> print(round(d[0][0], 3))
-    6.244
+    40.811
 
     One can also keep the original timestreams, and return a new array
     containing modified timestreams.
@@ -84,7 +84,7 @@ def inject_crosstalk_inside_SQUID(bolo_data, squid_ids, bolo_ids,
     ...     new_array=d_new, language='python')
     >>> print(round(d[0][0], 3), round(d_new[0][0], 3))
     ... #doctest: +NORMALIZE_WHITESPACE
-    6.266 6.244
+    40.95 40.811
 
     For large number of bolometers per SQUID, you would prefer fortran
     to python to perform the loops. Choose python otherwise.

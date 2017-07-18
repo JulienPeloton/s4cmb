@@ -123,8 +123,8 @@ class Pointing():
             load_fake_pointing()
         >>> pointing = Pointing(az_enc, el_enc, time, value_params,
         ...     allowed_params, lat=-22.)
-        >>> print(az_enc[2:4], pointing.az[2:4])
-        [ 0.12533323  0.18738131] [ 0.11717842  0.17922137]
+        >>> print(round(az_enc[2], 2), round(pointing.az[2], 2))
+        0.13 0.12
         """
         self.az_enc = az_enc
         self.el_enc = el_enc
@@ -233,8 +233,8 @@ class Pointing():
             load_fake_pointing()
         >>> pointing = Pointing(az_enc, el_enc, time, value_params,
         ...     allowed_params, lat=-22.)
-        >>> print(pointing.ra[2:4], pointing.dec[2:4])
-        [ 0.70299234  0.77062902] [ 0.6596503   0.65038499]
+        >>> print(round(pointing.ra[2], 2), round(pointing.dec[2], 2))
+        0.7 0.66
         """
         self.ra, self.dec, self.pa = self.azel2radecpa()
         v_ra = self.ra
