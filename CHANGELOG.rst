@@ -1,6 +1,14 @@
+v0.x.x
+=============
+* Current version.
+* Add examples for MPI usage.
+
+v0.3.3
+=============
+* Release the package on pip.
+
 v0.3.1
 =============
-* Current version
 * Add systematic module, with routine to simulate detector crosstalk.
 * Fix bugs in the detector/SQUID labeling (instrument module).
 

@@ -57,12 +57,31 @@ Just add in your bashrc:
     s4cmbPATH=/path/to/the/package
     export PYTHONPATH=$PYTHONPATH:$s4cmbPATH
 
+Then run the test suite and the coverage:
+
+::
+
+    ./coverage_and_test.sh
+
+It should print the actual coverage of the test suite, and exit with no errors.
+
 Coming soon: dockerfile :-)
 
 Examples
 ===============
 You can find notebooks describing how to use basic functionalities of s4cmb
 in the folder jupyter_doc.
+
+We also provide a full example for using the package on clusters.
+Try to run (you will need the package mpi4py)
+
+::
+
+    mpirun -n <nproc> python examples/simple_app.py -inifile examples/simple_parameters.ini
+
+where nproc should not be greater than the number of scans to run.
+Note that for NERSC users, we also provide a submission script for jobs on Cori
+ (see examples/nersc_cori.batch).
 
 TODO
 ===============
