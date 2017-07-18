@@ -161,6 +161,50 @@ class NormaliseS4cmbParser():
         else:
             self.map_seed = intise_it(config_dict['map_seed'])
 
+class NormaliseXpureParser():
+    """
+    Class to handle xpure parser.
+    It converts initial dictionary into an object.
+    """
+    def __init__(self, config_dict):
+        """
+        Careful: keys are in small caps (as returned by ConfigParser).
+
+        Parameters
+        ----------
+        config_dict : dictionary
+            dictionary coming from the ini file.
+            Contains {key: val}, where val are strings
+            (default to ConfigParser).
+
+        Examples
+        ----------
+        >>> import ConfigParser
+        >>> Config = ConfigParser.ConfigParser()
+        >>> fns = Config.read('examples/xpure_parameters.ini')
+        >>> params = NormaliseS4cmbParser(Config._sections['xpure'])
+        >>> assert hasattr(params, 'node')
+        """
+
+        ## Names
+        self.time = config_dict['time']
+        self.queue = config_dict['queue']
+        self.beam_file = config_dict['beam_file']
+        self.bin_file = config_dict['bin_file']
+
+        ## Integers
+        self.node = intise_it(config_dict['node'])
+        self.nproc_apo = intise_it(config_dict['nproc_apo'])
+        self.nproc_scalar_to_spin = intise_it(
+            config_dict['nproc_scalar_to_spin'])
+        self.nproc_mll = intise_it(config_dict['nproc_mll'])
+        self.nproc_xpure = intise_it(config_dict['nproc_xpure'])
+        self.radius_apodization = intise_it(
+            config_dict['radius_apodization'])
+        self.lmax_user = intise_it(config_dict['lmax_user'])
+        self.xpure_mode = intise_it(config_dict['xpure_mode'])
+        self.fast = intise_it(config_dict['fast'])
+
 
 if __name__ == "__main__":
     import doctest

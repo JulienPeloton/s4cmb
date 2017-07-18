@@ -226,6 +226,428 @@ def write_weights_a_la_xpure(OutputSkyMap, name_out, output_path, epsilon,
                          partial=False,
                          nest=False)
 
+def create_batch(batch_file, params_s4cmb, params_xpure):
+    """
+    Create submission file for the software xpure
+
+    Parameters
+    ----------
+    batch_file : string
+        Filename.
+    params_s4cmb : NormaliseS4cmbParser instance
+        Object with s4cmb parameter values.
+    params_xpure : NormaliseXpureParser instance
+        Object with xpure parameter values.
+    """
+    # host = os.environ['NERSC_HOST']
+    host = 'cori'
+    with open(batch_file, 'w') as f:
+        print('#!/bin/bash -l', file=f)
+        print('#SBATCH -p {}'.format(params_xpure.queue), file=f)
+        print('#SBATCH -N {}'.format(params_xpure.node), file=f)
+        print('#SBATCH -t {}'.format(params_xpure.time), file=f)
+        print('#SBATCH -J {}_{}_{}'.format(
+            params_s4cmb.tag,
+            params_s4cmb.name_instrument,
+            params_s4cmb.name_strategy), file=f)
+        if host == 'cori':
+            print('#SBATCH -C haswell', file=f)
+
+        print(' ', file=f)
+        print('######## TO BE CHANGED BY USER ########', file=f)
+        print('## Name for files and folders', file=f)
+        print('name={}_{}_{}'.format(
+            params_s4cmb.tag,
+            params_s4cmb.name_instrument,
+            params_s4cmb.name_strategy), file=f)
+
+        print(' ', file=f)
+        print('## Radius for apodization', file=f)
+        print('radius={}'.format(params_xpure.radius_apodization), file=f)
+
+        print(' ', file=f)
+        print('## Parameters for XPURE', file=f)
+        print('LMAX_USER={}'.format(params_xpure.lmax_user), file=f)
+        print('NSIDE_USER={}'.format(params_s4cmb.nside_out), file=f)
+
+        print(' ', file=f)
+        print('## Number of simulation (put 1 if not simulation)', file=f)
+        print('NSIMU_USER=1', file=f)
+
+        print(' ', file=f)
+        print('## Number of masks (put one if several maps but one common masks)', file=f)
+        print('NMASK_USER=1', file=f)
+
+        print(' ', file=f)
+        print('## Number of maps (if > 1, will do the cross correlations)', file=f)
+        print('NMAPS_USER=1', file=f)
+
+        print(' ', file=f)
+        print('## Beam and bins', file=f)
+        print('BEAMFILE={}'.format(params_xpure.beam_file), file=f)
+        print('BINTAB={}'.format(params_xpure.bin_file), file=f)
+
+        print(' ', file=f)
+        print('## XPURE running mode (0=xpol, 1=xpure, 2=hybrid)', file=f)
+        print('MODE_XPURE={}'.format(params_xpure.xpure_mode), file=f)
+
+        print(' ', file=f)
+        print('## FULL (0=myapodizemask, create_mll and XPURE) or FAST (1=only XPURE) or SEMI-FAST (=2 create_mll and XPURE)', file=f)
+        print('FAST={}'.format(params_xpure.fast), file=f)
+
+        print(' ', file=f)
+        print('######## END TO BE CHANGED BY USER ########', file=f)
+
+        print(' ', file=f)
+        print('#ENVIRONEMENT', file=f)
+        print('SCRATCH2=/global/cscratch1/sd/peloton', file=f)
+        if host == 'edison':
+            print('BINDIR=${HOME}/mapmaker/xpure/xpure/trunk/build/edison', file=f)
+        elif host == 'cori':
+            print('BINDIR=${HOME}/mapmaker/xpure/xpure/trunk/build/cori', file=f)
+        print('THEORYDIR=${SCRATCH2}/s4cmb/additional_files', file=f)
+        print('OUTPUTMLL=${SCRATCH2}/s4cmb/xpure/cls/${name}', file=f)
+        print('OUTPUTCL=${SCRATCH2}/s4cmb/xpure/cls/${name}', file=f)
+        print('mkdir -p ${OUTPUTMLL}', file=f)
+        print('mkdir -p ${OUTPUTCL}', file=f)
+        print('MASKDIR=${SCRATCH2}/s4cmb/xpure/masks/${name}', file=f)
+        print('MAPDIR=${SCRATCH2}/s4cmb/xpure/maps/${name}', file=f)
+
+        print(' ', file=f)
+        print('####################################################', file=f)
+        print('# MASK (COMMON MASK)', file=f)
+        print('####################################################', file=f)
+        print('cd $MASKDIR', file=f)
+
+        print(' ', file=f)
+        print('binary_name=$(basename $(find -name "Iw*${name}_norm.fits"))', file=f)
+        print('weight_name=$(basename $(find -name "Iw*${name}.fits"))', file=f)
+        print('BINARY_MASK_I1=${MASKDIR}/${binary_name}', file=f)
+        print('WEIGHT_I1=${MASKDIR}/${weight_name}', file=f)
+        print('APODIZED_MASK_I1=${MASKDIR}/ap30_${weight_name}', file=f)
+
+        print(' ', file=f)
+        print('binary_name=$(basename $(find -name "Pw*${name}_norm.fits"))', file=f)
+        print('weight_name=$(basename $(find -name "Pw*${name}.fits"))', file=f)
+        print('BINARY_MASK_P1=${MASKDIR}/${binary_name}', file=f)
+        print('WEIGHT_P1=${MASKDIR}/${weight_name}', file=f)
+        print('APODIZED_MASK_P1=${MASKDIR}/ap30_${weight_name}', file=f)
+
+        print(' ', file=f)
+        print('### Intensity', file=f)
+        print('output_spin0_I1=${MASKDIR}/spin0_I_${name}.fits', file=f)
+        print('output_spin1_I1=${MASKDIR}/spin1_I_${name}.fits', file=f)
+        print('output_spin2_I1=${MASKDIR}/spin2_I_${name}.fits', file=f)
+
+        print(' ', file=f)
+        print('### Polarization', file=f)
+        print('output_spin0_P1=${MASKDIR}/spin0_P_${name}.fits', file=f)
+        print('output_spin1_P1=${MASKDIR}/spin1_P_${name}.fits', file=f)
+        print('output_spin2_P1=${MASKDIR}/spin2_P_${name}.fits', file=f)
+
+        print(' ', file=f)
+        print('####################################################', file=f)
+        print('# MAPS', file=f)
+        print('####################################################', file=f)
+        print('cd ${MAPDIR}', file=f)
+
+        print(' ', file=f)
+        print('for (( i=1; i<=${NMAPS_USER}; i++)); do', file=f)
+        print('	MAPS[${i}]=$(basename $(find -name "IQU*${name}.fits"))', file=f)
+        print('done', file=f)
+
+        print(' ', file=f)
+        print('## CHECK', file=f)
+        print('for (( i=1; i<=${NMAPS_USER}; i++)); do', file=f)
+        print('	echo ${MAPS[${i}]}', file=f)
+        print('done', file=f)
+
+        print(' ', file=f)
+        print('cd $PBS_O_WORKDIR', file=f)
+
+        print(' ', file=f)
+        print('#########################################################################################', file=f)
+        print('# From binary mask to binary apodized mask', file=f)
+        print('#########################################################################################', file=f)
+        print('if [ "${FAST}" -eq "0" ]', file=f)
+        print('	then', file=f)
+        print('	time srun -n {} ${{BINDIR}}/myapodizemask ${{BINARY_MASK_I1}} ${{APODIZED_MASK_I1}} -minpix 1 -inside 1 -radius ${{radius}} & time srun -n {} ${{BINDIR}}/myapodizemask ${{BINARY_MASK_P1}} ${{APODIZED_MASK_P1}} -minpix 1 -inside 1 -radius ${{radius}}'.format(params_xpure.nproc_apo, params_xpure.nproc_apo), file=f)
+        print('	wait', file=f)
+        print('else', file=f)
+        print('	echo "Go fast - skip myapodizemask"', file=f)
+        print('fi', file=f)
+
+        print(' ', file=f)
+        print('#########################################################################################', file=f)
+        print('# Computation of spin window function', file=f)
+        print('#########################################################################################', file=f)
+
+        print(' ', file=f)
+        print('cat > param_all_I11${name}.par << EOF', file=f)
+        print('##healpix parameters', file=f)
+        print('###################', file=f)
+        print('nside = ${NSIDE_USER}', file=f)
+        print('lmax = ${LMAX_USER} #should not exceed 2*Nside', file=f)
+
+        print(' ', file=f)
+        print('##input file parameters', file=f)
+        print('#######################', file=f)
+        print('maskBinary = ${BINARY_MASK_I1}', file=f)
+        print('window_spin0 = ${APODIZED_MASK_I1}', file=f)
+        print('inverseNoise = ${WEIGHT_I1}', file=f)
+
+        print(' ', file=f)
+        print('##output file parameters', file=f)
+        print('########################', file=f)
+        print('output_spin0 = ${output_spin0_I1}', file=f)
+        print('output_spin1 = ${output_spin1_I1}', file=f)
+        print('output_spin2 = ${output_spin2_I1}', file=f)
+        print('EOF', file=f)
+
+        print(' ', file=f)
+        print('cat > param_all_P11${name}.par << EOF', file=f)
+        print('##healpix parameters', file=f)
+        print('###################', file=f)
+        print('nside = ${NSIDE_USER}', file=f)
+        print('lmax = ${LMAX_USER} #should not exceed 2*Nside', file=f)
+
+        print(' ', file=f)
+        print('##input file parameters', file=f)
+        print('#######################', file=f)
+        print('maskBinary = ${BINARY_MASK_P1}', file=f)
+        print('window_spin0 = ${APODIZED_MASK_P1}', file=f)
+        print('inverseNoise = ${WEIGHT_P1}', file=f)
+
+        print(' ', file=f)
+        print('##output file parameters', file=f)
+        print('########################', file=f)
+        print('output_spin0 = ${output_spin0_P1}', file=f)
+        print('output_spin1 = ${output_spin1_P1}', file=f)
+        print('output_spin2 = ${output_spin2_P1}', file=f)
+        print('EOF', file=f)
+
+        print(' ', file=f)
+        print('if [ "${FAST}" -eq "0" ]', file=f)
+        print('	then', file=f)
+        print('	time srun -n {} ${{BINDIR}}/scalar2spin param_all_I11${{name}}.par >& output_scalar2spinI11${{name}} & time srun -n {} ${{BINDIR}}/scalar2spin param_all_P11${{name}}.par >& output_scalar2spinP11${{name}}'.format(params_xpure.nproc_scalar_to_spin, params_xpure.nproc_scalar_to_spin), file=f)
+        print('	wait', file=f)
+        print('else', file=f)
+        print('	echo "Go fast - skip scalar2spin"', file=f)
+        print('fi', file=f)
+
+        print(' ', file=f)
+        print('#########################################################################################', file=f)
+        print('# X2pure', file=f)
+        print('#########################################################################################', file=f)
+        print('cd ${OUTPUTMLL}', file=f)
+
+        print(' ', file=f)
+        print('#########################################################################################', file=f)
+        print('# Mode-mode mixing matrix', file=f)
+        print('#########################################################################################', file=f)
+        print('cat > createMll.par << EOF', file=f)
+
+        print(' ', file=f)
+        print('######### MODE #############', file=f)
+        print('# 0 : Standard formalism', file=f)
+        print('# 1 : Pure formalism', file=f)
+        print('# 2 : Hybrid formalism', file=f)
+        print('############################', file=f)
+        print('mode = ${MODE_XPURE}', file=f)
+
+        print(' ', file=f)
+        print('############ SETUP #########', file=f)
+        print('nside = ${NSIDE_USER}', file=f)
+        print('lmax = ${LMAX_USER}', file=f)
+        print('nmask = ${NMASK_USER}', file=f)
+
+        print(' ', file=f)
+        print('EOF', file=f)
+
+        print(' ', file=f)
+        print('for (( i=1; i<=${NMASK_USER}; i++)); do', file=f)
+        print('	ind=$(($i - 1))', file=f)
+        print('	cat >> createMll.par << EOF', file=f)
+
+        print(' ', file=f)
+        print('maskfile${i}_T  = ${output_spin0_I1}', file=f)
+
+        print(' ', file=f)
+        print('maskfile${i}_E_spin0 = ${output_spin0_P1}', file=f)
+        print('maskfile${i}_E_spin1 = ${output_spin1_P1}', file=f)
+        print('maskfile${i}_E_spin2 = ${output_spin2_P1}', file=f)
+
+        print(' ', file=f)
+        print('maskfile${i}_B_spin0 = ${output_spin0_P1}', file=f)
+        print('maskfile${i}_B_spin1 = ${output_spin1_P1}', file=f)
+        print('maskfile${i}_B_spin2 = ${output_spin2_P1}', file=f)
+
+        print(' ', file=f)
+        print('mllfile_TT_TT_${i} = ${OUTPUTMLL}/mll_TT_TT_BinMask${i}.fits', file=f)
+
+        print(' ', file=f)
+        print('mllfile_EE_EE_${i} = ${OUTPUTMLL}/mll_spinEE_EE_pcg${i}.fits', file=f)
+        print('mllfile_EE_BB_${i} = ${OUTPUTMLL}/mll_spinEE_BB_pcg${i}.fits', file=f)
+        print('mllfile_EE_EB_${i} = ${OUTPUTMLL}/mll_spinEE_EB_pcg${i}.fits', file=f)
+        print('mllfile_BB_BB_${i} = ${OUTPUTMLL}/mll_spinBB_BB_pcg${i}.fits', file=f)
+        print('mllfile_BB_EE_${i} = ${OUTPUTMLL}/mll_spinBB_EE_pcg${i}.fits', file=f)
+        print('mllfile_BB_EB_${i} = ${OUTPUTMLL}/mll_spinBB_EB_pcg${i}.fits', file=f)
+
+        print(' ', file=f)
+        print('mllfile_TE_TE_${i} = ${OUTPUTMLL}/mll_spinTE_TE_pcg${i}.fits', file=f)
+        print('mllfile_TE_TB_${i} = ${OUTPUTMLL}/mll_spinTE_TB_pcg${i}.fits', file=f)
+        print('mllfile_TB_TE_${i} = ${OUTPUTMLL}/mll_spinTB_TE_pcg${i}.fits', file=f)
+        print('mllfile_TB_TB_${i} = ${OUTPUTMLL}/mll_spinTB_TB_pcg${i}.fits', file=f)
+
+        print(' ', file=f)
+        print('mllfile_EB_EB_${i} = ${OUTPUTMLL}/mll_spinEB_EB_pcg${i}.fits', file=f)
+        print('mllfile_EB_EE_${i} = ${OUTPUTMLL}/mll_spinEB_EE_pcg${i}.fits', file=f)
+        print('mllfile_EB_BB_${i} = ${OUTPUTMLL}/mll_spinEB_BB_pcg${i}.fits', file=f)
+
+        print(' ', file=f)
+        print('EOF', file=f)
+
+        print(' ', file=f)
+        print('done', file=f)
+
+        print(' ', file=f)
+        print('if [ "${FAST}" -eq "0" ]', file=f)
+        print('        then', file=f)
+        print('	time srun -n {} ${{BINDIR}}/x2pure_create_mll createMll.par'.format(params_xpure.nproc_mll), file=f)
+        print('	rm -f createMll.par', file=f)
+        print('elif [ "${FAST}" -eq "2" ]', file=f)
+        print('        then', file=f)
+        print('        time srun -n {} ${{BINDIR}}/x2pure_create_mll createMll.par'.format(params_xpure.nproc_mll), file=f)
+        print('        rm -f createMll.par', file=f)
+        print('else', file=f)
+        print('	echo "Go fast - skip x2pure_create_mll"', file=f)
+        print('fi', file=f)
+
+        print(' ', file=f)
+        print('#########################################################################################', file=f)
+        print('# X2pure', file=f)
+        print('#########################################################################################', file=f)
+        print('for (( n=0; n<${NSIMU_USER}; n++ )); do', file=f)
+
+        print(' ', file=f)
+        print('    echo "************************ simu $n ************************"', file=f)
+
+        print(' ', file=f)
+        print('    num=$n', file=f)
+
+        print(' ', file=f)
+        print('    #CREATE PARAMETER FILE', file=f)
+        print('    cat > xpure.par << _EOF_', file=f)
+
+        print(' ', file=f)
+        print('mode = ${MODE_XPURE}', file=f)
+
+        print(' ', file=f)
+        print('nside = ${NSIDE_USER}', file=f)
+        print('nmaps = ${NMAPS_USER}', file=f)
+        print('nmasks = ${NMASK_USER}', file=f)
+
+        print(' ', file=f)
+        print('_EOF_', file=f)
+
+        print(' ', file=f)
+        print('    for ((j=1; j<=${NMAPS_USER}; j++)); do', file=f)
+
+        print(' ', file=f)
+        print('	cat >> xpure.par << _EOF_', file=f)
+
+        print(' ', file=f)
+        print('bellfile${j} = ${THEORYDIR}/${BEAMFILE}', file=f)
+        print('mapfile${j} = ${MAPDIR}/${MAPS[${j}]}', file=f)
+
+        print(' ', file=f)
+        print('_EOF_', file=f)
+
+        print(' ', file=f)
+        print('    done', file=f)
+
+        print(' ', file=f)
+        print('    cat >> xpure.par << _EOF_', file=f)
+
+        print(' ', file=f)
+        print('lmaxSim = ${LMAX_USER}', file=f)
+
+        print(' ', file=f)
+        print('_EOF_', file=f)
+
+        print(' ', file=f)
+        print('    for(( i=1; i<=${NMASK_USER}; i++)); do', file=f)
+        print('	ind=$(($i - 1))', file=f)
+        print('	cat >> xpure.par << EOF', file=f)
+
+        print(' ', file=f)
+        print('maskfile${i}_T  = ${output_spin0_I1}', file=f)
+
+        print(' ', file=f)
+        print('maskfile${i}_E_spin0 = ${output_spin0_P1}', file=f)
+        print('maskfile${i}_E_spin1 = ${output_spin1_P1}', file=f)
+        print('maskfile${i}_E_spin2 = ${output_spin2_P1}', file=f)
+
+        print(' ', file=f)
+        print('maskfile${i}_B_spin0 = ${output_spin0_P1}', file=f)
+        print('maskfile${i}_B_spin1 = ${output_spin1_P1}', file=f)
+        print('maskfile${i}_B_spin2 = ${output_spin2_P1}', file=f)
+
+        print(' ', file=f)
+        print('mllfile_TT_TT_${i} = ${OUTPUTMLL}/mll_TT_TT_BinMask${i}.fits', file=f)
+
+        print(' ', file=f)
+        print('mllfile_EE_EE_${i} = ${OUTPUTMLL}/mll_spinEE_EE_pcg${i}.fits', file=f)
+        print('mllfile_EE_BB_${i} = ${OUTPUTMLL}/mll_spinEE_BB_pcg${i}.fits', file=f)
+        print('mllfile_EE_EB_${i} = ${OUTPUTMLL}/mll_spinEE_EB_pcg${i}.fits', file=f)
+        print('mllfile_BB_BB_${i} = ${OUTPUTMLL}/mll_spinBB_BB_pcg${i}.fits', file=f)
+        print('mllfile_BB_EE_${i} = ${OUTPUTMLL}/mll_spinBB_EE_pcg${i}.fits', file=f)
+        print('mllfile_BB_EB_${i} = ${OUTPUTMLL}/mll_spinBB_EB_pcg${i}.fits', file=f)
+
+        print(' ', file=f)
+        print('mllfile_TE_TE_${i} = ${OUTPUTMLL}/mll_spinTE_TE_pcg${i}.fits', file=f)
+        print('mllfile_TE_TB_${i} = ${OUTPUTMLL}/mll_spinTE_TB_pcg${i}.fits', file=f)
+        print('mllfile_TB_TE_${i} = ${OUTPUTMLL}/mll_spinTB_TE_pcg${i}.fits', file=f)
+        print('mllfile_TB_TB_${i} = ${OUTPUTMLL}/mll_spinTB_TB_pcg${i}.fits', file=f)
+
+        print(' ', file=f)
+        print('mllfile_EB_EB_${i} = ${OUTPUTMLL}/mll_spinEB_EB_pcg${i}.fits', file=f)
+        print('mllfile_EB_EE_${i} = ${OUTPUTMLL}/mll_spinEB_EE_pcg${i}.fits', file=f)
+        print('mllfile_EB_BB_${i} = ${OUTPUTMLL}/mll_spinEB_BB_pcg${i}.fits', file=f)
+
+        print(' ', file=f)
+        print('EOF', file=f)
+        print('    done', file=f)
+
+        print(' ', file=f)
+        print('    cat >> xpure.par << _EOF_', file=f)
+        print('noise_biasT_1 = 0.', file=f)
+        print('noise_biasT_2_2 = 0.', file=f)
+        print('noise_biasT_1_2 = 0.', file=f)
+
+        print(' ', file=f)
+        print('noise_biasP_1 = 0.', file=f)
+        print('noise_biasP_2_2 = 0.', file=f)
+        print('noise_biasP_1_2 = 0.', file=f)
+
+        print(' ', file=f)
+        print('bintab = ${THEORYDIR}/${BINTAB}', file=f)
+        print('#mask_list = ${INPUT}/bin2mask_43bins.fits', file=f)
+        print('_EOF_', file=f)
+
+        print(' ', file=f)
+        print('cat >> xpure.par << _EOF_', file=f)
+        print('pseudofile = ${OUTPUTCL}/pseudopure_pcg_${name}_$num', file=f)
+        print('cellfile = ${OUTPUTCL}/cellpure_pbear_${name}_$num', file=f)
+        print('lmax = ${LMAX_USER}', file=f)
+        print('_EOF_', file=f)
+        print('    #RUN', file=f)
+        print('    time srun -n {} ${{BINDIR}}/x2pure xpure.par'.format(
+            params_xpure.nproc_xpure), file=f)
+
+        print(' ', file=f)
+        print('done', file=f)
+
 
 if __name__ == "__main__":
     import doctest
