@@ -317,17 +317,11 @@ def create_sky_map(cl_fn, nside=16, FWHM=0.0, seed=548397):
     return I, Q, U
 
 def write_healpix_cmbmap(output_filename, data, nside, fits_IDL=False,
-                         coord=None, colnames=['I', 'Q', 'U'], nest=False):
+                         coord=None, colnames=['I', 'Q', 'U'], partial=True,
+                         nest=False):
     """
-    Write healpix fits map in full sky mode or custom partial sky,
-    i.e. file with obspix and CMB_fields. Input data have to be a list
-    with n fields to be written.
-
-    / ! \
-    By default, even the full sky mode write the maps in partial mode, in
-    the sense that the data is compressed. so unless you know what you
-    are doing, always choose partial_custom=False.
-    / ! \
+    Write healpix fits map in full sky mode or partial sky,
+    Input data have to be a list with n fields to be written.
 
     Parameters
     ----------
@@ -345,6 +339,8 @@ def write_healpix_cmbmap(output_filename, data, nside, fits_IDL=False,
         (G(alactic), C(elestial), and so on). Default is None.
     colnames : list of strings
         The name of each data vector to be saved.
+    partial : bool
+        If True, store only non-zero pixels. Default is True.
     nest : bool, optional
         If True, save the data in the nest scheme. Default is False (i.e.
         data are saved in the RING format).
@@ -364,7 +360,7 @@ def write_healpix_cmbmap(output_filename, data, nside, fits_IDL=False,
     extra_header = add_hierarch(extra_header)
 
     hp.write_map(output_filename, data, fits_IDL=fits_IDL,
-                 coord=coord, column_names=None, partial=True,
+                 coord=coord, column_names=None, partial=partial,
                  extra_header=extra_header)
 
 def write_dummy_map(filename='myfits_to_test_.fits', nside=16):
