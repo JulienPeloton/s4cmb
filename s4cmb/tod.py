@@ -719,7 +719,7 @@ def load_fake_instrument(nside=16):
                     nsquid_per_mux=1, npair_per_squid=4,
                     fp_size=60., FWHM=3.5,
                     beam_seed=58347, projected_fp_size=3., pm_name='5params',
-                    type_HWP='CRHWP', freq_HWP=2., angle_HWP=0., debug=False)
+                    type_HWP='CRHWP', freq_HWP=2., angle_HWP=0., verbose=False)
 
     ## Scanning strategy
     scan = ScanningStrategy(nCES=2, start_date='2013/1/1 00:00:00',

@@ -66,17 +66,15 @@ def inject_crosstalk_inside_SQUID(bolo_data, squid_ids, bolo_ids,
     >>> inst, scan, sky_in = load_fake_instrument()
     >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in, CESnumber=0)
     >>> d = np.array([tod.map2tod(det) for det in range(2 * tod.npair)])
-    >>> print(d[0]) #doctest: +NORMALIZE_WHITESPACE
-    [  6.26582278   6.26493725   6.26404887 ...,  50.26347916  50.26509513
-      50.26675296]
+    >>> print(round(d[0][0], 3))
+    6.266
 
     Inject crosstalk between neighbour bolometers (radius=1)
     >>> squid_ids = inst.focal_plane.get_indices('Sq')
     >>> bolo_ids = inst.focal_plane.bolo_index_in_squid
     >>> inject_crosstalk_inside_SQUID(d, squid_ids, bolo_ids, radius=1)
-    >>> print(d[0]) #doctest: +NORMALIZE_WHITESPACE
-    [  6.24417681   6.24328831   6.24239694 ...,  50.09461575  50.09623715
-      50.09790055]
+    >>> print(round(d[0][0], 3))
+    6.244
 
     One can also keep the original timestreams, and return a new array
     containing modified timestreams.
@@ -84,11 +82,9 @@ def inject_crosstalk_inside_SQUID(bolo_data, squid_ids, bolo_ids,
     >>> d_new = np.zeros_like(d)
     >>> inject_crosstalk_inside_SQUID(d, squid_ids, bolo_ids, radius=1,
     ...     new_array=d_new, language='python')
-    >>> print(d[0], d_new[0]) #doctest: +NORMALIZE_WHITESPACE
-    [  6.26582278   6.26493725   6.26404887 ...,  50.26347916  50.26509513
-      50.26675296]
-    [  6.24417681   6.24328831   6.24239694 ...,  50.09461575  50.09623715
-      50.09790055]
+    >>> print(round(d[0][0], 3), round(d_new[0][0], 3))
+    ... #doctest: +NORMALIZE_WHITESPACE
+    6.266 6.244
 
     For large number of bolometers per SQUID, you would prefer fortran
     to python to perform the loops. Choose python otherwise.

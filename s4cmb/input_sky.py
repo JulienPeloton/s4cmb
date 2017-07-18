@@ -19,19 +19,33 @@ from astropy.io import fits as pyfits
 class HealpixFitsMap():
     """ Class to handle fits file containing healpix maps """
     def __init__(self, input_filename,
-                 do_pol=True, verbose=False,
-                 no_ileak=False, no_quleak=False, ext_map_gal=False):
+                 do_pol=True, verbose=False, FWHM=0.0, nside_in=None,
+                 map_seed=None, no_ileak=False, no_quleak=False,
+                 ext_map_gal=False):
         """
 
         Parameters
         ----------
         input_filename : string
-            Name of the file containing the sky maps.
+            Either fits file containing the sky maps (data will be loaded), or
+            CAMB lensed cl file (.dat) containing lensed power spectra with
+            order ell, TT, EE, BB, TE (maps will be created on-the-fly).
         do_pol : bool, optional
             If True, load temperature and polarisation. Temperature only
             otherwise. Default is True.
         verbose : bool, optional
             If True, print out plenty of useless messages.
+        FWHM : float, optional
+            If input_filename is a CAMB lensed cl file, the generated maps will
+            be convolved with a beam having this FWHM. In arcmin. No effect if
+            you provide maps directly.
+        nside_in : int, optional
+            If input_filename is a CAMB lensed cl file, the maps will be
+            generated at a resolution nside_in. No effect if you provide maps
+            directly.
+        map_seed : int, optional
+            If input_filename is a CAMB lensed cl file, this is the seed used
+            to create the maps. No effect if you provide maps directly.
         no_ileak : bool, optional
             If True, load temperature and polarisation, but set the temperature
             to zero to avoid leakages.
@@ -49,13 +63,31 @@ class HealpixFitsMap():
         self.no_ileak = no_ileak
         self.no_quleak = no_quleak
         self.ext_map_gal = ext_map_gal
+        self.FWHM = FWHM
+        self.nside_in = nside_in
+        self.map_seed = map_seed
 
         self.nside = None
         self.I = None
         self.Q = None
         self.U = None
 
-        self.load_healpix_fits_map()
+        if self.input_filename[-4:] == '.dat':
+            if self.verbose:
+                print("Creating sky maps from cl file...")
+            self.create_healpix_fits_map()
+        elif self.input_filename[-5:] == '.fits':
+            if self.verbose:
+                print("Reading sky maps from fits file...")
+            self.load_healpix_fits_map()
+        else:
+            raise IOError("Input file not understood! Should be either a " +
+                          "fits file containing the sky maps " +
+                          "(data will be loaded), or a CAMB lensed cl file " +
+                          "(.dat) containing lensed power spectra with " +
+                          "order ell, TT, EE, BB, TE " +
+                          "(maps will be created on-the-fly).")
+
         self.set_leakage_to_zero()
 
     def load_healpix_fits_map(self, force=False):
@@ -76,21 +108,65 @@ class HealpixFitsMap():
 
         Let's now read the data
         >>> hpmap = HealpixFitsMap(input_filename=filename)
-        >>> hpmap.load_healpix_fits_map(force=True)
         >>> print(hpmap.nside)
         16
 
         If the data is already loaded, it won't reload it by default
         >>> hpmap.load_healpix_fits_map()
         External data already present in memory
+
+        But you can force it
+        >>> hpmap.load_healpix_fits_map(force=True)
         """
-        if self.nside is None or force:
+        if self.I is None or force:
             if self.do_pol:
                 self.I, self.Q, self.U = hp.read_map(
                     self.input_filename, (0, 1, 2), verbose=self.verbose)
             else:
                 self.I = hp.read_map(
                     self.input_filename, field=0, verbose=self.verbose)
+            self.nside = hp.npix2nside(len(self.I))
+        else:
+            print("External data already present in memory")
+
+    def create_healpix_fits_map(self, force=False):
+        """
+        Create sky maps from cl file.
+        Do nothing if data already presents in the memory.
+
+        Parameters
+        ----------
+        force : bool
+            If true, force to recreate the maps in memory even if it is already
+            loaded. Default is False.
+
+        Examples
+        ----------
+        Let's generate the map from a CAMB file
+        >>> filename = 's4cmb/data/test_data_set_lensedCls.dat'
+        >>> hpmap = HealpixFitsMap(input_filename=filename, FWHM=3.5,
+        ...     nside_in=16, map_seed=489237)
+        >>> print(hpmap.nside)
+        16
+
+        If the data is already loaded, it won't reload it by default
+        >>> hpmap.create_healpix_fits_map()
+        External data already present in memory
+
+        But you can force it
+        >>> hpmap.create_healpix_fits_map(force=True)
+        """
+        if self.I is None or force:
+            if self.do_pol:
+                self.I, self.Q, self.U = create_sky_map(self.input_filename,
+                                                        nside=self.nside_in,
+                                                        FWHM=self.FWHM,
+                                                        seed=self.map_seed)
+            else:
+                self.I = create_sky_map(self.input_filename,
+                                        nside=self.nside_in,
+                                        FWHM=self.FWHM,
+                                        seed=self.map_seed)
             self.nside = hp.npix2nside(len(self.I))
         else:
             print("External data already present in memory")
@@ -196,7 +272,7 @@ def get_obspix(xmin, xmax, ymin, ymax, nside):
 
     return obspix
 
-def create_sky_map(cl_fn, nside=16, seed=548397):
+def create_sky_map(cl_fn, nside=16, FWHM=0.0, seed=548397):
     """
     Create full sky map from input cl.
 
@@ -206,6 +282,9 @@ def create_sky_map(cl_fn, nside=16, seed=548397):
         Name of the file containing cl (CAMB lensed cl format)
     nside : int, optional
         Resolution for the output map.
+    FWHM : float
+        The fwhm of the Gaussian used to smooth the map (applied on alm).
+        In arcmin.
 
     Returns
     ----------
@@ -226,11 +305,14 @@ def create_sky_map(cl_fn, nside=16, seed=548397):
     ## Take out the normalisation...
     llp = ell * (ell + 1.) / (2 * np.pi)
 
+    ## Arcmin to rad
+    FWHM_rad = FWHM / 60. * np.pi / 180.
+
     np.random.seed(seed)
     I, Q, U = hp.synfast([TT / llp, EE / llp, BB / llp, TE / llp], nside,
                          lmax=2*nside, mmax=None, alm=False,
                          pol=True, pixwin=False,
-                         fwhm=0.0, sigma=None, new=True,
+                         fwhm=FWHM_rad, sigma=None, new=True,
                          verbose=False)
     return I, Q, U
 
