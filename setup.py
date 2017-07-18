@@ -30,6 +30,13 @@ def configuration(parent_package='', top_path=None):
                              '-ffixed-line-length-1000',
                              '-O3'],
                          extra_compile_args=[''], extra_link_args=[''],)
+    config.add_extension('systematics_f',
+                         sources=['s4cmb/systematics_f.f90'],
+                         libraries=[], f2py_options=[],
+                         extra_f90_compile_args=[
+                             '-ffixed-line-length-1000',
+                             '-O3'],
+                         extra_compile_args=[''], extra_link_args=[''],)
     return config
 
 
