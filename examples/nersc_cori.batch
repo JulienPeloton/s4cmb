@@ -3,6 +3,7 @@
 #SBATCH -N 1
 #SBATCH -t 00:05:00
 #SBATCH -J s4cmbrocks
+#SBATCH -C haswell
 
 source $HOME/.bashrc.ext
 cd $SLURM_SUBMIT_DIR
