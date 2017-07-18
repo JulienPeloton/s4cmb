@@ -157,7 +157,7 @@ def convert_pair_to_bolometer_position(xcoord_pairs, ycoord_pairs):
 
     Examples
     ----------
-    >>> fp = FocalPlane(debug=False)
+    >>> fp = FocalPlane(verbose=False)
     >>> xp, yp = coordinates_on_grid(row_size=fp.fp_size, nx2=4)
     >>> print(xp, yp)
     [-15.  15. -15.  15.] [-15. -15.  15.  15.]
@@ -200,7 +200,7 @@ def show_focal_plane(bolo_xcoord, bolo_ycoord, bolo_polangle=None,
 
     Examples
     ---------
-    >>> fp = FocalPlane(debug=False)
+    >>> fp = FocalPlane(verbose=False)
     >>> show_focal_plane(fp.bolo_xcoord, fp.bolo_ycoord, fp.bolo_polangle,
     ...     save_on_disk=False, display=False)
     """
@@ -269,7 +269,7 @@ def convert_cm_to_rad(xcm, ycm, conversion):
     ----------
     Focal plane of 60 cm diameter and mirror
     giving a 3 deg projection on the sky by default
-    >>> fp = FocalPlane(debug=False)
+    >>> fp = FocalPlane(verbose=False)
     >>> projected_fp_size = 3. ## degrees
     >>> xcm, ycm = coordinates_on_grid(
     ...                 row_size=fp.fp_size, nx2=fp.npair)
@@ -311,8 +311,8 @@ def construct_beammap(beamprm, ct, cb, nx, pix_size):
     ----------
     Note that bolometers within the same pixel are neighbour bolometers
     that is (ct, cb) = (0, 1) for example.
-    >>> fp = FocalPlane(debug=False)
-    >>> bm = BeamModel(fp, debug=False)
+    >>> fp = FocalPlane(verbose=False)
+    >>> bm = BeamModel(fp, verbose=False)
     >>> pix_size = 0.5 / 180. * np.pi / 60. # 0.5 arcmin in rad
     >>> summap, diffmap = construct_beammap(
     ...     beamprm=bm, ct=0, cb=1, nx=4, pix_size=pix_size)
@@ -379,8 +379,8 @@ def gauss2d(xy, x_0, y_0, Amp, sig_xp, sig_yp, psi):
 
     Examples
     ----------
-    >>> fp = FocalPlane(debug=False)
-    >>> bm = BeamModel(fp, debug=False)
+    >>> fp = FocalPlane(verbose=False)
+    >>> bm = BeamModel(fp, verbose=False)
     >>> pix_size = 0.5 / 180. * np.pi / 60. # 0.5 arcmin in rad
     >>> xy = coordinates_on_grid(pix_size=pix_size, nx=4)
     >>> gauss2d(xy, x_0=0, y_0=0, Amp=1.,
@@ -421,7 +421,7 @@ class Hardware():
                  FWHM=3.5, beam_seed=58347,
                  projected_fp_size=3.,
                  pm_name='5params',
-                 type_HWP='CRHWP', freq_HWP=2., angle_HWP=0., debug=False):
+                 type_HWP='CRHWP', freq_HWP=2., angle_HWP=0., verbose=False):
         """
         This class creates the data used to model the instrument:
         * focal plane
@@ -453,8 +453,8 @@ class Hardware():
         pm_name : string, optional
             The pointing model to load. Currently, only the five-parameter
             pointing model (Mangum 2001) is implemented (pm_name = 5params).
-        debug : boolean, optional
-            If True, print out a number of useful comments for debugging.
+        verbose : boolean, optional
+            If True, print out a number of useful comments for verboseging.
 
         Examples
         ----------
@@ -462,10 +462,10 @@ class Hardware():
         """
         self.focal_plane = FocalPlane(ncrate, ndfmux_per_crate,
                                       nsquid_per_mux, npair_per_squid,
-                                      fp_size, debug)
+                                      fp_size, verbose)
 
         self.beam_model = BeamModel(self.focal_plane, FWHM, beam_seed,
-                                    projected_fp_size, debug)
+                                    projected_fp_size, verbose)
 
         self.pointing_model = PointingModel(pm_name)
 
@@ -475,7 +475,7 @@ class FocalPlane():
     """ Class to handle the focal plane of the instrument. """
     def __init__(self,
                  ncrate=1, ndfmux_per_crate=1, nsquid_per_mux=1,
-                 npair_per_squid=4, fp_size=60., debug=False):
+                 npair_per_squid=4, fp_size=60., verbose=False):
         """
         Initialise our focal plane.
 
@@ -502,8 +502,8 @@ class FocalPlane():
             Number of pair of bolometers per SQUID.
         fp_size : float, optional
             The size of the focal plane in cm. Default is 60 cm.
-        debug : boolean, optional
-            If True, print out a number of useful comments for debugging.
+        verbose : boolean, optional
+            If True, print out a number of useful comments for verboseging.
         """
         self.ncrate = ncrate
         self.ndfmux_per_crate = ndfmux_per_crate
@@ -517,7 +517,7 @@ class FocalPlane():
 
         self.fp_size = fp_size
 
-        self.debug = debug
+        self.verbose = verbose
 
         self.make_focal_plane()
 
@@ -540,7 +540,7 @@ class FocalPlane():
 
         Examples
         ----------
-        >>> fp = FocalPlane(debug=True)
+        >>> fp = FocalPlane(verbose=True)
         Hardware map generated...
         """
         ## Retrieve coordinate of the pairs inside the focal plane
@@ -653,7 +653,7 @@ class FocalPlane():
                                 assert pair_index < self.npair, \
                                     'Hardware map generated...'
                             except AssertionError as e:
-                                if self.debug:
+                                if self.verbose:
                                     print(str(e))
                                 max_hit = True
                                 break
@@ -698,7 +698,7 @@ class BeamModel():
     """ Class to handle the beams of the detectors """
     def __init__(self,
                  focal_plane, FWHM=3.5, beam_seed=58347,
-                 projected_fp_size=3., debug=False):
+                 projected_fp_size=3., verbose=False):
         """
         Parameters
         ----------
@@ -713,8 +713,8 @@ class BeamModel():
         projected_fp_size : float, optional
             Size of the focal plane on the sky (in degree). This has to
             do with the size of the mirror. Default = 3 degrees.
-        debug : boolean, optional
-            If True, print out a number of useful comments for debugging.
+        verbose : boolean, optional
+            If True, print out a number of useful comments for verboseging.
         """
         ## Focal plane parameters
         self.focal_plane = focal_plane
@@ -725,7 +725,7 @@ class BeamModel():
         self.projected_fp_size = projected_fp_size
 
         ## Paths and names
-        self.debug = debug
+        self.verbose = verbose
 
         self.beamprm = self.generate_beam_parameters()
 
@@ -741,8 +741,8 @@ class BeamModel():
 
         Examples
         ----------
-        >>> fp = FocalPlane(debug=False)
-        >>> bm = BeamModel(fp, debug=False)
+        >>> fp = FocalPlane(verbose=False)
+        >>> bm = BeamModel(fp, verbose=False)
         >>> bm.generate_beam_parameters()
         >>> print(bm.xpos) # doctest: +NORMALIZE_WHITESPACE
         [-0.01308997 -0.01308997 -0.01308997 -0.01308997
