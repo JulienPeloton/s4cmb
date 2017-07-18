@@ -1,0 +1,14 @@
+#!/bin/bash -l
+#SBATCH -p debug
+#SBATCH -N 1
+#SBATCH -t 00:30:00
+#SBATCH -J s4cmbrocks
+
+source $HOME/.bashrc.ext
+cd $SLURM_SUBMIT_DIR
+
+## Update the path!
+path_to_scripts=
+
+time srun -n 12 python-mpi ${path_to_scripts}/simple_app.py \
+    -inifile ${path_to_script}/simple_parameters.ini

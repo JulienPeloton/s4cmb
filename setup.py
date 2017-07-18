@@ -49,7 +49,10 @@ if __name__ == "__main__":
                                     'crosstalk_simulation.ipynb',
                                     'instrument_doc.ipynb',
                                     'scanning_strategy_doc.ipynb',
-                                    'using_C_or_Fortran_for_speed_up.ipynb']}
+                                    'using_C_or_Fortran_for_speed_up.ipynb'],
+                    'examples': ['simple_app.py',
+                                 'simple_parameters.ini',
+                                 'nersc_cori.batch']}
 
     setup(
         configuration=configuration,
