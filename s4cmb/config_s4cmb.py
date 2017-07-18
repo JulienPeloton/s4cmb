@@ -182,7 +182,7 @@ class NormaliseXpureParser():
         >>> import ConfigParser
         >>> Config = ConfigParser.ConfigParser()
         >>> fns = Config.read('examples/xpure_parameters.ini')
-        >>> params = NormaliseS4cmbParser(Config._sections['xpure'])
+        >>> params = NormaliseXpureParser(Config._sections['xpure'])
         >>> assert hasattr(params, 'node')
         """
 
