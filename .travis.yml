@@ -18,4 +18,4 @@ install:
 
 # Tests are inside modules (doctest)
 script:
-    - ./coverage.sh
+    - ./coverage_and_test.sh

@@ -3,3 +3,6 @@
 htmlcov
 *.so
 old/
+dist/
+build/
+s4cmb.egg-info/
