@@ -9,7 +9,7 @@ source $HOME/.bashrc.ext
 cd $SLURM_SUBMIT_DIR
 
 ## Update the path!
-path_to_scripts=
+path_to_scripts=$PWD
 
 time srun -n 12 python-mpi ${path_to_scripts}/simple_app.py \
     -inifile ${path_to_scripts}/simple_parameters.ini

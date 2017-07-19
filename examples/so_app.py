@@ -112,9 +112,6 @@ if __name__ == "__main__":
         print("Proc [{}] doing scans".format(rank), range(
             rank, scan.nCES, size))
 
-    ## Get SQUID and bolo ID
-    squid_ids = inst.focal_plane.get_indices('Sq')
-    bolo_ids = inst.focal_plane.bolo_index_in_squid
     for pos_CES, CESnumber in enumerate(range(rank, scan.nCES, size)):
         tod = TimeOrderedDataPairDiff(inst, scan, sky_in,
                                       CESnumber=CESnumber,
