@@ -151,7 +151,7 @@ if __name__ == "__main__":
 
         ## Scan input map to get TODs
         d = []
-        for det in tqdm(range(inst.focal_plane.nbolometer)):
+        for det in range(inst.focal_plane.nbolometer):
             d.append(tod.map2tod(det))
 
         ## Inject crosstalk
