@@ -47,7 +47,7 @@ Use the setup.py for the installation. Just run:
 
     python setup.py install
 
-Make sure you have correct permissions (otherwise just add --user).
+Make sure you have correct permissions (otherwise just add --user at the end of the command).
 You can also directly use the code by updating manually your PYTHONPATH.
 Just add in your bashrc:
 
@@ -66,12 +66,12 @@ It should print the actual coverage of the test suite, and exit with no errors.
 
 Coming soon: dockerfile :-)
 
-Examples
+Quick examples
 ===============
 You can find notebooks describing how to use basic functionalities of s4cmb
 in the folder jupyter_doc.
 
-We also provide a full example for using the package on clusters.
+We also provide a quick end-to-end example for using the package with MPI.
 Try to run (you will need the package mpi4py)
 
 ::
@@ -79,8 +79,80 @@ Try to run (you will need the package mpi4py)
     mpirun -n <nproc> python examples/simple_app.py -inifile examples/simple_parameters.ini
 
 where nproc should not be greater than the number of scans to run.
-Note that for NERSC users, we also provide a submission script for jobs on Cori
- (see examples/nersc_cori.batch).
+Note that for NERSC users, we also provide a submission script for jobs on Cori (see examples/nersc_cori.batch).
+
+How to build your own s4cmb App?
+===============
+Let me describe how to build an application using s4cmb.
+Let's say we want to build an instrument, choose a scanning strategy, and scan the sky to obtain
+data. Say we also want to inject crosstalk between detectors, and then reconstruct the sky maps with the contamination.
+
+* Step 1 [parameters initialisation]: create a ini file with your parameters.
+The best is to copy the one provided (examples/simple_parameters.ini) and change the values to yours.
+Do not forget to update the paths to data!
+
+::
+
+    [s4cmb]
+    ## Parameter file for a fake experiment.
+    ## Run ID
+    tag = gros
+    name_instrument = fake
+
+    ...
+
+* Step 2 [start the App]: Create a python script, and import relevant modules
+
+::
+
+    ## python 2/3 compatibility.
+    from __future__ import division, absolute_import, print_function
+
+    ## If you want to perform parallel computation.
+    from mpi4py import MPI
+
+    ## Import modules and routines from s4cmb.
+    from s4cmb.input_sky import HealpixFitsMap
+
+    ...
+
+* Step 3 [tell the App what to read]: link your inifile to your App. For that one
+will use the module argparse for example. Also add any useful args you want to pass:
+
+::
+
+    def addargs(parser):
+        """ Parse command line arguments for s4cmb """
+
+        ## Defaults args - load instrument, scan and sky parameters
+        parser.add_argument(
+            '-inifile', dest='inifile',
+            required=True,
+            help='Configuration file with parameter values.')
+
+        ...
+
+* Step 3 [load background]: Tell the App to load the background (instrument, scan, and so on).
+
+::
+
+    if __name__ == "__main__":
+        """
+        Launch the pipeline!
+        """
+        <grab args>
+
+        ## Initialise our input maps.
+        sky_in = HealpixFitsMap(...)
+
+        ## Initialise our instrument.
+        inst = Hardware(...)
+
+        ## Initialize our scanning strategy and run the scans.
+        scan = ScanningStrategy(...)
+        scan.run()
+
+Step 4 [Obtain time-ordered data]: Loop over scans, and for each scan.
 
 TODO
 ===============
