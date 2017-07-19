@@ -160,8 +160,8 @@ if __name__ == "__main__":
                                       bolo_ids,
                                       radius=args.radius,
                                       mu=args.mu,
-                                      sigma=args.sigma
-                                      beta=args.beta
+                                      sigma=args.sigma,
+                                      beta=args.beta,
                                       seed=args.seed)
 
         ## Project TOD to maps
