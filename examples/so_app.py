@@ -30,21 +30,16 @@ import numpy as np
 import argparse
 import ConfigParser
 
-try:
-    from tqdm import *
-except ImportError:
-    def tqdm(x):
-        """
-        Do nothing. Just return x.
-        """
-        return x
-
 def addargs(parser):
-    ''' Parse command line arguments '''
+    """ Parse command line arguments for s4cmb """
+
+    ## Defaults args - load instrument, scan and sky parameters
     parser.add_argument(
         '-inifile', dest='inifile',
         required=True,
         help='Configuration file with parameter values.')
+
+    ## Only for xpure use - you do not have to care.
     parser.add_argument(
         '-inifile_xpure', dest='inifile_xpure',
         default=None,
@@ -117,6 +112,9 @@ if __name__ == "__main__":
         print("Proc [{}] doing scans".format(rank), range(
             rank, scan.nCES, size))
 
+    ## Get SQUID and bolo ID
+    squid_ids = inst.focal_plane.get_indices('Sq')
+    bolo_ids = inst.focal_plane.bolo_index_in_squid
     for pos_CES, CESnumber in enumerate(range(rank, scan.nCES, size)):
         tod = TimeOrderedDataPairDiff(inst, scan, sky_in,
                                       CESnumber=CESnumber,
@@ -130,7 +128,7 @@ if __name__ == "__main__":
 
         ## Scan input map to get TODs
         d = []
-        for det in tqdm(range(inst.focal_plane.nbolometer)):
+        for det in range(inst.focal_plane.nbolometer):
             d.append(tod.map2tod(det))
 
         ## Project TOD to maps
@@ -174,9 +172,6 @@ if __name__ == "__main__":
     if rank == 0:
         from s4cmb.xpure import write_maps_a_la_xpure
         from s4cmb.xpure import write_weights_a_la_xpure
-        from s4cmb.xpure import create_batch
-        from s4cmb.config_s4cmb import NormaliseXpureParser
-        import commands
         ## Save data on disk into fits file for later use in xpure
         name_out = '{}_{}_{}'.format(params.tag,
                                      params.name_instrument,
@@ -188,6 +183,9 @@ if __name__ == "__main__":
                                  epsilon=0.08, HWP=False)
 
         if args.inifile_xpure is not None:
+            from s4cmb.xpure import create_batch
+            from s4cmb.config_s4cmb import NormaliseXpureParser
+            import commands
             Config = ConfigParser.ConfigParser()
             Config.read(args.inifile_xpure)
             params_xpure = NormaliseXpureParser(Config._sections['xpure'])

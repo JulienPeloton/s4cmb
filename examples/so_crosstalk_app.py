@@ -19,7 +19,6 @@ from s4cmb.scanning_strategy import ScanningStrategy
 
 from s4cmb.tod import TimeOrderedDataPairDiff
 from s4cmb.tod import OutputSkyMap
-from s4cmb.tod import partial2full
 
 from s4cmb.config_s4cmb import NormaliseS4cmbParser
 
@@ -30,15 +29,6 @@ import numpy as np
 import argparse
 import ConfigParser
 
-try:
-    from tqdm import *
-except ImportError:
-    def tqdm(x):
-        """
-        Do nothing. Just return x.
-        """
-        return x
-
 def addargs(parser):
     """ Parse command line arguments for s4cmb """
 
@@ -47,6 +37,36 @@ def addargs(parser):
         '-inifile', dest='inifile',
         required=True,
         help='Configuration file with parameter values.')
+
+    ## Only for xpure use - you do not have to care.
+    parser.add_argument(
+        '-inifile_xpure', dest='inifile_xpure',
+        default=None,
+        help='Configuration file with xpure parameter values.')
+
+    ## Arguments for crosstalk - see s4cmb.systematics.
+    parser.add_argument(
+        '-radius', dest='radius',
+        default=1,
+        help='Controls the number of bolometers talking within a SQUID.')
+    parser.add_argument(
+        '-mu', dest='mu',
+        default=-0.3,
+        help='Mean of the Gaussian used to generate \
+        the level of leakage, in percent.')
+    parser.add_argument(
+        '-sigma', dest='sigma',
+        default=0.1,
+        help='Width of the Gaussian used to generate \
+        the level of leakage, in percent.')
+    parser.add_argument(
+        '-beta', dest='beta',
+        default=2,
+        help='Exponent controling the attenuation.')
+    parser.add_argument(
+        '-seed', dest='seed',
+        default=5438765,
+        help='Control the random seed used to generate leakage coefficients.')
 
 
 if __name__ == "__main__":
@@ -131,6 +151,16 @@ if __name__ == "__main__":
         for det in tqdm(range(inst.focal_plane.nbolometer)):
             d.append(tod.map2tod(det))
 
+        ## Inject crosstalk
+        inject_crosstalk_inside_SQUID(np.array(d),
+                                      squid_ids,
+                                      bolo_ids,
+                                      radius=args.radius,
+                                      mu=args.mu,
+                                      sigma=args.sigma
+                                      beta=args.beta
+                                      seed=args.seed)
+
         ## Project TOD to maps
         tod.tod2map(np.array(d), sky_out_tot)
 
@@ -144,31 +174,6 @@ if __name__ == "__main__":
     ## final_map.coadd_MPI(sky_out_tot, MPI=MPI)
     sky_out_tot.coadd_MPI(sky_out_tot, MPI=MPI)
 
-    ## Check that output = input
-    if rank == 0:
-        sky_out = partial2full(sky_out_tot.get_I(),
-                               sky_out_tot.obspix, sky_out_tot.nside,
-                               fill_with=0.0)
-        mask = sky_out != 0
-        assert np.all(np.abs(sky_in.I[mask] - sky_out[mask]) < 1e-9), \
-            ValueError("Output not equal to input!")
-
-        sky_out = partial2full(sky_out_tot.get_QU()[0],
-                               sky_out_tot.obspix, sky_out_tot.nside,
-                               fill_with=0.0)
-        mask = sky_out != 0
-        assert np.all(np.abs(sky_in.Q[mask] - sky_out[mask]) < 1e-9), \
-            ValueError("Output not equal to input!")
-
-        sky_out = partial2full(sky_out_tot.get_QU()[1],
-                               sky_out_tot.obspix, sky_out_tot.nside,
-                               fill_with=0.0)
-        mask = sky_out != 0
-        assert np.all(np.abs(sky_in.U[mask] - sky_out[mask]) < 1e-9), \
-            ValueError("Output not equal to input!")
-
-        print("All OK! Greetings from processor 0!")
-
     if rank == 0:
         from s4cmb.xpure import write_maps_a_la_xpure
         from s4cmb.xpure import write_weights_a_la_xpure
@@ -181,5 +186,22 @@ if __name__ == "__main__":
         write_weights_a_la_xpure(sky_out_tot, name_out=name_out,
                                  output_path='xpure/masks',
                                  epsilon=0.08, HWP=False)
+
+        ## Write the submission file for xpure and launch the soft on-the-fly.
+        if args.inifile_xpure is not None:
+            from s4cmb.xpure import create_batch
+            from s4cmb.config_s4cmb import NormaliseXpureParser
+            import commands
+            Config = ConfigParser.ConfigParser()
+            Config.read(args.inifile_xpure)
+            params_xpure = NormaliseXpureParser(Config._sections['xpure'])
+            batch_file = '{}_{}_{}.batch'.format(
+                params.tag,
+                params.name_instrument,
+                params.name_strategy)
+            create_batch(batch_file, params, params_xpure)
+
+            qsub = commands.getoutput('sbatch ' + batch_file)
+            print(qsub)
 
     MPI.COMM_WORLD.barrier()
