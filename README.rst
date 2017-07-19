@@ -149,34 +149,34 @@ data. Say we also want to inject crosstalk between detectors, and then reconstru
         scan = s4cmb.scanning_strategy.ScanningStrategy(...)
         scan.run()
 
-Step 4 [perform computations]: Loop over scans, and for each scan do map2tod -> inject crosstalk -> tod2map. Note that the maps are coadded on the fly so that sky_out_tot contains all scans.
+* Step 4 [perform computations]: Loop over scans, and for each scan do map2tod -> inject crosstalk -> tod2map. Note that the maps are coadded on the fly so that sky_out_tot contains all scans.
 
 ::
 
-        for CESnumber in range(scan.nCES):
-            tod = s4cmb.tod.TimeOrderedDataPairDiff(...)
+    for CESnumber in range(scan.nCES):
+        tod = s4cmb.tod.TimeOrderedDataPairDiff(...)
 
-            ## Initialise map containers for each processor
-            if CESnumber == 0:
-                sky_out_tot = s4cmb.tod.OutputSkyMap(...)
+        ## Initialise map containers for each processor
+        if CESnumber == 0:
+            sky_out_tot = s4cmb.tod.OutputSkyMap(...)
 
-            ## Scan input map to get TODs
-            d = []
-            for det in range(inst.focal_plane.nbolometer):
-                d.append(tod.map2tod(det))
+        ## Scan input map to get TODs
+        d = []
+        for det in range(inst.focal_plane.nbolometer):
+            d.append(tod.map2tod(det))
 
-            ## Inject crosstalk
-            s4cmb.systematics.inject_crosstalk_inside_SQUID(...)
+        ## Inject crosstalk
+        s4cmb.systematics.inject_crosstalk_inside_SQUID(...)
 
-            ## Project TOD back to maps
-            tod.tod2map(np.array(d), sky_out_tot)
+        ## Project TOD back to maps
+        tod.tod2map(np.array(d), sky_out_tot)
 
-Step 5 [write on disk your maps]: We provide some routines to write fits file but feel free to write your routines with your favourite I/O!
+* Step 5 [write on disk your maps]: We provide some routines to write fits file but feel free to write your routines with your favourite I/O!
 
 ::
 
-        s4cmb.xpure.write_maps_a_la_xpure(...)
-        s4cmb.xpure.write_weights_a_la_xpure(...)
+    s4cmb.xpure.write_maps_a_la_xpure(...)
+    s4cmb.xpure.write_weights_a_la_xpure(...)
 
 Et voilà! You can find this complete example in examples/so_crosstalk_app.py.
 
