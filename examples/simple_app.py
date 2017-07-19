@@ -47,6 +47,10 @@ def addargs(parser):
         '-inifile', dest='inifile',
         required=True,
         help='Configuration file with parameter values.')
+    parser.add_argument(
+        '-tag', dest='tag',
+        required=True,
+        help='Tag name to identify your run. E.g. run_0.')
 
 
 if __name__ == "__main__":
@@ -61,6 +65,7 @@ if __name__ == "__main__":
     Config = ConfigParser.ConfigParser()
     Config.read(args.inifile)
     params = NormaliseS4cmbParser(Config._sections['s4cmb'])
+    params.tag = args.tag
 
     rank = MPI.COMM_WORLD.rank
     size = MPI.COMM_WORLD.size
