@@ -83,8 +83,7 @@ Note that for NERSC users, we also provide a submission script for jobs on Cori 
 
 How to build your own s4cmb App?
 ===============
-Let me describe how to build an application using s4cmb.
-Let's say we want to build an instrument, choose a scanning strategy, and scan the sky to obtain
+Let's say we want to build an instrument, a scanning strategy, and scan the sky to obtain
 data. Say we also want to inject crosstalk between detectors, and then reconstruct the sky maps with the contamination.
 
 * Step 1 [parameters initialisation]: create a ini file with your parameters. The best is to copy the one provided (examples/simple_parameters.ini) and change the values to yours. Do not forget to update the paths to data!
