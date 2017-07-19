@@ -152,21 +152,21 @@ if __name__ == "__main__":
                                sky_out_tot.obspix, sky_out_tot.nside,
                                fill_with=0.0)
         mask = sky_out != 0
-        assert np.all(np.abs(sky_in.I[mask] - sky_out[mask]) < 1e-9), \
+        assert np.all(np.abs(sky_in.I[mask] - sky_out[mask]) < 1e-7), \
             ValueError("Output not equal to input!")
 
         sky_out = partial2full(sky_out_tot.get_QU()[0],
                                sky_out_tot.obspix, sky_out_tot.nside,
                                fill_with=0.0)
         mask = sky_out != 0
-        assert np.all(np.abs(sky_in.Q[mask] - sky_out[mask]) < 1e-9), \
+        assert np.all(np.abs(sky_in.Q[mask] - sky_out[mask]) < 1e-7), \
             ValueError("Output not equal to input!")
 
         sky_out = partial2full(sky_out_tot.get_QU()[1],
                                sky_out_tot.obspix, sky_out_tot.nside,
                                fill_with=0.0)
         mask = sky_out != 0
-        assert np.all(np.abs(sky_in.U[mask] - sky_out[mask]) < 1e-9), \
+        assert np.all(np.abs(sky_in.U[mask] - sky_out[mask]) < 1e-7), \
             ValueError("Output not equal to input!")
 
         print("All OK! Greetings from processor 0!")
