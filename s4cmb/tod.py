@@ -701,7 +701,6 @@ def load_fake_instrument(nside=16):
     sys.path.insert(0, os.path.realpath(os.path.join(os.getcwd(), '.')))
     sys.path.insert(0, os.path.realpath(os.path.join(os.getcwd(), 's4cmb')))
     from s4cmb.input_sky import HealpixFitsMap
-    from s4cmb.input_sky import create_sky_map, write_healpix_cmbmap
     from s4cmb.instrument import Hardware
     from s4cmb.scanning_strategy import ScanningStrategy
 
