@@ -117,7 +117,6 @@ class NormaliseS4cmbParser():
         self.start_date = config_dict['start_date']
         self.telescope_longitude = config_dict['telescope_longitude']
         self.telescope_latitude = config_dict['telescope_latitude']
-        self.tag = config_dict['tag']
         self.name_instrument = config_dict['name_instrument']
 
         ## Booleans
