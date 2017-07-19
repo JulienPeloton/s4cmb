@@ -87,9 +87,7 @@ Let me describe how to build an application using s4cmb.
 Let's say we want to build an instrument, choose a scanning strategy, and scan the sky to obtain
 data. Say we also want to inject crosstalk between detectors, and then reconstruct the sky maps with the contamination.
 
-* Step 1 [parameters initialisation]: create a ini file with your parameters.
-The best is to copy the one provided (examples/simple_parameters.ini) and change the values to yours.
-Do not forget to update the paths to data!
+* Step 1 [parameters initialisation]: create a ini file with your parameters. The best is to copy the one provided (examples/simple_parameters.ini) and change the values to yours. Do not forget to update the paths to data!
 
 ::
 
@@ -112,12 +110,11 @@ Do not forget to update the paths to data!
     from mpi4py import MPI
 
     ## Import modules and routines from s4cmb.
-    from s4cmb.input_sky import HealpixFitsMap
+    import s4cmb
 
     ...
 
-* Step 3 [tell the App what to read]: link your inifile to your App. For that one
-will use the module argparse for example. Also add any useful args you want to pass:
+* Step 3 [tell the App what to read]: link your inifile to your App. For that one we will use the module argparse for example. Also add any useful args you want to pass:
 
 ::
 
@@ -143,16 +140,46 @@ will use the module argparse for example. Also add any useful args you want to p
         <grab args>
 
         ## Initialise our input maps.
-        sky_in = HealpixFitsMap(...)
+        sky_in = s4cmb.input_sky.HealpixFitsMap(...)
 
         ## Initialise our instrument.
-        inst = Hardware(...)
+        inst = s4cmb.instrument.Hardware(...)
 
         ## Initialize our scanning strategy and run the scans.
-        scan = ScanningStrategy(...)
+        scan = s4cmb.scanning_strategy.ScanningStrategy(...)
         scan.run()
 
-Step 4 [Obtain time-ordered data]: Loop over scans, and for each scan.
+Step 4 [perform computations]: Loop over scans, and for each scan.
+
+::
+
+    for CESnumber in range(scan.nCES):
+        tod = s4cmb.tod.TimeOrderedDataPairDiff(...)
+
+        ## Initialise map containers for each processor
+        if CESnumber == 0:
+            sky_out_tot = s4cmb.tod.OutputSkyMap(...)
+
+        ## Scan input map to get TODs
+        d = []
+        for det in range(inst.focal_plane.nbolometer):
+            d.append(tod.map2tod(det))
+
+        ## Inject crosstalk
+        s4cmb.systematics.inject_crosstalk_inside_SQUID(...)
+
+        ## Project TOD back to maps
+        tod.tod2map(np.array(d), sky_out_tot)
+
+Step 5 [write on disk your maps]: We provide some routines to write fits file but feel free to write your routines with your favourite I/O.
+
+::
+
+    s4cmb.xpure.write_maps_a_la_xpure(...)
+    s4cmb.xpure.write_weights_a_la_xpure(...)
+
+Et voilà! You can find this complete example in examples/so_crosstalk_app.py.
+
 
 TODO
 ===============
