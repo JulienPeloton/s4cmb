@@ -22,6 +22,8 @@ from s4cmb.tod import OutputSkyMap
 
 from s4cmb.config_s4cmb import NormaliseS4cmbParser
 
+from s4cmb.systematics import inject_crosstalk_inside_SQUID
+
 ## Other packages needed
 import os
 import healpy as hp
