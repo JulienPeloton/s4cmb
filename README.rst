@@ -149,7 +149,7 @@ data. Say we also want to inject crosstalk between detectors, and then reconstru
         scan = s4cmb.scanning_strategy.ScanningStrategy(...)
         scan.run()
 
-Step 4 [perform computations]: Loop over scans, and for each scan.
+Step 4 [perform computations]: Loop over scans, and for each scan do map2tod -> inject crosstalk -> tod2map. Note that the maps are coadded on the fly so that sky_out_tot contains all scans.
 
 ::
 
@@ -171,7 +171,7 @@ Step 4 [perform computations]: Loop over scans, and for each scan.
         ## Project TOD back to maps
         tod.tod2map(np.array(d), sky_out_tot)
 
-Step 5 [write on disk your maps]: We provide some routines to write fits file but feel free to write your routines with your favourite I/O.
+Step 5 [write on disk your maps]: We provide some routines to write fits file but feel free to write your routines with your favourite I/O!
 
 ::
 
