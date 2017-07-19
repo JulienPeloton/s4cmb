@@ -1,7 +1,10 @@
 v0.x.x
 =============
 * Current version.
-* Add examples for MPI usage.
+* Add examples for MPI usage (with examples on Cori, NERSC).
+* Add fits interface for creating maps.
+* Remove unused args in several classes and routines.
+* Add App for SO, and support for xpure.
 
 v0.3.3
 =============
