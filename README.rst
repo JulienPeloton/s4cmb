@@ -160,15 +160,14 @@ data. Say we also want to inject crosstalk between detectors, and then reconstru
             sky_out_tot = s4cmb.tod.OutputSkyMap(...)
 
         ## Scan input map to get TODs
-        d = []
-        for det in range(inst.focal_plane.nbolometer):
-            d.append(tod.map2tod(det))
+        d = np.array([
+            tod.map2tod(det) for det in range(inst.focal_plane.nbolometer)])
 
         ## Inject crosstalk
-        s4cmb.systematics.inject_crosstalk_inside_SQUID(...)
+        s4cmb.systematics.inject_crosstalk_inside_SQUID(d, ...)
 
         ## Project TOD back to maps
-        tod.tod2map(np.array(d), sky_out_tot)
+        tod.tod2map(d, sky_out_tot)
 
 * Step 5 [write on disk your maps]: We provide some routines to write fits file but feel free to write your routines with your favourite I/O!
 

@@ -157,12 +157,11 @@ if __name__ == "__main__":
                                        obspix=tod.obspix)
 
         ## Scan input map to get TODs
-        d = []
-        for det in range(inst.focal_plane.nbolometer):
-            d.append(tod.map2tod(det))
+        d = np.array([
+            tod.map2tod(det) for det in range(inst.focal_plane.nbolometer)])
 
         ## Inject crosstalk
-        inject_crosstalk_inside_SQUID(np.array(d),
+        inject_crosstalk_inside_SQUID(d,
                                       squid_ids,
                                       bolo_ids,
                                       radius=args.radius,
@@ -172,7 +171,7 @@ if __name__ == "__main__":
                                       seed=args.seed)
 
         ## Project TOD to maps
-        tod.tod2map(np.array(d), sky_out_tot)
+        tod.tod2map(d, sky_out_tot)
 
     MPI.COMM_WORLD.barrier()
 
