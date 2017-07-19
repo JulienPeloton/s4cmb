@@ -53,25 +53,25 @@ def addargs(parser):
     ## Arguments for crosstalk - see s4cmb.systematics.
     parser.add_argument(
         '-radius', dest='radius',
-        default=1,
+        default=1, type=int,
         help='Controls the number of bolometers talking within a SQUID.')
     parser.add_argument(
         '-mu', dest='mu',
-        default=-0.3,
+        default=-0.3, type=float,
         help='Mean of the Gaussian used to generate \
         the level of leakage, in percent.')
     parser.add_argument(
         '-sigma', dest='sigma',
-        default=0.1,
+        default=0.1, type=float,
         help='Width of the Gaussian used to generate \
         the level of leakage, in percent.')
     parser.add_argument(
         '-beta', dest='beta',
-        default=2,
+        default=2, type=int,
         help='Exponent controling the attenuation.')
     parser.add_argument(
         '-seed', dest='seed',
-        default=5438765,
+        default=5438765, type=int,
         help='Control the random seed used to generate leakage coefficients.')
 
 

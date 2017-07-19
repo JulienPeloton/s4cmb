@@ -90,8 +90,8 @@ def inject_crosstalk_inside_SQUID(bolo_data, squid_ids, bolo_ids,
     to python to perform the loops. Choose python otherwise.
     """
     ## Make mu and sigma unitless (user provides percentage)
-    mu = mu/100.
-    sigma = sigma/100.
+    mu = mu / 100.
+    sigma = sigma / 100.
 
     combs = {}
     for bolo in range(len(bolo_data)):
