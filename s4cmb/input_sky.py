@@ -316,7 +316,7 @@ def create_sky_map(cl_fn, nside=16, FWHM=0.0, seed=548397):
                          verbose=False)
     return I, Q, U
 
-def write_healpix_cmbmap(output_filename, data, nside, fits_IDL=False,
+def write_healpix_cmbmap(output_filename, data, fits_IDL=False,
                          coord=None, colnames=['I', 'Q', 'U'], partial=True,
                          nest=False):
     """
@@ -329,8 +329,6 @@ def write_healpix_cmbmap(output_filename, data, nside, fits_IDL=False,
         Name of the output file (.fits).
     data : list of 1d array(s)
         Data to save on disk.
-    nside : int
-        Resolution of the map. Must be a power of 2.
     fits_IDL : bool
         If True, store the data reshaped in row of 1024 (IDL style).
         Default is False.
@@ -351,7 +349,7 @@ def write_healpix_cmbmap(output_filename, data, nside, fits_IDL=False,
     >>> I, Q, U = np.random.rand(3, hp.nside2npix(nside))
     >>> colnames = ['I', 'Q', 'U']
     >>> write_healpix_cmbmap('myfits_to_test_.fits',
-    ...     data=[I, Q, U], nside=nside, colnames=colnames)
+    ...     data=[I, Q, U], colnames=colnames)
     """
     ## Write the header
     extra_header = []
@@ -381,8 +379,7 @@ def write_dummy_map(filename='myfits_to_test_.fits', nside=16):
     nside = 16
     I, Q, U = np.random.rand(3, hp.nside2npix(nside))
     colnames = ['I', 'Q', 'U']
-    write_healpix_cmbmap(filename, data=[I, Q, U],
-                         nside=nside, colnames=colnames)
+    write_healpix_cmbmap(filename, data=[I, Q, U], colnames=colnames)
 
 def remove_test_data(has_id='_to_test_', silent=True):
     """
