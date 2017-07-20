@@ -43,6 +43,9 @@ def addargs(parser):
         required=True,
         help='Tag name to identify your run. E.g. run_0_nosystematic.')
 
+    ## You can also pass any new arguments, or even overwrite those
+    ## from the ini file.
+
     ## Only for xpure use - you do not have to care.
     parser.add_argument(
         '-inifile_xpure', dest='inifile_xpure',
@@ -62,7 +65,19 @@ if __name__ == "__main__":
     Config = ConfigParser.ConfigParser()
     Config.read(args.inifile)
     params = NormaliseParser(Config._sections['s4cmb'])
-    params.tag = args.tag
+
+    ## Overwrite ini file params with params pass to the App directly
+    for key in args.__dict__.keys():
+        new = getattr(args, key)
+        if key in params.__dict__.keys():
+            old = getattr(params, key)
+            if new in [None, 'None'] and old is not None:
+                continue
+            else:
+                print("Overwriting {} with new value: {} -> {}".format(
+                    key, old, new))
+
+        setattr(params, key, new)
 
     rank = MPI.COMM_WORLD.rank
     size = MPI.COMM_WORLD.size

@@ -18,3 +18,4 @@ install:
 # Tests are inside modules (doctest)
 script:
     - ./coverage_and_test.sh
+    - python examples/simple_app.py -inifile examples/simple_parameters.ini -tag 'test'
