@@ -67,7 +67,7 @@ if __name__ == "__main__":
 
     Config = ConfigParser.ConfigParser()
     Config.read(args.inifile)
-    params = NormaliseParser(Config._sections['simple'])
+    params = NormaliseParser(Config._sections['s4cmb'])
 
     ## Overwrite ini file params with params pass to the App directly
     for key in args.__dict__.keys():

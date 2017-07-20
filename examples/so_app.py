@@ -108,9 +108,9 @@ if __name__ == "__main__":
                     beam_seed=params.beam_seed,
                     projected_fp_size=params.projected_fp_size,
                     pm_name=params.pm_name,
-                    type_HWP=params.type_HWP,
-                    freq_HWP=params.freq_HWP,
-                    angle_HWP=params.angle_HWP,
+                    type_hwp=params.type_hwp,
+                    freq_hwp=params.freq_hwp,
+                    angle_hwp=params.angle_hwp,
                     verbose=params.verbose)
 
     ## Initialize our scanning strategy

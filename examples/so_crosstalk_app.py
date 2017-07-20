@@ -52,6 +52,18 @@ def addargs(parser):
 
     ## You can also pass any new arguments, or even overwrite those
     ## from the ini file.
+    parser.add_argument(
+        '-type_hwp', dest='type_hwp',
+        default=None,
+        help='The type of HWP that you want to mount on your instrument.')
+    parser.add_argument(
+        '-freq_hwp', dest='freq_hwp',
+        default=None, type=float,
+        help='The frequency of rotation of the HWP in Hz.')
+    parser.add_argument(
+        '-angle_hwp', dest='angle_hwp',
+        default=None, type=float,
+        help='The offset of the HWP in degree.')
 
     ## Arguments for crosstalk - see s4cmb.systematics.
     parser.add_argument(
@@ -133,9 +145,9 @@ if __name__ == "__main__":
                     beam_seed=params.beam_seed,
                     projected_fp_size=params.projected_fp_size,
                     pm_name=params.pm_name,
-                    type_HWP=params.type_HWP,
-                    freq_HWP=params.freq_HWP,
-                    angle_HWP=params.angle_HWP,
+                    type_hwp=params.type_hwp,
+                    freq_hwp=params.freq_hwp,
+                    angle_hwp=params.angle_hwp,
                     verbose=params.verbose)
 
     ## Initialize our scanning strategy
