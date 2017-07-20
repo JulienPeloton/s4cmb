@@ -131,7 +131,7 @@ class NormaliseParser():
         >>> import ConfigParser
         >>> Config = ConfigParser.ConfigParser()
         >>> fns = Config.read('examples/simple_parameters.ini')
-        >>> params = NormaliseParser(Config._sections['simple'])
+        >>> params = NormaliseParser(Config._sections['s4cmb'])
         >>> assert hasattr(params, 'nces')
         """
         for key, string_value in config_dict.iteritems():

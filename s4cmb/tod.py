@@ -682,7 +682,7 @@ def build_pointing_matrix(ra, dec, nside, obspix=None,
 
     return index_global, index_local
 
-def load_fake_instrument(nside=16):
+def load_fake_instrument(nside=16, nsquid_per_mux=1):
     """
     For test purposes.
     Create instances of HealpixFitsMap, hardware, and
@@ -714,7 +714,7 @@ def load_fake_instrument(nside=16):
 
     ## Instrument
     inst = Hardware(ncrate=1, ndfmux_per_crate=1,
-                    nsquid_per_mux=1, npair_per_squid=4,
+                    nsquid_per_mux=nsquid_per_mux, npair_per_squid=4,
                     fp_size=60., fwhm=3.5,
                     beam_seed=58347, projected_fp_size=3., pm_name='5params',
                     type_hwp='CRHWP', freq_hwp=2., angle_hwp=0., verbose=False)
