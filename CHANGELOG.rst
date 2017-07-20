@@ -1,10 +1,15 @@
 v0.x.x
 =============
 * Current version.
+
+v0.4.0
+=============
 * Add examples for MPI usage (with examples on Cori, NERSC).
-* Add fits interface for creating maps.
+* Add fits interface for dumping maps on disk.
 * Remove unused args in several classes and routines.
 * Add App for SO, and support for xpure.
+* Massive change in the way parsers are handled.
+* Add SQUID to SQUID crosstalk.
 
 v0.3.3
 =============

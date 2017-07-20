@@ -51,14 +51,18 @@ if __name__ == "__main__":
                                     'scanning_strategy_doc.ipynb',
                                     'using_C_or_Fortran_for_speed_up.ipynb'],
                     'examples': ['simple_app.py',
+                                 'so_app.py',
+                                 'so_crosstalk_app.py',
                                  'simple_parameters.ini',
+                                 'so_parameters.ini',
+                                 'xpure_parameters.ini',
                                  'nersc_cori.batch']}
 
     setup(
         configuration=configuration,
-        version='0.3.3',
+        version='0.4.0',
         url='https://github.com/JulienPeloton/s4cmb',
-        download_url='https://github.com/JulienPeloton/s4cmb/archive/0.3.3.tar.gz',
+        download_url='https://github.com/JulienPeloton/s4cmb/archive/0.4.0.tar.gz',
         license='GPL-3.0',
         author='Julien Peloton',
         author_email='j.peloton@sussex.ac.uk',
