@@ -39,7 +39,7 @@ class TimeOrderedDataPairDiff():
             Instance of HealpixFitsMap containing input sky parameters.
         CESnumber : int
             Number of the scan to simulate. Must be between 0 and
-            scanning_strategy.nCES - 1.
+            scanning_strategy.nces - 1.
         nside_out : int, optional
             The resolution for the output maps. Default is nside of the
             input map.
@@ -57,9 +57,9 @@ class TimeOrderedDataPairDiff():
         self.width = width
 
         self.CESnumber = CESnumber
-        assert self.CESnumber < self.scanning_strategy.nCES, \
+        assert self.CESnumber < self.scanning_strategy.nces, \
             ValueError("The scan index must be between 0 and {}.".format(
-                self.scanning_strategy.nCES - 1
+                self.scanning_strategy.nces - 1
             ))
 
         ## Initialise internal parameters
@@ -708,19 +708,19 @@ def load_fake_instrument(nside=16):
 
     ## Sky
     sky_in = HealpixFitsMap('s4cmb/data/test_data_set_lensedCls.dat',
-                            do_pol=True, FWHM_in=0.0,
+                            do_pol=True, fwhm_in=0.0,
                             nside_in=nside, map_seed=48584937,
                             verbose=False, no_ileak=False, no_quleak=False)
 
     ## Instrument
     inst = Hardware(ncrate=1, ndfmux_per_crate=1,
                     nsquid_per_mux=1, npair_per_squid=4,
-                    fp_size=60., FWHM=3.5,
+                    fp_size=60., fwhm=3.5,
                     beam_seed=58347, projected_fp_size=3., pm_name='5params',
-                    type_HWP='CRHWP', freq_HWP=2., angle_HWP=0., verbose=False)
+                    type_hwp='CRHWP', freq_hwp=2., angle_hwp=0., verbose=False)
 
     ## Scanning strategy
-    scan = ScanningStrategy(nCES=2, start_date='2013/1/1 00:00:00',
+    scan = ScanningStrategy(nces=2, start_date='2013/1/1 00:00:00',
                             telescope_longitude='-67:46.816',
                             telescope_latitude='-22:56.396',
                             telescope_elevation=5200.,

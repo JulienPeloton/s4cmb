@@ -21,7 +21,7 @@ from s4cmb.tod import TimeOrderedDataPairDiff
 from s4cmb.tod import OutputSkyMap
 from s4cmb.tod import partial2full
 
-from s4cmb.config_s4cmb import NormaliseS4cmbParser
+from s4cmb.config_s4cmb import NormaliseParser
 
 ## Other packages needed
 import os
@@ -61,7 +61,7 @@ if __name__ == "__main__":
 
     Config = ConfigParser.ConfigParser()
     Config.read(args.inifile)
-    params = NormaliseS4cmbParser(Config._sections['s4cmb'])
+    params = NormaliseParser(Config._sections['s4cmb'])
     params.tag = args.tag
 
     rank = MPI.COMM_WORLD.rank
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     ##################################################################
     ## Initialise our input maps
     sky_in = HealpixFitsMap(params.input_filename,
-                            FWHM_in=params.FWHM_in,
+                            fwhm_in=params.fwhm_in,
                             nside_in=params.nside_in,
                             map_seed=params.map_seed,
                             do_pol=params.do_pol,
@@ -89,7 +89,7 @@ if __name__ == "__main__":
                     nsquid_per_mux=params.nsquid_per_mux,
                     npair_per_squid=params.npair_per_squid,
                     fp_size=params.fp_size,
-                    FWHM=params.FWHM,
+                    fwhm=params.fwhm,
                     beam_seed=params.beam_seed,
                     projected_fp_size=params.projected_fp_size,
                     pm_name=params.pm_name,
@@ -99,7 +99,7 @@ if __name__ == "__main__":
                     verbose=params.verbose)
 
     ## Initialize our scanning strategy
-    scan = ScanningStrategy(nCES=params.nCES,
+    scan = ScanningStrategy(nces=params.nces,
                             start_date=params.start_date,
                             telescope_longitude=params.telescope_longitude,
                             telescope_latitude=params.telescope_latitude,
@@ -115,9 +115,9 @@ if __name__ == "__main__":
     ## and scanning strategy.
     if params.verbose:
         print("Proc [{}] doing scans".format(rank), range(
-            rank, scan.nCES, size))
+            rank, scan.nces, size))
 
-    for pos_CES, CESnumber in enumerate(range(rank, scan.nCES, size)):
+    for pos_CES, CESnumber in enumerate(range(rank, scan.nces, size)):
         tod = TimeOrderedDataPairDiff(inst, scan, sky_in,
                                       CESnumber=CESnumber,
                                       nside_out=params.nside_out,
@@ -185,11 +185,10 @@ if __name__ == "__main__":
 
         if args.inifile_xpure is not None:
             from s4cmb.xpure import create_batch
-            from s4cmb.config_s4cmb import NormaliseXpureParser
             import commands
             Config = ConfigParser.ConfigParser()
             Config.read(args.inifile_xpure)
-            params_xpure = NormaliseXpureParser(Config._sections['xpure'])
+            params_xpure = NormaliseParser(Config._sections['xpure'])
             batch_file = '{}_{}_{}.batch'.format(
                 params.tag,
                 params.name_instrument,

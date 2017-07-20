@@ -418,10 +418,10 @@ class Hardware():
     def __init__(self,
                  ncrate=1, ndfmux_per_crate=1, nsquid_per_mux=1,
                  npair_per_squid=4, fp_size=60.,
-                 FWHM=3.5, beam_seed=58347,
+                 fwhm=3.5, beam_seed=58347,
                  projected_fp_size=3.,
                  pm_name='5params',
-                 type_HWP='CRHWP', freq_HWP=2., angle_HWP=0., verbose=False):
+                 type_hwp='CRHWP', freq_hwp=2., angle_hwp=0., verbose=False):
         """
         This class creates the data used to model the instrument:
         * focal plane
@@ -441,7 +441,7 @@ class Hardware():
             Number of pair of bolometers per SQUID.
         fp_size : float, optional
             The size of the focal plane in cm. Default is 60 cm.
-        FWHM : float, optional
+        fwhm : float, optional
             Full Width Half Maximum of the beam (in arcmin).
             Default = 3.5 arcmin.
         beam_seed : int
@@ -464,12 +464,12 @@ class Hardware():
                                       nsquid_per_mux, npair_per_squid,
                                       fp_size, verbose)
 
-        self.beam_model = BeamModel(self.focal_plane, FWHM, beam_seed,
+        self.beam_model = BeamModel(self.focal_plane, fwhm, beam_seed,
                                     projected_fp_size, verbose)
 
         self.pointing_model = PointingModel(pm_name)
 
-        self.half_wave_plate = HalfWavePlate(type_HWP, freq_HWP, angle_HWP)
+        self.half_wave_plate = HalfWavePlate(type_hwp, freq_hwp, angle_hwp)
 
 class FocalPlane():
     """ Class to handle the focal plane of the instrument. """
@@ -697,14 +697,14 @@ class FocalPlane():
 class BeamModel():
     """ Class to handle the beams of the detectors """
     def __init__(self,
-                 focal_plane, FWHM=3.5, beam_seed=58347,
+                 focal_plane, fwhm=3.5, beam_seed=58347,
                  projected_fp_size=3., verbose=False):
         """
         Parameters
         ----------
         focal_plane : focal_plane instance
             Instance of focal_plane containing focal plane parameters.
-        FWHM : float, optional
+        fwhm : float, optional
             Full Width Half Maximum of the beam (in arcmin).
             Default = 3.5 arcmin.
         beam_seed : int
@@ -720,7 +720,7 @@ class BeamModel():
         self.focal_plane = focal_plane
 
         ## Beam model and mirror parameters
-        self.FWHM = FWHM
+        self.fwhm = fwhm
         self.beam_seed = beam_seed
         self.projected_fp_size = projected_fp_size
 
@@ -776,7 +776,7 @@ class BeamModel():
 
         ## Generate Gaussian beams.
         ## FWHM arcmin -> FWHM rad -> sigma rad
-        FWHM_rad = self.FWHM / 60. * np.pi / 180.
+        FWHM_rad = self.fwhm / 60. * np.pi / 180.
         sigma_rad = FWHM_rad / np.sqrt(8 * np.log(2))
 
         self.sig_1 = np.ones(self.focal_plane.nbolometer) * sigma_rad
@@ -854,33 +854,33 @@ class PointingModel():
 
 class HalfWavePlate():
     """ Class to handle the Half-Wave Plate (HWP) """
-    def __init__(self, type_HWP='CRHWP', freq_HWP=2., angle_HWP=0.):
+    def __init__(self, type_hwp='CRHWP', freq_hwp=2., angle_hwp=0.):
         """
         This class provides routines to compute the HWP angles.
         This can be use later to generate timestreams.
 
         Parameters
         ----------
-        type_HWP : string, optional
+        type_hwp : string, optional
             The type of HWP that you want to mount on your instrument.
             * CRWHP: continously rotating HWP.
             * stepped: stepped HWP (once a CES).
-        freq_HWP : float, optional
+        freq_hwp : float, optional
             The frequency of rotation of the HWP in Hz.
-        angle_HWP : float, optional
+        angle_hwp : float, optional
             The offset of the HWP in degree.
 
         """
-        self.type_HWP = type_HWP
-        self.freq_HWP = freq_HWP
-        self.angle_HWP = angle_HWP
+        self.type_hwp = type_hwp
+        self.freq_hwp = freq_hwp
+        self.angle_hwp = angle_hwp
 
-        if self.type_HWP not in ['CRHWP', 'stepped']:
-            raise ValueError("`type_HWP` has to be 'CRHWP' or 'stepped'.")
+        if self.type_hwp not in ['CRHWP', 'stepped']:
+            raise ValueError("`type_hwp` has to be 'CRHWP' or 'stepped'.")
 
-        if self.type_HWP is 'stepped' and freq_HWP != 0.0:
+        if self.type_hwp is 'stepped' and freq_hwp != 0.0:
             raise AssertionError("You cannot have a stepped HWP and non-" +
-                                 "zero frequency! set freq_HWP=0.0 " +
+                                 "zero frequency! set freq_hwp=0.0 " +
                                  "if you want a stepped HWP.")
 
     def compute_HWP_angles(self, sample_rate=1., size=1):
@@ -901,72 +901,72 @@ class HalfWavePlate():
 
         Examples
         Continously rotating HWP at 2 Hz starting at 0 degree.
-        >>> hwp = HalfWavePlate(type_HWP='CRHWP', freq_HWP=2., angle_HWP=0.)
+        >>> hwp = HalfWavePlate(type_hwp='CRHWP', freq_hwp=2., angle_hwp=0.)
         >>> hwp.compute_HWP_angles(sample_rate=100., size=10)
         ... # doctest: +NORMALIZE_WHITESPACE
         array([ 0.        ,  0.12566371,  0.25132741,  0.37699112,  0.50265482,
             0.62831853,  0.75398224,  0.87964594,  1.00530965,  1.13097336])
 
         Stepped HWP with 30 degrees angle
-        >>> hwp = HalfWavePlate(type_HWP='stepped',
-        ...     freq_HWP=0.0, angle_HWP=30.)
+        >>> hwp = HalfWavePlate(type_hwp='stepped',
+        ...     freq_hwp=0.0, angle_hwp=30.)
         >>> hwp.compute_HWP_angles(sample_rate=100., size=10)
         ... # doctest: +NORMALIZE_WHITESPACE
         array([ 0.52359878,  0.52359878,  0.52359878,  0.52359878,  0.52359878,
             0.52359878,  0.52359878,  0.52359878,  0.52359878,  0.52359878])
 
         For a stepped HWP, the frequency must be zero
-        >>> hwp = HalfWavePlate(type_HWP='stepped',
-        ...     freq_HWP=1.0, angle_HWP=30.)
+        >>> hwp = HalfWavePlate(type_hwp='stepped',
+        ...     freq_hwp=1.0, angle_hwp=30.)
         ... # doctest: +NORMALIZE_WHITESPACE, +ELLIPSIS
         Traceback (most recent call last):
             ...
         AssertionError: You cannot have a stepped HWP and non-zero frequency!
-        set freq_HWP=0.0 if you want a stepped HWP.
+        set freq_hwp=0.0 if you want a stepped HWP.
         """
-        angle = self.angle_HWP * np.pi / 180.
+        angle = self.angle_hwp * np.pi / 180.
 
         HWP_angles = np.array(
-            [angle + t * (self.freq_HWP / sample_rate) *
+            [angle + t * (self.freq_hwp / sample_rate) *
              2. * np.pi for t in range(size)])
 
         return HWP_angles
 
-    def update_hardware(self, new_type_HWP, new_freq_HWP, new_angle_HWP):
+    def update_hardware(self, new_type_hwp, new_freq_hwp, new_angle_hwp):
         """
         Change the behaviour of the HWP.
 
         Parameters
         ----------
-        new_type_HWP : string, optional
+        new_type_hwp : string, optional
             The type of HWP that you want to mount on your instrument.
             * CRWHP: continously rotating HWP.
             * stepped: stepped HWP (once a CES).
-        new_freq_HWP : float, optional
+        new_freq_hwp : float, optional
             The frequency of rotation of the HWP in Hz.
-        new_angle_HWP : float, optional
+        new_angle_hwp : float, optional
             The offset of the HWP in degree.
 
         Examples
         ----------
         Continously rotating HWP at 2 Hz starting at 0 degree.
-        >>> hwp = HalfWavePlate(type_HWP='CRHWP', freq_HWP=2., angle_HWP=0.)
+        >>> hwp = HalfWavePlate(type_hwp='CRHWP', freq_hwp=2., angle_hwp=0.)
         >>> hwp.compute_HWP_angles(sample_rate=100., size=10)
         ... # doctest: +NORMALIZE_WHITESPACE
         array([ 0.        ,  0.12566371,  0.25132741,  0.37699112,  0.50265482,
             0.62831853,  0.75398224,  0.87964594,  1.00530965,  1.13097336])
 
         For some reason, our HWP died!
-        >>> hwp.update_hardware(new_type_HWP='stepped',
-        ...     new_freq_HWP=0.0, new_angle_HWP=0.0)
+        >>> hwp.update_hardware(new_type_hwp='stepped',
+        ...     new_freq_hwp=0.0, new_angle_hwp=0.0)
         >>> hwp.compute_HWP_angles(sample_rate=100., size=10)
         ... # doctest: +NORMALIZE_WHITESPACE
         array([ 0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.])
 
         """
-        self.type_HWP = new_freq_HWP
-        self.freq_HWP = new_freq_HWP
-        self.angle_HWP = new_angle_HWP
+        self.type_hwp = new_freq_hwp
+        self.freq_hwp = new_freq_hwp
+        self.angle_hwp = new_angle_hwp
 
 
 if __name__ == "__main__":

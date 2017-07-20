@@ -22,7 +22,7 @@ sidDayToSec = 86164.0905
 
 class ScanningStrategy():
     """ Class to handle the scanning strategy of the telescope """
-    def __init__(self, nCES=12, start_date='2013/1/1 00:00:00',
+    def __init__(self, nces=12, start_date='2013/1/1 00:00:00',
                  telescope_longitude='-67:46.816',
                  telescope_latitude='-22:56.396', telescope_elevation=5200.,
                  name_strategy='deep_patch', sampling_freq=30., sky_speed=0.4,
@@ -34,7 +34,7 @@ class ScanningStrategy():
 
         Parameters
         ----------
-        nCES : int, optional
+        nces : int, optional
             Number of scans to generate.
         start_date : string, optional
             Starting date for observations. The format is: YYYY/M/D HH:MM:SS.
@@ -65,7 +65,7 @@ class ScanningStrategy():
             first to compile it. See the setup.py or the provided Makefile.
 
         """
-        self.nCES = nCES
+        self.nces = nces
         self.start_date = start_date
         self.name_strategy = name_strategy
         self.sampling_freq = sampling_freq
@@ -185,7 +185,7 @@ class ScanningStrategy():
         scan_file : dictionary
             Empty dictionary which will contain the outputs of the scan.
         scan_number : int
-            Index of the scan (between 0 and nCES - 1).
+            Index of the scan (between 0 and nces - 1).
         silent : bool
             If False, print out messages about the scan. Default is True.
 
@@ -324,7 +324,7 @@ class ScanningStrategy():
         self.telescope_location.date += num_pts * ephem.second / sampling_freq
 
         ## Save in file
-        scan_file['nCES'] = self.nCES
+        scan_file['nces'] = self.nces
         scan_file['CES'] = scan_number
         scan_file['sample_rate'] = sampling_freq
         scan_file['sky_speed'] = self.sky_speed
@@ -367,7 +367,7 @@ class ScanningStrategy():
 
         Examples
         ----------
-        >>> scan = ScanningStrategy(sampling_freq=1., nCES=2)
+        >>> scan = ScanningStrategy(sampling_freq=1., nces=2)
         >>> scan.run()
         >>> print(scan.scan0['firstmjd'], scan.scan0['lastmjd'])
         56293.6202546 56293.8230093
@@ -378,7 +378,7 @@ class ScanningStrategy():
         Note that C codes are compiled on-the-fly (weave), but for fortran
         codes you need first to compile it. See the setup.py or
         the provided Makefile.
-        >>> scan = ScanningStrategy(sampling_freq=1., nCES=2,
+        >>> scan = ScanningStrategy(sampling_freq=1., nces=2,
         ...     language='fortran')
         >>> scan.run()
         >>> print(scan.scan0['firstmjd'], scan.scan0['lastmjd'])
@@ -386,7 +386,7 @@ class ScanningStrategy():
         """
         ## Initialise the date and loop over CESes
         self.telescope_location.date = self.start_date
-        for CES_position in range(self.nCES):
+        for CES_position in range(self.nces):
             ## Initialise the starting date of observation
             ## It will be updated then automatically
             setattr(self, 'scan{}'.format(CES_position), {})
@@ -440,7 +440,7 @@ class ScanningStrategy():
 
         npix = hp.pixelfunc.nside2npix(nside)
         nhit = np.zeros(npix)
-        for scan_number in range(self.nCES):
+        for scan_number in range(self.nces):
             scan = getattr(self, 'scan{}'.format(scan_number))
 
             num_pts = len(scan['clock-utc'])

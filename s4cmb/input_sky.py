@@ -19,7 +19,7 @@ from astropy.io import fits as pyfits
 class HealpixFitsMap():
     """ Class to handle fits file containing healpix maps """
     def __init__(self, input_filename,
-                 do_pol=True, verbose=False, FWHM_in=0.0, nside_in=None,
+                 do_pol=True, verbose=False, fwhm_in=0.0, nside_in=None,
                  map_seed=None, no_ileak=False, no_quleak=False,
                  ext_map_gal=False):
         """
@@ -35,9 +35,9 @@ class HealpixFitsMap():
             otherwise. Default is True.
         verbose : bool, optional
             If True, print out plenty of useless messages.
-        FWHM_in : float, optional
+        fwhm_in : float, optional
             If input_filename is a CAMB lensed cl file, the generated maps will
-            be convolved with a beam having this FWHM_in. In arcmin.
+            be convolved with a beam having this fwhm_in. In arcmin.
             No effect if you provide maps directly.
         nside_in : int, optional
             If input_filename is a CAMB lensed cl file, the maps will be
@@ -63,7 +63,7 @@ class HealpixFitsMap():
         self.no_ileak = no_ileak
         self.no_quleak = no_quleak
         self.ext_map_gal = ext_map_gal
-        self.FWHM_in = FWHM_in
+        self.fwhm_in = fwhm_in
         self.nside_in = nside_in
         self.map_seed = map_seed
 
@@ -144,7 +144,7 @@ class HealpixFitsMap():
         ----------
         Let's generate the map from a CAMB file
         >>> filename = 's4cmb/data/test_data_set_lensedCls.dat'
-        >>> hpmap = HealpixFitsMap(input_filename=filename, FWHM_in=3.5,
+        >>> hpmap = HealpixFitsMap(input_filename=filename, fwhm_in=3.5,
         ...     nside_in=16, map_seed=489237)
         >>> print(hpmap.nside)
         16
@@ -160,12 +160,12 @@ class HealpixFitsMap():
             if self.do_pol:
                 self.I, self.Q, self.U = create_sky_map(self.input_filename,
                                                         nside=self.nside_in,
-                                                        FWHM=self.FWHM_in,
+                                                        FWHM=self.fwhm_in,
                                                         seed=self.map_seed)
             else:
                 self.I = create_sky_map(self.input_filename,
                                         nside=self.nside_in,
-                                        FWHM=self.FWHM_in,
+                                        FWHM=self.fwhm_in,
                                         seed=self.map_seed)
             self.nside = hp.npix2nside(len(self.I))
         else:

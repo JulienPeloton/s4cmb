@@ -49,7 +49,7 @@ def intise_it(entry):
     """
     return int(entry)
 
-def boolise_it(dic, entry):
+def boolise_it(entry):
     """
     Convert a string to a bool
 
@@ -66,30 +66,58 @@ def boolise_it(dic, entry):
     Examples
     ----------
     >>> import numpy as np
-    >>> config_dict = {'toto': 'True', 'tata': 'False'}
-    >>> np.all(boolise_it(config_dict, 'toto'))
+    >>> config_dict = {'toto': 'True', 'tata': 'False', 'tutu': '1.2'}
+    >>> boolise_it('True')
     True
 
-    >>> np.all(boolise_it(config_dict, 'tata'))
+    >>> boolise_it('False')
     False
 
-    >>> np.all(boolise_it(config_dict, 'titi'))
+    >>> boolise_it('1.2') #doctest: +NORMALIZE_WHITESPACE
+    You assign 1.2 to bool, but is neither True or False...
+    Return False by default, but I suggest that you you look at your ini file.
     False
     """
-    if entry in dic:
-        out = 'True' in dic[entry]
+    if entry == 'False':
+        return False
+    elif entry == 'True':
+        return True
     else:
-        out = False
+        print('You assign {} to bool, but is neither True or '.format(entry) +
+              'False... Return False by default, but I suggest that you ' +
+              'you look at your ini file.')
+        return False
     return out
 
-class NormaliseS4cmbParser():
+def find_value_from_last_letter(string):
     """
-    Class to handle s4cmb parser.
+    Routine to find the type of a variable in the parser.
+    The variable should be entered in the format
+    <name> = <value> <letter>
+    where letter is used to determine the type of the variable:
+    S(tring), F(loat), I(nteger), B(ool), N(one).
+    """
+    type_of_my_string = string[-1]
+    if type_of_my_string == 'S':
+        return string[:-2]
+    elif type_of_my_string == 'F':
+        return floatise_it(string[:-2])
+    elif type_of_my_string == 'I':
+        return intise_it(string[:-2])
+    elif type_of_my_string == 'B':
+        return boolise_it(string[:-2])
+    elif type_of_my_string == 'N':
+        return None
+
+class NormaliseParser():
+    """
+    Class to handle s4cmb parsers.
     It converts initial dictionary into an object.
     """
     def __init__(self, config_dict):
         """
-        Careful: keys are in small caps (as returned by ConfigParser).
+        Careful: keys should be in small caps (as returned by ConfigParser) to
+        avoid confusion.
 
         Parameters
         ----------
@@ -103,106 +131,12 @@ class NormaliseS4cmbParser():
         >>> import ConfigParser
         >>> Config = ConfigParser.ConfigParser()
         >>> fns = Config.read('examples/simple_parameters.ini')
-        >>> params = NormaliseS4cmbParser(Config._sections['s4cmb'])
-        >>> assert hasattr(params, 'nCES')
+        >>> params = NormaliseParser(Config._sections['simple'])
+        >>> assert hasattr(params, 'nces')
         """
-
-        ## Names
-        self.input_filename = config_dict['input_filename']
-        self.name_strategy = config_dict['name_strategy']
-        self.pm_name = config_dict['pm_name']
-        self.type_HWP = config_dict['type_hwp']
-        self.ut1utc_fn = config_dict['ut1utc_fn']
-        self.language = config_dict['language']
-        self.start_date = config_dict['start_date']
-        self.telescope_longitude = config_dict['telescope_longitude']
-        self.telescope_latitude = config_dict['telescope_latitude']
-        self.name_instrument = config_dict['name_instrument']
-
-        ## Booleans
-        self.do_pol = boolise_it(config_dict, 'do_pol')
-        self.no_ileak = boolise_it(config_dict, 'no_ileak')
-        self.no_quleak = boolise_it(config_dict, 'no_quleak')
-        self.ext_map_gal = boolise_it(config_dict, 'ext_map_gal')
-        self.verbose = boolise_it(config_dict, 'verbose')
-
-        ## Integers
-        self.ncrate = intise_it(config_dict['ncrate'])
-        self.ndfmux_per_crate = intise_it(config_dict['ndfmux_per_crate'])
-        self.nsquid_per_mux = intise_it(config_dict['nsquid_per_mux'])
-        self.npair_per_squid = intise_it(config_dict['npair_per_squid'])
-        self.beam_seed = intise_it(config_dict['beam_seed'])
-        self.nCES = intise_it(config_dict['nces'])
-        self.nside_out = intise_it(config_dict['nside_out'])
-
-        ## Float
-        self.FWHM_in = floatise_it(config_dict['fwhm_in'])
-        self.FWHM = floatise_it(config_dict['fwhm'])
-        self.fp_size = floatise_it(config_dict['fp_size'])
-        self.projected_fp_size = floatise_it(
-            config_dict['projected_fp_size'])
-        self.freq_HWP = floatise_it(config_dict['freq_hwp'])
-        self.angle_HWP = floatise_it(config_dict['angle_hwp'])
-        self.telescope_elevation = floatise_it(
-            config_dict['telescope_elevation'])
-        self.sampling_freq = floatise_it(config_dict['sampling_freq'])
-        self.sky_speed = floatise_it(config_dict['sky_speed'])
-        self.width = floatise_it(config_dict['width'])
-
-        ## Default None
-        if config_dict['nside_in'] == 'None':
-            self.nside_in = None
-        else:
-            self.nside_in = intise_it(config_dict['nside_in'])
-
-        if config_dict['map_seed'] == 'None':
-            self.map_seed = None
-        else:
-            self.map_seed = intise_it(config_dict['map_seed'])
-
-class NormaliseXpureParser():
-    """
-    Class to handle xpure parser.
-    It converts initial dictionary into an object.
-    """
-    def __init__(self, config_dict):
-        """
-        Careful: keys are in small caps (as returned by ConfigParser).
-
-        Parameters
-        ----------
-        config_dict : dictionary
-            dictionary coming from the ini file.
-            Contains {key: val}, where val are strings
-            (default to ConfigParser).
-
-        Examples
-        ----------
-        >>> import ConfigParser
-        >>> Config = ConfigParser.ConfigParser()
-        >>> fns = Config.read('examples/xpure_parameters.ini')
-        >>> params = NormaliseXpureParser(Config._sections['xpure'])
-        >>> assert hasattr(params, 'node')
-        """
-
-        ## Names
-        self.time = config_dict['time']
-        self.queue = config_dict['queue']
-        self.beam_file = config_dict['beam_file']
-        self.bin_file = config_dict['bin_file']
-
-        ## Integers
-        self.node = intise_it(config_dict['node'])
-        self.nproc_apo = intise_it(config_dict['nproc_apo'])
-        self.nproc_scalar_to_spin = intise_it(
-            config_dict['nproc_scalar_to_spin'])
-        self.nproc_mll = intise_it(config_dict['nproc_mll'])
-        self.nproc_xpure = intise_it(config_dict['nproc_xpure'])
-        self.radius_apodization = intise_it(
-            config_dict['radius_apodization'])
-        self.lmax_user = intise_it(config_dict['lmax_user'])
-        self.xpure_mode = intise_it(config_dict['xpure_mode'])
-        self.fast = intise_it(config_dict['fast'])
+        for key, string_value in config_dict.iteritems():
+            value = find_value_from_last_letter(string_value)
+            setattr(self, key, value)
 
 
 if __name__ == "__main__":
