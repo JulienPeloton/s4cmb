@@ -459,6 +459,8 @@ class TimeOrderedDataPairDiff():
         Check we are looking in the right direction, i.e. mean of the maps
         are within 1% (due to different projection, input and output cannot
         agree completely).
+        >>> import matplotlib
+        >>> matplotlib.use("Agg")
         >>> flat = m.get_I()
         >>> nx = int(np.sqrt(m.npixsky))
         >>> curve = hp.gnomview(tod.HealpixFitsMap.I, rot=[0., 0.],
