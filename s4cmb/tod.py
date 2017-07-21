@@ -21,11 +21,13 @@ from s4cmb.tod_f import tod_f
 
 
 d2r = np.pi / 180.0
+am2rad = np.pi / 180. / 60.
 
 class TimeOrderedDataPairDiff():
     """ Class to handle Time-Ordered Data (TOD) """
     def __init__(self, hardware, scanning_strategy, HealpixFitsMap,
-                 CESnumber, nside_out=None, width=20.):
+                 CESnumber, projection='healpix',
+                 nside_out=None, pixel_size=None, width=20.):
         """
         C'est parti!
 
@@ -40,9 +42,18 @@ class TimeOrderedDataPairDiff():
         CESnumber : int
             Number of the scan to simulate. Must be between 0 and
             scanning_strategy.nces - 1.
+        projection : string, optional
+            Type of projection for the output map. Currently available:
+            healpix, flat. Here is a warning: Because of projection artifact,
+            if you choose flat projection, then we will scan the sky *as if
+            it was centered in [0., 0.]*. Therefore, one cannot for the moment
+            compared directly healpix and flat runs.
         nside_out : int, optional
-            The resolution for the output maps. Default is nside of the
-            input map.
+            The resolution for the output maps if projection=healpix.
+            Default is nside of the input map.
+        pixel_size : float, optional
+            The pixel size for the output maps if projection=flat.
+            In arcmin. Default is resolution of the input map.
         width : float, optional
             Width for the output map in degree.
         """
@@ -50,11 +61,12 @@ class TimeOrderedDataPairDiff():
         self.hardware = hardware
         self.scanning_strategy = scanning_strategy
         self.HealpixFitsMap = HealpixFitsMap
-        if nside_out is None:
-            self.nside_out = self.HealpixFitsMap.nside
-        else:
-            self.nside_out = nside_out
         self.width = width
+        self.projection = projection
+        assert self.projection in ['healpix', 'flat'], \
+            ValueError("Projection <{}> for ".format(self.projection) +
+                       "the output map not understood! " +
+                       "Choose among ['healpix', 'flat'].")
 
         self.CESnumber = CESnumber
         assert self.CESnumber < self.scanning_strategy.nces, \
@@ -90,7 +102,16 @@ class TimeOrderedDataPairDiff():
         ## Initialise the mask for timestreams
         self.wafermask_pixel = self.get_timestream_masks()
 
-        ## Get observed pixels
+        ## Get observed pixels in the input map
+        if nside_out is None:
+            self.nside_out = self.HealpixFitsMap.nside
+        else:
+            self.nside_out = nside_out
+        if pixel_size is None:
+            self.pixel_size = hp.nside2resol(self.HealpixFitsMap.nside)
+        else:
+            self.pixel_size = pixel_size * am2rad
+
         self.obspix, self.npixsky = self.get_obspix(
             self.width,
             self.scanning_strategy.ra_mid,
@@ -137,13 +158,35 @@ class TimeOrderedDataPairDiff():
         dec_src : float
             Dec of the center of the patch in degree.
 
+        Returns
+        ----------
+        obspix : 1d array
+            The indices of the observed pixels in the input map. Same for
+            all output projection as the only input projection is healpix.
+        nskypix : int
+            Number of sky pixels in our patch given the boundaries (specified
+            via `width`). For healpix projection, this is the length of the
+            obspix. For flat projection, this is the number of square pixels
+            within the patch.
+
         Examples
         ----------
+        Healpix projection
         >>> inst, scan, sky_in = load_fake_instrument()
         >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in, CESnumber=0)
         >>> obspix, npix = tod.get_obspix(10., 0., 0.)
         >>> print(obspix)
         [1376 1439 1440 1504 1567 1568 1632 1695]
+
+        Flat projection
+        >>> inst, scan, sky_in = load_fake_instrument()
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in, CESnumber=0,
+        ...     projection='flat')
+        >>> obspix, npix = tod.get_obspix(10., 0., 0.)
+        >>> print(obspix) ## the same as healpix
+        [1376 1439 1440 1504 1567 1568 1632 1695]
+        >>> print(npix, len(obspix))
+        16 8
         """
         ## Change to radian
         ra_src = ra_src * d2r
@@ -167,10 +210,22 @@ class TimeOrderedDataPairDiff():
         dec_min = max([(dec_src - ymin), -np.pi/2])
         dec_max = min([dec_src + ymax, np.pi/2])
 
+        self.xmin = ra_min
+        self.xmax = ra_max
+        self.ymin = dec_min
+        self.ymax = dec_max
+
         obspix = input_sky.get_obspix(ra_min, ra_max,
                                       dec_min, dec_max,
                                       self.nside_out)
-        npixsky = len(obspix)
+
+        if self.projection == 'flat':
+            npixsky = int(
+                round(
+                    (self.xmax - self.xmin + self.pixel_size) /
+                    self.pixel_size))**2
+        elif self.projection == 'healpix':
+            npixsky = len(obspix)
 
         return obspix, npixsky
 
@@ -197,9 +252,23 @@ class TimeOrderedDataPairDiff():
         Initialise the boresight pointing for all the focal plane bolometers.
         The actual pointing (RA/Dec/Parallactic angle) is computed on-the-fly
         when we load the data.
+
+        Note:
+        For healpix projection, our (ra_src, dec_src) = (0, 0) while for flat
+        projection, we set the true center of the patch. This is to avoid
+        projection artifact by operating a rotation of the coordinates to
+        (0, 0) in flat projection (scan around equator). This might change
+        in a future release.
         """
         lat = float(
             self.scanning_strategy.telescope_location.lat) * 180. / np.pi
+
+        if self.projection == 'healpix':
+            ra_src = 0.0
+            dec_src = 0.0
+        elif self.projection == 'flat':
+            ra_src = self.scanning_strategy.ra_mid
+            dec_src = self.scanning_strategy.dec_mid * np.pi / 180.
 
         self.pointing = Pointing(
             az_enc=self.scan['azimuth'],
@@ -208,7 +277,7 @@ class TimeOrderedDataPairDiff():
             value_params=self.hardware.pointing_model.value_params,
             allowed_params=self.hardware.pointing_model.allowed_params,
             ut1utc_fn=self.scanning_strategy.ut1utc_fn,
-            lat=lat)
+            lat=lat, ra_src=ra_src, dec_src=dec_src)
 
     def compute_simpolangle(self, ch, parallactic_angle, do_demodulation=False,
                             polangle_err=False):
@@ -290,9 +359,20 @@ class TimeOrderedDataPairDiff():
         ra, dec, pa = self.pointing.offset_detector(azd, eld)
 
         ## Retrieve corresponding pixels on the sky, and their index locally.
-        index_global, index_local = build_pointing_matrix(
-            ra, dec, self.nside_out, obspix=self.obspix,
-            cut_outliers=True, ext_map_gal=self.HealpixFitsMap.ext_map_gal)
+        if self.projection == 'flat':
+            ##
+            index_global, index_local = build_pointing_matrix(
+                ra, dec, self.HealpixFitsMap.nside,
+                xmin=-self.width/2.*np.pi/180.,
+                ymin=-self.width/2.*np.pi/180.,
+                pixel_size=self.pixel_size,
+                npix_per_row=int(np.sqrt(self.npixsky)),
+                projection=self.projection)
+        elif self.projection == 'healpix':
+            index_global, index_local = build_pointing_matrix(
+                ra, dec, self.HealpixFitsMap.nside, obspix=self.obspix,
+                cut_outliers=True, ext_map_gal=self.HealpixFitsMap.ext_map_gal,
+                projection=self.projection)
 
         ## Store list of hit pixels only for top bolometers
         if ch % 2 == 0:
@@ -385,13 +465,16 @@ class TimeOrderedDataPairDiff():
 
 class OutputSkyMap():
     """ Class to handle sky maps generated by tod2map """
-    def __init__(self, nside, obspix):
+    def __init__(self, nside, obspix, npixsky=None):
         """
         Initialise all maps: weights, projected TOD, and Stokes parameters.
         """
         self.nside = nside
         self.obspix = obspix
-        self.npixsky = len(self.obspix)
+        if npixsky is not None:
+            self.npixsky = npixsky
+        else:
+            self.npixsky = len(self.obspix)
         self.initialise_sky_maps()
 
     def initialise_sky_maps(self):
@@ -599,8 +682,11 @@ def partial2full(partial_obs, obspix, nside, fill_with=0.0):
     fullsky[obspix] = partial_obs
     return fullsky
 
-def build_pointing_matrix(ra, dec, nside, obspix=None,
-                          cut_outliers=True, ext_map_gal=False):
+def build_pointing_matrix(ra, dec, nside, projection='healpix',
+                          obspix=None, ext_map_gal=False,
+                          xmin=None, ymin=None,
+                          pixel_size=None, npix_per_row=None,
+                          cut_outliers=True):
     """
     Given pointing coordinates (RA/Dec), retrieve the corresponding healpix
     pixel index for a full sky map. This acts effectively as an operator
@@ -665,7 +751,7 @@ def build_pointing_matrix(ra, dec, nside, obspix=None,
 
     index_global = hp.ang2pix(nside, theta, phi)
 
-    if obspix is not None:
+    if projection == 'healpix' and obspix is not None:
         npixsky = len(obspix)
         index_local = obspix.searchsorted(index_global)
         mask1 = index_local < npixsky
@@ -677,6 +763,20 @@ def build_pointing_matrix(ra, dec, nside, obspix=None,
                 "Pixels outside patch boundaries. Patch width insufficient")
         else:
             index_local[outside_pixels] = -1
+    elif projection == 'flat':
+        x, y = input_sky.LamCyl(ra, dec)
+
+        xminmap = xmin - pixel_size / 2.0
+        yminmap = ymin - pixel_size / 2.0
+
+        ix = np.int_((x - xminmap) / pixel_size)
+        iy = np.int_((y - yminmap) / pixel_size)
+
+        index_local = ix * npix_per_row + iy
+
+        outside = (ix < 0) | (ix >= npix_per_row) | \
+            (iy < 0) | (iy >= npix_per_row)
+        index_local[outside] = - 1
     else:
         index_local = None
 

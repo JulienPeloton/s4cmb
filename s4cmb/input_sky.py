@@ -272,6 +272,13 @@ def get_obspix(xmin, xmax, ymin, ymax, nside):
 
     return obspix
 
+def LamCyl(ra, dec):
+    """
+    Referred to as cylindrical equal-area in the USGS report, assuming
+    that the parallel of true scale is zero
+    """
+    return ra, np.sin(dec)
+
 def create_sky_map(cl_fn, nside=16, FWHM=0.0, seed=548397):
     """
     Create full sky map from input cl.
