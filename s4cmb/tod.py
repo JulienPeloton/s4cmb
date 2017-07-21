@@ -254,11 +254,10 @@ class TimeOrderedDataPairDiff():
         when we load the data.
 
         Note:
-        For healpix projection, our (ra_src, dec_src) = (0, 0) while for flat
-        projection, we set the true center of the patch. This is to avoid
-        projection artifact by operating a rotation of the coordinates to
-        (0, 0) in flat projection (scan around equator). This might change
-        in a future release.
+        For healpix projection, our (ra_src, dec_src) = (0, 0) and we
+        rotate the input map while for flat we true center of the patch.
+        This is to avoid projection artifact by operating a rotation
+        of the coordinates to (0, 0) in flat projection (scan around equator).
         """
         lat = float(
             self.scanning_strategy.telescope_location.lat) * 180. / np.pi
@@ -269,6 +268,19 @@ class TimeOrderedDataPairDiff():
         elif self.projection == 'flat':
             ra_src = self.scanning_strategy.ra_mid
             dec_src = self.scanning_strategy.dec_mid * np.pi / 180.
+
+            ## Perform a rotation of the input to put the point
+            ## (ra_src, dec_src) at (0, 0).
+            r = hp.Rotator(rot=[ra_src, self.scanning_strategy.dec_mid])
+            theta, phi = hp.pix2ang(self.HealpixFitsMap.nside,
+                                    range(12 * self.HealpixFitsMap.nside**2))
+            t, p = r(theta, phi, inv=True)
+            pix = hp.ang2pix(self.HealpixFitsMap.nside, t, p)
+
+            ## Apply the rotation to our maps
+            self.HealpixFitsMap.I = self.HealpixFitsMap.I[pix]
+            self.HealpixFitsMap.Q = self.HealpixFitsMap.Q[pix]
+            self.HealpixFitsMap.U = self.HealpixFitsMap.U[pix]
 
         self.pointing = Pointing(
             az_enc=self.scan['azimuth'],

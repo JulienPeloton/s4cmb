@@ -1,6 +1,7 @@
 v0.x.x
 =============
 * Current version.
+* Include flat sky projection for the output maps.
 
 v0.4.0
 =============
