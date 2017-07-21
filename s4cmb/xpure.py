@@ -60,7 +60,7 @@ def qu_weight_mineig(cc, cs, ss, epsilon=0., verbose=False):
         Projected noise weighted sine**2 per-pixel.
     cs : 1d array
         Projected noise weighted cosine * sine per-pixel.
-    epsilon : float
+    epsilon : float, optional
         Threshold for selecting the pixels. 0 <= epsilon < 1/4.
         The higher the more selective.
 

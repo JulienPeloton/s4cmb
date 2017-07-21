@@ -175,13 +175,18 @@ if __name__ == "__main__":
     for pos_CES, CESnumber in enumerate(range(rank, scan.nces, size)):
         tod = TimeOrderedDataPairDiff(inst, scan, sky_in,
                                       CESnumber=CESnumber,
+                                      projection=params.projection,
                                       nside_out=params.nside_out,
+                                      pixel_size=params.pixel_size,
                                       width=params.width)
 
         ## Initialise map containers for each processor
         if pos_CES == 0:
-            sky_out_tot = OutputSkyMap(nside=params.nside_out,
-                                       obspix=tod.obspix)
+            sky_out_tot = OutputSkyMap(projection=tod.projection,
+                                       nside=tod.nside_out,
+                                       obspix=tod.obspix,
+                                       npixsky=tod.npixsky,
+                                       pixel_size=tod.pixel_size)
 
         ## Scan input map to get TODs
         d = np.array([

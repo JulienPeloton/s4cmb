@@ -138,13 +138,18 @@ if __name__ == "__main__":
     for pos_CES, CESnumber in enumerate(range(rank, scan.nces, size)):
         tod = TimeOrderedDataPairDiff(inst, scan, sky_in,
                                       CESnumber=CESnumber,
+                                      projection=params.projection,
                                       nside_out=params.nside_out,
+                                      pixel_size=params.pixel_size,
                                       width=params.width)
 
         ## Initialise map containers for each processor
         if pos_CES == 0:
-            sky_out_tot = OutputSkyMap(nside=params.nside_out,
-                                       obspix=tod.obspix)
+            sky_out_tot = OutputSkyMap(projection=tod.projection,
+                                       nside=tod.nside_out,
+                                       obspix=tod.obspix,
+                                       npixsky=tod.npixsky,
+                                       pixel_size=tod.pixel_size)
 
         ## Scan input map to get TODs
         d = []
@@ -187,9 +192,7 @@ if __name__ == "__main__":
         assert np.all(np.abs(sky_in.U[mask] - sky_out[mask]) < 1e-9), \
             ValueError("Output not equal to input!")
 
-        print("All OK! Greetings from processor 0!")
 
-    if rank == 0:
         from s4cmb.xpure import write_maps_a_la_xpure
         from s4cmb.xpure import write_weights_a_la_xpure
         ## Save data on disk into fits file for later use in xpure
@@ -201,5 +204,7 @@ if __name__ == "__main__":
         write_weights_a_la_xpure(sky_out_tot, name_out=name_out,
                                  output_path='xpure/masks',
                                  epsilon=0.08, HWP=False)
+
+        print("All OK! Greetings from processor 0!")
 
     MPI.COMM_WORLD.barrier()
