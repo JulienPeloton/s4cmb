@@ -14,6 +14,8 @@ import numpy as np
 import healpy as hp
 import cPickle as pickle
 
+from numpy.fft import fft, fftfreq, fftshift
+
 from s4cmb.detector_pointing import Pointing
 from s4cmb.detector_pointing import radec2thetaphi
 from s4cmb import input_sky
@@ -27,7 +29,8 @@ class TimeOrderedDataPairDiff():
     """ Class to handle Time-Ordered Data (TOD) """
     def __init__(self, hardware, scanning_strategy, HealpixFitsMap,
                  CESnumber, projection='healpix',
-                 nside_out=None, pixel_size=None, width=20.):
+                 nside_out=None, pixel_size=None, width=20.,
+                 array_noise_level=None, array_noise_seed=487587):
         """
         C'est parti!
 
@@ -56,6 +59,16 @@ class TimeOrderedDataPairDiff():
             In arcmin. Default is resolution of the input map.
         width : float, optional
             Width for the output map in degree.
+        array_noise_level : float, optional
+            Noise level for the whole array in [u]K.sqrt(s). If not None, it
+            will inject on-the-fly noise in time-domain while scanning
+            the input map (map2tod). WARNING: units has to be same as the
+            input map!
+        array_noise_seed : int, optional
+            Seed used to generate random numbers to simulate noise.
+            From this single seed, we generate a list of seeds
+            for all detectors. Has an effect only if array_noise_level is
+            provided.
         """
         ## Initialise args
         self.hardware = hardware
@@ -119,6 +132,18 @@ class TimeOrderedDataPairDiff():
 
         ## Get timestream weights
         self.sum_weight, self.diff_weight = self.get_weights()
+
+        ## Prepare noise simulator if needed
+        self.array_noise_level = array_noise_level
+        self.array_noise_seed = array_noise_seed
+        if self.array_noise_level is not None:
+            self.noise_generator = WhiteNoiseGenerator(
+                array_noise_level=self.array_noise_level,
+                ndetectors=2*self.npair,
+                ntimesamples=self.nsamples,
+                array_noise_seed=self.array_noise_seed)
+        else:
+            self.noise_generator = None
 
     def get_angles(self):
         """
@@ -393,6 +418,12 @@ class TimeOrderedDataPairDiff():
         ## Gain mode. Not yet implemented, but this is the place!
         norm = 1.0
 
+        ## Noise simulation
+        if self.noise_generator is not None:
+            noise = self.noise_generator.simulate_noise_one_detector(ch)
+        else:
+            noise = 0.0
+
         if self.HealpixFitsMap.do_pol:
             pol_ang = self.compute_simpolangle(ch, pa,
                                                do_demodulation=False,
@@ -405,9 +436,9 @@ class TimeOrderedDataPairDiff():
             return (self.HealpixFitsMap.I[index_global] +
                     self.HealpixFitsMap.Q[index_global] * np.cos(2 * pol_ang) +
                     self.HealpixFitsMap.U[index_global] *
-                    np.sin(2 * pol_ang)) * norm
+                    np.sin(2 * pol_ang) + noise) * norm
         else:
-            return norm * self.HealpixFitsMap.I[index_global]
+            return norm * (self.HealpixFitsMap.I[index_global] + noise)
 
     def tod2map(self, waferts, output_maps):
         """
@@ -501,6 +532,183 @@ class TimeOrderedDataPairDiff():
                                wafermask_pixel, npixfp, self.npixsky)
         # Garbage collector guard
         wafermask_pixel
+
+class WhiteNoiseGenerator():
+    """ Class to handle white noise """
+    def __init__(self, array_noise_level, ndetectors, ntimesamples,
+                 array_noise_seed):
+        """
+        This class is used to simulate time-domain noise.
+        Usually, it is used in combination with map2tod to insert noise
+        on-the-fly while scanning an input CMB map.
+
+        Parameters
+        ----------
+        array_noise_level : float
+            Noise level for a detector in [u]K.sqrt(s). WARNING: units has
+            to be same as the input map!
+        ndetectors : int
+            Total number of detectors in the focal plane.
+        ntimesamples : float
+            Number of time samples per timestream (length of the observation).
+        array_noise_seed : int
+            Seed used to generate random numbers. From this single seed,
+            we generate a list of seeds for all detectors.
+
+        """
+        self.array_noise_level = array_noise_level
+        self.ndetectors = ndetectors
+        self.ntimesamples = ntimesamples
+
+        ## Noise level for one detector
+        self.detector_noise_level = self.array_noise_level * \
+            np.sqrt(self.ndetectors)
+
+        self.array_noise_seed = array_noise_seed
+        state = np.random.RandomState(self.array_noise_seed)
+        self.noise_seeds = state.randint(0, 1e6, size=self.ndetectors)
+
+    def simulate_noise_one_detector(self, ch):
+        """
+        Simulate noise on-the-fly for one detector.
+
+        Parameters
+        ----------
+        ch : int
+            Index of the detector in the array.
+
+        Returns
+        ----------
+        vec : 1d array
+            Vector of noise of size ntimesamples.
+            The level of noise is given by detector_noise_level in uK.sqrt(s).
+
+        Examples
+        ----------
+        >>> wn = WhiteNoiseGenerator(3000., 2, 4, array_noise_seed=493875)
+        >>> ts = wn.simulate_noise_one_detector(0)
+        >>> print(ts) #doctest: +NORMALIZE_WHITESPACE
+        [ -2185.65609023   5137.21044598  -5407.22292574  11020.59471471]
+        """
+        state = np.random.RandomState(self.noise_seeds[ch])
+        vec = state.normal(size=self.ntimesamples)
+
+        return self.detector_noise_level * vec
+
+
+def psdts(ts, sample_rate, NFFT=4096):
+    '''
+    Compute the power spectrum (or power spectral density) of a timestream ts.
+
+    Parameters
+    ----------
+    ts : 1d array
+        Detector timestream.
+    sample_rate : float
+        Sample rate of the detector in Hz.
+    NFFT : int, optional
+        The number of points.
+
+    Returns
+    ----------
+    fs : 1d array
+        Frequency bin centers in Hz.
+    psd : 1d array
+        Power spectral density of the timestream.
+
+    Examples
+    ----------
+    >>> state = np.random.RandomState(0)
+    >>> ts = state.rand(100)
+    >>> fs, psd = psdts(ts, sample_rate=1)
+    >>> print(round(fs[-1], 2), round(psd[-1], 2))
+    0.49 0.5
+    '''
+    ## Remove the mean
+    ts -= np.mean(ts)
+
+    fs, asd = compute_asd(ts, sample_rate=sample_rate, NFFT=NFFT)
+    psd = asd**2
+
+    return fs, psd
+
+def compute_asd(x, sample_rate, NFFT=2048, is_complex=False):
+    """
+    Compute the amplitude spectral density (PSD = ASD**2).
+
+    Parameters
+    ----------
+    x : 1d array
+        Quantity for which you want the ASD.
+        Typically a detector timestream. Mean of x should have been removed
+        prior to passing x.
+    sample_rate : float
+        Sample rate of x in Hz.
+    NFFT : int, optional
+        The number of points.
+    is_complex : bool, optional
+
+    Returns
+    ----------
+    fs : 1d array
+        Frequency bin centers in Hz.
+    asd : 1d array
+        Amplitude spectral density of x.
+    """
+    ## Sanity check in the case of no chunking
+    maxnfft = x.shape[0] - (x.shape[0] % 2)
+    if(NFFT > maxnfft or NFFT < 0):
+        NFFT = maxnfft
+
+    period = 1.0 / sample_rate
+
+    window = np.blackman(NFFT)
+    window_norm = 1.0 / np.average(window**2)
+
+    n = len(x)
+    ## Truncates and rounds down
+    nchunks = int((2 * n) / NFFT)
+    if is_complex:
+        PSD = np.zeros(NFFT)
+    else:
+        PSD = np.zeros(int(NFFT/2))
+
+    for i in range(0, nchunks-1):
+        chunk = window * x[i * int(NFFT / 2): (i + 2) * int(NFFT / 2)]
+
+        fch = fft(chunk)
+        if not is_complex:
+            fch = fch[0: int(NFFT / 2)]
+
+        cf = fch * np.conj(fch)
+
+        if not is_complex:
+            cf[1: (int(NFFT / 2) - 1)] *= 2
+            cf = cf.real
+        PSD += cf
+
+    fs = fftfreq(NFFT, period)
+    if not is_complex:
+        fs = fs[0: int(NFFT/2)]
+
+    if nchunks != 1:
+        PSD /= (nchunks-1)
+
+    # Numpy normalizes inverse transform
+    PSD /= NFFT
+
+    # Power per root Hz
+    PSD *= 1.0 / sample_rate
+
+    # Remove power reduction from window
+    PSD *= window_norm
+
+    if is_complex:
+        fs = fftshift(fs)
+        PSD = fftshift(PSD)
+
+    # Convert to amplitude/rtHz
+    return fs, PSD**0.5
 
 class OutputSkyMap():
     """ Class to handle sky maps generated by tod2map """
