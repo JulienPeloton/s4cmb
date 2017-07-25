@@ -1032,7 +1032,10 @@ def shrink_me(dic, based_on):
     dxy = np.max((dx, dy))
 
     for k in dic.keys():
-        if type(dic[k]) == np.ndarray:
+        npixr_loc = int(len(dic[k])**.5)
+
+        ## Filter out fields which are arrays but not like based_on.
+        if type(dic[k]) == np.ndarray and npixr_loc == npixr:
             dic[k] = np.array(
                 [i[miny: miny+dxy+1] for i in
                  dic[k].reshape(
