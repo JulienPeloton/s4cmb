@@ -1001,7 +1001,7 @@ def shrink_me(dic, based_on):
     >>> dic = {'I': np.array([1, 2, 3, 4, 5, 6, 7, 8, 9,
     ...     10, 11, 12, 13, 14, 15, 16]),
     ...        'w': np.array([0, 0, 0, 0, 0, 1, 1, 0, 0,
-    ...     1, 1, 0, 0, 0, 0, 0])}
+    ...     1, 1, 0, 0, 0, 0, 0]), 'n': 16}
     >>> print(dic['I'].reshape((4, 4))) #doctest: +NORMALIZE_WHITESPACE
     [[ 1  2  3  4]
      [ 5  6  7  8]
@@ -1032,14 +1032,15 @@ def shrink_me(dic, based_on):
     dxy = np.max((dx, dy))
 
     for k in dic.keys():
-        npixr_loc = int(len(dic[k])**.5)
-
-        ## Filter out fields which are arrays but not like based_on.
-        if type(dic[k]) == np.ndarray and npixr_loc == npixr:
-            dic[k] = np.array(
-                [i[miny: miny+dxy+1] for i in
-                 dic[k].reshape(
-                     (npixr, npixr))[minx: minx+dxy+1]]).flatten()
+        ## Filter out fields which aren't arrays
+        if type(dic[k]) == np.ndarray:
+            ## Filter out fields which are arrays but not like based_on.
+            npixr_loc = int(len(dic[k])**.5)
+            if npixr_loc == npixr:
+                dic[k] = np.array(
+                    [i[miny: miny+dxy+1] for i in
+                     dic[k].reshape(
+                         (npixr, npixr))[minx: minx+dxy+1]]).flatten()
 
     return dic
 
