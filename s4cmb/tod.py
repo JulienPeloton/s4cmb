@@ -946,7 +946,7 @@ class OutputSkyMap():
             setattr(self, k, MPI.COMM_WORLD.allreduce(
                 getattr(other, k), op=MPI.SUM))
 
-    def pickle_me(self, fn, epsilon=0., verbose=False):
+    def pickle_me(self, fn, shrink_maps=True, epsilon=0., verbose=False):
         """
         Save data into pickle file.
 
@@ -954,6 +954,8 @@ class OutputSkyMap():
         ----------
         fn: string
             The name of the file where data will be stored.
+        shrink_maps : bool, optional
+            If true, remove unecessary zeros before storing the maps.
         epsilon : float, optional
             Threshold for selecting the pixels in polarisation.
             0 <= epsilon < 1/4. The higher the more selective.
@@ -969,9 +971,74 @@ class OutputSkyMap():
                 'nside': self.nside, 'pixel_size': self.pixel_size,
                 'obspix': self.obspix}
 
+        if shrink_maps and self.projection == 'flat':
+            data = shrink_me(data, based_on='wP')
+
         with open(fn, 'wb') as f:
             pickle.dump(data, f, protocol=2)
 
+
+def shrink_me(dic, based_on):
+    """
+    Shrink maps to remove unecessary zeros.
+    Maps have to be squared (so work only for flat sky).
+
+    Parameters
+    ----------
+    dic : dictionary
+        Contain the maps to shrink. Maps have to be numpy.ndarray.
+    based_on : string
+        The key refering as to the map in the dic from which we
+        will identify zeros. Typically the weights, or a mask.
+
+    Returns
+    ----------
+    dic : dictionary
+        Input dictionary with shrinked maps.
+
+    Examples
+    ----------
+    >>> dic = {'I': np.array([1, 2, 3, 4, 5, 6, 7, 8, 9,
+    ...     10, 11, 12, 13, 14, 15, 16]),
+    ...        'w': np.array([0, 0, 0, 0, 0, 1, 1, 0, 0,
+    ...     1, 1, 0, 0, 0, 0, 0])}
+    >>> print(dic['I'].reshape((4, 4))) #doctest: +NORMALIZE_WHITESPACE
+    [[ 1  2  3  4]
+     [ 5  6  7  8]
+     [ 9 10 11 12]
+     [13 14 15 16]]
+    >>> print(dic['w'].reshape((4, 4))) #doctest: +NORMALIZE_WHITESPACE
+    [[0 0 0 0]
+     [0 1 1 0]
+     [0 1 1 0]
+     [0 0 0 0]]
+
+    >>> dic = shrink_me(dic, based_on='w')
+    >>> print(dic['I'].reshape((2, 2))) #doctest: +NORMALIZE_WHITESPACE
+    [[ 6  7]
+     [10 11]]
+    """
+    assert based_on in dic, \
+        KeyError("{} not in input dictionary!".format(based_on))
+
+    npixr = int(len(dic[based_on])**.5)
+    mask = dic[based_on].reshape((npixr, npixr))
+    idx = np.where(mask > 0)
+
+    minx, maxx = np.min(idx[0]), np.max(idx[0])
+    miny, maxy = np.min(idx[1]), np.max(idx[1])
+    dx = maxx - minx
+    dy = maxy - miny
+    dxy = np.max((dx, dy))
+
+    for k in dic.keys():
+        if type(dic[k]) == np.ndarray:
+            dic[k] = np.array(
+                [i[miny: miny+dxy+1] for i in
+                 dic[k].reshape(
+                     (npixr, npixr))[minx: minx+dxy+1]]).flatten()
+
+    return dic
 
 def partial2full(partial_obs, obspix, nside, fill_with=0.0):
     """
