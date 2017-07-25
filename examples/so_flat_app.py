@@ -45,12 +45,6 @@ def addargs(parser):
     ## You can also pass any new arguments, or even overwrite those
     ## from the ini file.
 
-    ## Only for xpure use - you do not have to care.
-    parser.add_argument(
-        '-inifile_xpure', dest='inifile_xpure',
-        default=None,
-        help='Configuration file with xpure parameter values.')
-
 
 if __name__ == "__main__":
     """
@@ -168,7 +162,7 @@ if __name__ == "__main__":
         name_out = '{}_{}_{}'.format(params.tag,
                                      params.name_instrument,
                                      params.name_strategy)
-        tod.pickle_me('sim000_{}.pkl'.format(name_out),
-                      epsilon=0., verbose=False)
+        sky_out_tot.pickle_me('sim000_{}.pkl'.format(name_out),
+                              epsilon=0., verbose=False)
 
     MPI.COMM_WORLD.barrier()
