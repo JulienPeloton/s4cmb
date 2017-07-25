@@ -1,7 +1,12 @@
 v0.x.x
 =============
 * Current version.
+
+v0.5.0
+=============
 * Include flat sky projection for the output maps.
+* Include white noise simulator (time-domain noise).
+* Include Dockerfile.
 
 v0.4.0
 =============
