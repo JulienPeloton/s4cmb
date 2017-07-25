@@ -135,13 +135,22 @@ if __name__ == "__main__":
         print("Proc [{}] doing scans".format(rank), range(
             rank, scan.nces, size))
 
+    ## Noise seeds
+    state_for_noise = np.random.RandomState(params.array_noise_seed)
+    seeds_for_noise = np.random.randint(0, 1e6, scan.nces)
     for pos_CES, CESnumber in enumerate(range(rank, scan.nces, size)):
-        tod = TimeOrderedDataPairDiff(inst, scan, sky_in,
-                                      CESnumber=CESnumber,
-                                      projection=params.projection,
-                                      nside_out=params.nside_out,
-                                      pixel_size=params.pixel_size,
-                                      width=params.width)
+        if params.verbose:
+            print("Proc [{}] with seeds ".format(rank),
+                  seeds_for_noise[CESnumber], seeds_for_noise)
+        tod = TimeOrderedDataPairDiff(
+            inst, scan, sky_in,
+            CESnumber=CESnumber,
+            projection=params.projection,
+            nside_out=params.nside_out,
+            pixel_size=params.pixel_size,
+            width=params.width,
+            array_noise_level=params.array_noise_level,
+            array_noise_seed=seeds_for_noise[CESnumber])
 
         ## Initialise map containers for each processor
         if pos_CES == 0:
