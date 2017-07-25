@@ -1,5 +1,7 @@
 FROM python:2.7
 
+MAINTAINER Julien Peloton <j.peloton@sussex.ac.uk>
+
 WORKDIR /usr/src/app
 
 ## Install vim, MPI, and fortran compiler

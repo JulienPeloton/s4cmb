@@ -64,7 +64,21 @@ Then run the test suite and the coverage:
 
 It should print the actual coverage of the test suite, and exit with no errors.
 
-Coming soon: dockerfile :-)
+Installation using Docker
+===============
+Alternatively if you do not want install the package on your computer,
+we provide a docker image for s4cmb with always the latest version. Install
+docker on your computer, and pull the image:
+
+::
+
+    docker pull julienpeloton/s4cmb:latest
+
+Then create a new container and run an interactive session by just running
+
+::
+
+    docker run -i -t julienpeloton/s4cmb:latest bash
 
 Quick examples
 ===============
