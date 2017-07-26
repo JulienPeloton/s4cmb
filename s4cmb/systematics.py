@@ -10,6 +10,10 @@ import numpy as np
 
 from s4cmb.systematics_f import systematics_f
 
+arcsecond2rad = np.pi / 180. / 3600.
+arcmin2rad = np.pi / 180. / 60.
+deg2rad = np.pi / 180.
+
 def inject_crosstalk_inside_SQUID(bolo_data, squid_ids, bolo_ids,
                                   mu=-3., sigma=1., radius=1, beta=2,
                                   seed=5438765, new_array=None,
@@ -232,6 +236,97 @@ def inject_crosstalk_SQUID_to_SQUID(bolo_data, squid_ids, bolo_ids,
         new_array[:] = tsout
     else:
         bolo_data[:] = tsout
+
+def modify_beam_offsets(bolometer_xpos, bolometer_ypos, beam_fwhm,
+                        mu_diffpointing=10., sigma_diffpointing=5., seed=5847):
+    """
+    Modify the beam offsets.
+
+    Parameters
+    ----------
+    bolometer_xpos : 1d array
+        Initial beam centroid positions along the x axis. In radian.
+    bolometer_ypos : 1d array
+        Initial beam centroid positions along the y axis. In radian.
+    beam_fwhm : float
+        FWHM of the beams in arcmin.
+    mu_diffpointing : float, optional
+        Mean of the distribution for differential pointing in arcsecond.
+    sigma_diffpointing : float, optional
+        Width of the distribution for differential pointing in arcsecond.
+    seed : int, optional
+        Random seed to control numbers generation.
+
+    Returns
+    ----------
+    bolometer_xpos : 1d array
+        Modified beam centroid positions along the x axis. In radian.
+    bolometer_ypos : 1d array
+        Modified beam centroid positions along the y axis. In radian.
+
+    Examples
+    ----------
+    Inject differential pointing with magnitude 10 arcmin +- 5 arcmin.
+    (completely irrealistic! just for test purposes).
+    >>> bolometer_xpos = np.array([1., 1., -1., -1.]) * np.pi / 180.
+    >>> bolometer_ypos = np.array([1., -1., -1., 1.]) * np.pi / 180.
+    >>> x, y = modify_beam_offsets(bolometer_xpos, bolometer_ypos,
+    ...     beam_fwhm=3.5, mu_diffpointing=600.,
+    ...     sigma_diffpointing=300., seed=5847)
+    >>> print(x * 180 / np.pi, y * 180 / np.pi) #doctest: +NORMALIZE_WHITESPACE
+    [ 1.0002697   0.96045577 -0.99674897 -0.88746045]
+    [ 1.00323362 -1.05305267 -0.99500301  1.12431331]
+
+    """
+    assert len(bolometer_xpos) == len(bolometer_ypos), \
+        ValueError("x and y bolometer coordinates should have the same length")
+    state = np.random.RandomState(seed)
+
+    npair = int(len(bolometer_xpos) / 2)
+
+    ## Fix rho_1 to be drawn from normal (0 arcsecond,10% of the beam)
+    ## [xpos, ypos in radians - convert it!]
+    beam_10pc = beam_fwhm * arcmin2rad * 0.1
+    rho_top_x = state.normal(0., beam_10pc, npair)
+    rho_top_y = state.normal(0., beam_10pc, npair)
+
+    ## rho is defined by the user [xpos, ypos in radians - convert it!]
+    rho = state.normal(mu_diffpointing * arcsecond2rad,
+                       sigma_diffpointing * arcsecond2rad,
+                       npair)
+
+    ## Angle are uniformly drawn from 0 and 360 degree
+    theta = state.uniform(0, 360, npair) * deg2rad
+
+    rho_bottom_x = rho_top_x + rho * np.cos(theta)
+    rho_bottom_y = rho_top_y + rho * np.sin(theta)
+
+    bolometer_xpos[::2] += rho_top_x
+    bolometer_xpos[1::2] += rho_bottom_x
+    bolometer_ypos[::2] += rho_top_y
+    bolometer_ypos[1::2] += rho_bottom_y
+
+    return bolometer_xpos, bolometer_ypos
+
+def modify_pointing_parameters(values, errors):
+    """
+    This routine is not realistic at all for the moment!
+
+    Parameters
+    ----------
+    values : 1d array
+        Array containing values of the pointing parameters in degree.
+    errors : 1d array
+        Array containing values of the pointing parameter errors in degree.
+
+    Returns
+    ----------
+    values_mod : 1d array
+        Array containing modified values of the pointing parameters in degree.
+
+    """
+    values_mod = [p + err for p, err in zip(values, errors)]
+    return values_mod
 
 
 if __name__ == "__main__":
