@@ -976,8 +976,8 @@ class OutputSkyMap():
 
         if shrink_maps and self.projection == 'flat':
             data = shrink_me(data, based_on='wP')
-        elif crop_maps is not False and projection == 'flat':
-            data = crop_me(data, npix_per_row=crop_maps)
+        elif crop_maps is not False and self.projection == 'flat':
+            data = crop_me(data, based_on='wP', npix_per_row=crop_maps)
 
         with open(fn, 'wb') as f:
             pickle.dump(data, f, protocol=2)
