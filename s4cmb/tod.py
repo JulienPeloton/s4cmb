@@ -63,7 +63,7 @@ class TimeOrderedDataPairDiff():
             Noise level for the whole array in [u]K.sqrt(s). If not None, it
             will inject on-the-fly noise in time-domain while scanning
             the input map (map2tod). WARNING: units has to be same as the
-            input map!
+            input map! Note also that it corresponds to the polarisation level.
         array_noise_seed : int, optional
             Seed used to generate random numbers to simulate noise.
             From this single seed, we generate a list of seeds
@@ -1229,6 +1229,42 @@ def load_fake_instrument(nside=16, nsquid_per_mux=1):
     scan.run()
 
     return inst, scan, sky_in
+
+def noise_ukam(array_noise_level, fsky, nside, tobs):
+    """
+    Estimate quickly the noise level in map domain [uK.arcmin]
+    given the NET of the telescope, and the observation time.
+
+    Note that if you want to form a noise power-spectrum, you just have to
+    perform a change of units: uK.arcmin -> uk.rad -> uk
+    N_ell = (noise_ukam() * np.pi / 180 / 60)**2 / 4 / np.pi
+
+    Parameters
+    ----------
+    array_noise_level : float
+        Noise level for the whole array in uK.sqrt(s).
+    fsky : float
+        Fraction of sky observed.
+    nside : int
+        Resolution of the map.
+    tobs : float
+        Observation time in second.
+
+    Returns
+    ----------
+    noise : float
+        Level of noise in map domain (RMS per pixel) in uK.arcmin.
+
+    Examples
+    ----------
+    Level of noise in a nside=2048 map after scanning 5 percent of the sky
+    for 1 year.
+    >>> noise = noise_ukam(8.1, 0.05, nside=2048, tobs=1. * 365 * 24 * 3600)
+    >>> print(round(noise, 2), 'uK.arcmin')
+    3.93 uK.arcmin
+    """
+    noise = np.sqrt(array_noise_level**2 * hp.nside2npix(nside) * fsky / tobs)
+    return noise * hp.nside2resol(nside, arcmin=True)
 
 
 if __name__ == "__main__":
