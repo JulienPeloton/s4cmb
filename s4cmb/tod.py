@@ -1022,6 +1022,7 @@ def shrink_me(dic, based_on):
         KeyError("{} not in input dictionary!".format(based_on))
 
     npixr = int(len(dic[based_on])**.5)
+    halfnpixr = int(npixr / 2)
     mask = dic[based_on].reshape((npixr, npixr))
     idx = np.where(mask > 0)
 
@@ -1030,6 +1031,7 @@ def shrink_me(dic, based_on):
     dx = maxx - minx
     dy = maxy - miny
     dxy = np.max((dx, dy))
+    halfdxy = int(dxy / 2)
 
     for k in dic.keys():
         ## Filter out fields which aren't arrays
@@ -1038,9 +1040,11 @@ def shrink_me(dic, based_on):
             npixr_loc = int(len(dic[k])**.5)
             if npixr_loc == npixr:
                 dic[k] = np.array(
-                    [i[miny: miny+dxy+1] for i in
+                    [i[halfnpixr - halfdxy - 1: halfnpixr + halfdxy+1] for i in
                      dic[k].reshape(
-                         (npixr, npixr))[minx: minx+dxy+1]]).flatten()
+                         (npixr, npixr))[
+                             halfnpixr - halfdxy - 1:
+                             halfnpixr + halfdxy + 1]]).flatten()
 
     return dic
 
