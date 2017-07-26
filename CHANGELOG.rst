@@ -1,6 +1,8 @@
 v0.x.x
 =============
 * Current version.
+* Fix bug in bolometer coordinates in the focal plane (it was mixed with pair coordinates).
+* 
 
 v0.5.0
 =============

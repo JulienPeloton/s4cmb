@@ -745,10 +745,8 @@ class BeamModel():
         >>> bm = BeamModel(fp, verbose=False)
         >>> bm.generate_beam_parameters()
         >>> print(bm.xpos) # doctest: +NORMALIZE_WHITESPACE
-        [-0.01308997 -0.01308997 -0.01308997 -0.01308997
-          0.01308997  0.01308997  0.01308997  0.01308997
-         -0.01308997 -0.01308997 -0.01308997 -0.01308997
-          0.01308997  0.01308997  0.01308997  0.01308997]
+        [-0.01308997 -0.01308997  0.01308997  0.01308997
+         -0.01308997 -0.01308997  0.01308997  0.01308997]
         """
 
         beamprm_header = ['Amp', 'Amp_err',
@@ -762,15 +760,9 @@ class BeamModel():
             setattr(self, b, np.zeros(self.focal_plane.nbolometer))
 
         ## Position of the bolometers
-        ## (pairs cm -> bolometers cm -> bolometers radians)
-        xp = self.focal_plane.bolo_xcoord
-        yp = self.focal_plane.bolo_ycoord
-
-        self.xpos, self.ypos = \
-            convert_pair_to_bolometer_position(xp, yp)
-
+        ## (bolometers cm -> bolometers radians)
         self.xpos, self.ypos = convert_cm_to_rad(
-            self.xpos, self.ypos,
+            self.focal_plane.bolo_xcoord, self.focal_plane.bolo_ycoord,
             conversion=self.projected_fp_size /
             self.focal_plane.fp_size * np.pi / 180.)
 
