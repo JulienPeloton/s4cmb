@@ -171,6 +171,7 @@ if __name__ == "__main__":
                                      params.name_instrument,
                                      params.name_strategy)
         sky_out_tot.pickle_me('sim000_{}.pkl'.format(name_out),
+                              shrink_maps=False, crop_maps=2**12,
                               epsilon=0., verbose=False)
 
     MPI.COMM_WORLD.barrier()

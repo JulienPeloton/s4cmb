@@ -946,7 +946,8 @@ class OutputSkyMap():
             setattr(self, k, MPI.COMM_WORLD.allreduce(
                 getattr(other, k), op=MPI.SUM))
 
-    def pickle_me(self, fn, shrink_maps=True, epsilon=0., verbose=False):
+    def pickle_me(self, fn, shrink_maps=True, crop_maps=False,
+                  epsilon=0., verbose=False):
         """
         Save data into pickle file.
 
@@ -956,6 +957,8 @@ class OutputSkyMap():
             The name of the file where data will be stored.
         shrink_maps : bool, optional
             If true, remove unecessary zeros before storing the maps.
+        crop_me : False or int
+            If not False, crop the output maps as map[:crop_me][:crop_me].
         epsilon : float, optional
             Threshold for selecting the pixels in polarisation.
             0 <= epsilon < 1/4. The higher the more selective.
@@ -973,6 +976,8 @@ class OutputSkyMap():
 
         if shrink_maps and self.projection == 'flat':
             data = shrink_me(data, based_on='wP')
+        elif crop_maps is not False and projection == 'flat':
+            data = crop_me(data, npix_per_row=crop_maps)
 
         with open(fn, 'wb') as f:
             pickle.dump(data, f, protocol=2)
@@ -1047,6 +1052,72 @@ def shrink_me(dic, based_on):
                              halfnpixr + halfdxy + 1]]).flatten()
 
     return dic
+
+def crop_me(dic, based_on, npix_per_row=2**12):
+    """
+    Crop maps to a chosen size.
+    Maps have to be squared (so work only for flat sky).
+    npix_per_row has to be smaller than the current number of pixels per row.
+
+    Parameters
+    ----------
+    dic : dictionary
+        Contain the maps to shrink. Maps have to be numpy.ndarray.
+    based_on : string
+        The key refering as to the map in the dic from which we
+        will identify zeros. Typically the weights, or a mask.
+    npix_per_row : int
+        New number of pixels per row.
+
+    Returns
+    ----------
+    dic : dictionary
+        Input dictionary with shrinked maps.
+
+    Examples
+    ----------
+    >>> dic = {'I': np.array([1, 2, 3, 4, 5, 6, 7, 8, 9,
+    ...     10, 11, 12, 13, 14, 15, 16]), 'n': 16}
+    >>> print(dic['I'].reshape((4, 4))) #doctest: +NORMALIZE_WHITESPACE
+    [[ 1  2  3  4]
+     [ 5  6  7  8]
+     [ 9 10 11 12]
+     [13 14 15 16]]
+
+    >>> dic = crop_me(dic, based_on='I', npix_per_row=2)
+    >>> print(dic['I'].reshape((2, 2))) #doctest: +NORMALIZE_WHITESPACE
+    [[ 6  7]
+     [10 11]]
+    """
+    assert based_on in dic, \
+        KeyError("{} not in input dictionary!".format(based_on))
+
+    npixr = int(len(dic[based_on])**.5)
+    halfnpixr = int(npixr / 2)
+    halfnpix_per_row = int(npix_per_row / 2)
+
+    for k in dic.keys():
+        ## Filter out fields which aren't arrays
+        if type(dic[k]) == np.ndarray:
+            ## Filter out fields which are arrays but not like based_on.
+            npixr_loc = int(len(dic[k])**.5)
+            if npixr_loc == npixr:
+                ## Check that we have enough pixels to start with
+                assert npixr_loc >= npix_per_row, \
+                    ValueError("Map too small to " +
+                               "be cropped! ({} vs {})".format(
+                                   npixr_loc, npix_per_row))
+
+                dic[k] = np.array(
+                    [i[halfnpixr - halfnpix_per_row:
+                       halfnpixr + halfnpix_per_row] for i in
+                     dic[k].reshape(
+                         (npixr, npixr))[halfnpixr - halfnpix_per_row:
+                                         halfnpixr +
+                                         halfnpix_per_row]]).flatten()
+
+    return dic
+
 
 def partial2full(partial_obs, obspix, nside, fill_with=0.0):
     """
