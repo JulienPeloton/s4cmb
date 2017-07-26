@@ -41,6 +41,8 @@ def configuration(parent_package='', top_path=None):
 
 
 if __name__ == "__main__":
+    # The requirements may be too stringent and older versions
+    # may be alright. Haven't checked.
     reqs = open('requirements.txt', 'r').read().strip().splitlines()
 
     package_data = {'s4cmb/data': ['test_data_set_lensedCls.dat',
