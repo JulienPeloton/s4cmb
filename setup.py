@@ -47,13 +47,6 @@ if __name__ == "__main__":
 
     package_data = {'s4cmb/data': ['test_data_set_lensedCls.dat',
                                    'ut1utc.ephem'],
-                    'jupyter_doc': ['end_to_end_simulation.ipynb',
-                                    'crosstalk_simulation.ipynb',
-                                    'instrument_doc.ipynb',
-                                    'scanning_strategy_doc.ipynb',
-                                    'using_C_or_Fortran_for_speed_up.ipynb',
-                                    'flat_sky.ipynb',
-                                    'noise_simulations.ipynb'],
                     'examples': ['simple_app.py',
                                  'so_app.py',
                                  'so_crosstalk_app.py',
