@@ -83,8 +83,7 @@ Then create a new container and run an interactive session by just running
 Quick examples
 ===============
 You can find notebooks describing how to use basic functionalities of s4cmb
-in the folder jupyter_doc.
-
+in a separate repository: `s4cmb_notebooks <https://github.com/JulienPeloton/s4cmb_notebooks>`_ .
 We also provide a quick end-to-end example for using the package with MPI.
 Try to run (you will need the package mpi4py)
 
