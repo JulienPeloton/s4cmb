@@ -195,7 +195,8 @@ Et voilà! You can find this complete example in examples/so_crosstalk_app.py.
 TODO
 ===============
 
-* Add WHWP demodulation module
+* Add WHWP demodulation module.
+* Add correlated noise simulator (and update mapmaking weights).
 
 Main developers
 ===============
