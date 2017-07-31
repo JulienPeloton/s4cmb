@@ -19,17 +19,19 @@ from astropy.io import fits as pyfits
 class HealpixFitsMap():
     """ Class to handle fits file containing healpix maps """
     def __init__(self, input_filename,
-                 do_pol=True, verbose=False, fwhm_in=0.0, nside_in=None,
-                 map_seed=None, no_ileak=False, no_quleak=False,
+                 do_pol=True, verbose=False, fwhm_in=0.0, nside_in=16,
+                 map_seed=53543, no_ileak=False, no_quleak=False,
                  ext_map_gal=False):
         """
 
         Parameters
         ----------
-        input_filename : string
-            Either fits file containing the sky maps (data will be loaded), or
-            CAMB lensed cl file (.dat) containing lensed power spectra with
-            order ell, TT, EE, BB, TE (maps will be created on-the-fly).
+        input_filename : string, or list of strings
+            Either fits file containing the sky maps (data will just be
+            loaded), or CAMB lensed cl file (.dat) containing lensed
+            power spectra with order ell, TT, EE, BB, TE (maps will be
+            created on-the-fly), or a list of 3 fits files containing alms
+            (maps will be created on-the-fly).
         do_pol : bool, optional
             If True, load temperature and polarisation. Temperature only
             otherwise. Default is True.
@@ -72,7 +74,11 @@ class HealpixFitsMap():
         self.Q = None
         self.U = None
 
-        if self.input_filename[-4:] == '.dat':
+        if type(self.input_filename) == list:
+            if self.verbose:
+                print("Reading sky maps from alms file...")
+            self.load_healpix_fits_map_from_alms()
+        elif self.input_filename[-4:] == '.dat':
             if self.verbose:
                 print("Creating sky maps from cl file...")
             self.create_healpix_fits_map()
@@ -125,6 +131,62 @@ class HealpixFitsMap():
             else:
                 self.I = hp.read_map(
                     self.input_filename, field=0, verbose=self.verbose)
+            self.nside = hp.npix2nside(len(self.I))
+        else:
+            print("External data already present in memory")
+
+    def load_healpix_fits_map_from_alms(self, force=False):
+        """
+        Load from disk into memory alms and make sky maps.
+
+        Parameters
+        ----------
+        force : bool
+            If true, force to load the maps in memory even if it is already
+            loaded. Default is False.
+
+        Examples
+        ----------
+        Let's generate fake data
+        >>> np.random.seed(548397)
+        >>> sky_maps = create_sky_map('s4cmb/data/test_data_set_lensedCls.dat')
+        >>> alms = hp.map2alm(sky_maps)
+        >>> filenames = ['myalms_to_test_tlm.fits', 'myalms_to_test_elm.fits',
+        ...     'myalms_to_test_blm.fits']
+        >>> for fn, alm in zip(filenames, alms):
+        ...     hp.write_alm(fn, alm)
+
+        Let's now read the data
+        >>> hpmap = HealpixFitsMap(input_filename=filenames)
+        >>> print(hpmap.nside)
+        16
+
+        If the data is already loaded, it won't reload it by default
+        >>> hpmap.load_healpix_fits_map_from_alms()
+        External data already present in memory
+
+        But you can force it
+        >>> hpmap.load_healpix_fits_map_from_alms(force=True)
+        """
+        if self.I is None or force:
+            if self.do_pol:
+                self.I = hp.read_alm(self.input_filename[0])
+                self.Q = hp.read_alm(self.input_filename[1])
+                self.U = hp.read_alm(self.input_filename[2])
+
+                self.I, self.Q, self.U = hp.alm2map(
+                    [self.I, self.Q, self.U],
+                    nside=self.nside_in, lmax=3*self.nside_in - 1, mmax=None,
+                    pixwin=False, fwhm=self.fwhm_in / 60. * np.pi / 180.,
+                    sigma=None, pol=True, inplace=False, verbose=self.verbose)
+            else:
+                self.I = hp.read_alm(self.input_filename[0])
+
+                self.I = hp.alm2map(
+                    self.I,
+                    nside=self.nside_in, lmax=3*self.nside_in - 1, mmax=None,
+                    pixwin=False, fwhm=self.fwhm_in / 60. * np.pi / 180.,
+                    sigma=None, pol=False, inplace=False, verbose=self.verbose)
             self.nside = hp.npix2nside(len(self.I))
         else:
             print("External data already present in memory")
