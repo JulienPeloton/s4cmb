@@ -169,22 +169,24 @@ class HealpixFitsMap():
         """
         if self.I is None or force:
             if self.do_pol:
-                self.I = hp.read_alm(self.input_filename[0])
-                self.Q = hp.read_alm(self.input_filename[1])
-                self.U = hp.read_alm(self.input_filename[2])
+                tlm = hp.read_alm(self.input_filename[0])
+                elm = hp.read_alm(self.input_filename[1])
+                blm = hp.read_alm(self.input_filename[2])
 
                 self.I, self.Q, self.U = hp.alm2map(
-                    [self.I, self.Q, self.U],
-                    nside=self.nside_in, lmax=3*self.nside_in - 1, mmax=None,
-                    pixwin=False, fwhm=self.fwhm_in / 60. * np.pi / 180.,
+                    [tlm, elm, blm],
+                    nside=self.nside_in,
+                    pixwin=False,
+                    fwhm=self.fwhm_in / 60. * np.pi / 180.,
                     sigma=None, pol=True, inplace=False, verbose=self.verbose)
             else:
                 self.I = hp.read_alm(self.input_filename[0])
 
                 self.I = hp.alm2map(
-                    self.I,
-                    nside=self.nside_in, lmax=3*self.nside_in - 1, mmax=None,
-                    pixwin=False, fwhm=self.fwhm_in / 60. * np.pi / 180.,
+                    tlm,
+                    nside=self.nside_in,
+                    pixwin=False,
+                    fwhm=self.fwhm_in / 60. * np.pi / 180.,
                     sigma=None, pol=False, inplace=False, verbose=self.verbose)
             self.nside = hp.npix2nside(len(self.I))
         else:
