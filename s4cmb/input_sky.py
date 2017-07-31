@@ -69,7 +69,6 @@ class HealpixFitsMap():
         self.nside_in = nside_in
         self.map_seed = map_seed
 
-        self.nside = None
         self.I = None
         self.Q = None
         self.U = None
