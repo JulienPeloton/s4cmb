@@ -30,7 +30,8 @@ class TimeOrderedDataPairDiff():
     def __init__(self, hardware, scanning_strategy, HealpixFitsMap,
                  CESnumber, projection='healpix',
                  nside_out=None, pixel_size=None, width=20.,
-                 array_noise_level=None, array_noise_seed=487587):
+                 array_noise_level=None, array_noise_seed=487587,
+                 mapping_perpair=False):
         """
         C'est parti!
 
@@ -69,11 +70,16 @@ class TimeOrderedDataPairDiff():
             From this single seed, we generate a list of seeds
             for all detectors. Has an effect only if array_noise_level is
             provided.
+        mapping_perpair : bool, optional
+            If True, assume that you want to process pairs of bolometers
+            one-by-one, that is pairs are uncorrelated. Default is False (and
+            should be False unless you know what you are doing).
         """
         ## Initialise args
         self.hardware = hardware
         self.scanning_strategy = scanning_strategy
         self.HealpixFitsMap = HealpixFitsMap
+        self.mapping_perpair = mapping_perpair
         self.width = width
         self.projection = projection
         assert self.projection in ['healpix', 'flat'], \
@@ -109,8 +115,11 @@ class TimeOrderedDataPairDiff():
 
         ## Initialise pointing matrix, that is the matrix to go from time
         ## to map domain, for all pairs of detectors.
-        self.point_matrix = np.zeros(
-            (self.npair, self.nsamples), dtype=np.int32)
+        if not self.mapping_perpair:
+            self.point_matrix = np.zeros(
+                (self.npair, self.nsamples), dtype=np.int32)
+        else:
+            self.point_matrix = np.zeros((1, self.nsamples), dtype=np.int32)
 
         ## Initialise the mask for timestreams
         self.wafermask_pixel = self.get_timestream_masks()
@@ -158,7 +167,10 @@ class TimeOrderedDataPairDiff():
 
         ## Will contain the total polarisation angles for all bolometers
         ## That is PA + intrinsic + 2 * HWP
-        self.pol_angs = np.zeros((self.npair, self.nsamples))
+        if not self.mapping_perpair:
+            self.pol_angs = np.zeros((self.npair, self.nsamples))
+        else:
+            self.pol_angs = np.zeros((1, self.nsamples))
 
     def get_timestream_masks(self):
         """
@@ -166,7 +178,10 @@ class TimeOrderedDataPairDiff():
         1 if the time sample should be included, 0 otherwise.
         Set to ones for the moment.
         """
-        return np.ones((self.npair, self.nsamples), dtype=int)
+        if not self.mapping_perpair:
+            return np.ones((self.npair, self.nsamples), dtype=int)
+        else:
+            return np.ones((1, self.nsamples), dtype=int)
 
     def get_obspix(self, width, ra_src, dec_src):
         """
@@ -270,7 +285,10 @@ class TimeOrderedDataPairDiff():
         diff_weight : 1d array
             Weights for the difference of timestreams (size: npair)
         """
-        return np.ones((2, self.npair), dtype=int)
+        if not self.mapping_perpair:
+            return np.ones((2, self.npair), dtype=int)
+        else:
+            return np.ones((2, 1), dtype=int)
 
     def get_boresightpointing(self):
         """
@@ -412,8 +430,10 @@ class TimeOrderedDataPairDiff():
                 projection=self.projection)
 
         ## Store list of hit pixels only for top bolometers
-        if ch % 2 == 0:
+        if ch % 2 == 0 and not self.mapping_perpair:
             self.point_matrix[int(ch/2)] = index_local
+        elif ch % 2 == 0 and self.mapping_perpair:
+            self.point_matrix[0] = index_local
 
         ## Gain mode. Not yet implemented, but this is the place!
         norm = 1.0
@@ -430,8 +450,10 @@ class TimeOrderedDataPairDiff():
                                                polangle_err=False)
 
             ## Store list polangle only for top bolometers
-            if ch % 2 == 0:
+            if ch % 2 == 0 and not self.mapping_perpair:
                 self.pol_angs[int(ch/2)] = pol_ang
+            elif ch % 2 == 0 and self.mapping_perpair:
+                self.pol_angs[0] = pol_ang
 
             return (self.HealpixFitsMap.I[index_global] +
                     self.HealpixFitsMap.Q[index_global] * np.cos(2 * pol_ang) +
@@ -503,8 +525,8 @@ class TimeOrderedDataPairDiff():
         >>> assert (mean_output - mean_input)/mean_output * 100 < 1.0
 
         """
-        npair = waferts.shape[0]
-        npixfp = npair / 2
+        nbolofp = waferts.shape[0]
+        npixfp = nbolofp / 2
         nt = int(waferts.shape[1])
 
         ## Check sizes
