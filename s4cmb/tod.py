@@ -142,6 +142,9 @@ class TimeOrderedDataPairDiff():
         ## Get timestream weights
         self.sum_weight, self.diff_weight = self.get_weights()
 
+        ## Get detector gains
+        self.set_detector_gains()
+
         ## Prepare noise simulator if needed
         self.array_noise_level = array_noise_level
         self.array_noise_seed = array_noise_seed
@@ -290,6 +293,38 @@ class TimeOrderedDataPairDiff():
         else:
             return np.ones((2, 1), dtype=int)
 
+    def set_detector_gains(self, new_gains=None):
+        """
+        Set the gains of the detectors (unitless).
+        Default is 1., that is perfectly calibrated.
+
+        Parameters
+        ----------
+        new_gains : 1d array
+            Array containing the gain value for all detectors
+            (1 number per detector).
+
+        Examples
+        ----------
+        >>> inst, scan, sky_in = load_fake_instrument()
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in, CESnumber=1)
+        >>> print(tod.gain[0])
+        1.0
+
+        Change the value of gains
+        >>> new_gains = np.ones(2 * tod.npair) * 2.
+        >>> tod.set_detector_gains(new_gains=new_gains)
+        >>> print(tod.gain[0])
+        2.0
+        """
+        if new_gains is not None:
+            assert len(new_gains) == 2 * self.npair, \
+                ValueError("You have to provide {} new gain values!".format(
+                    2 * self.npair))
+            self.gain = new_gains
+        else:
+            self.gain = np.ones(2 * self.npair)
+
     def get_boresightpointing(self):
         """
         Initialise the boresight pointing for all the focal plane bolometers.
@@ -436,7 +471,7 @@ class TimeOrderedDataPairDiff():
             self.point_matrix[0] = index_local
 
         ## Gain mode. Not yet implemented, but this is the place!
-        norm = 1.0
+        norm = self.gain[ch]
 
         ## Noise simulation
         if self.noise_generator is not None:
