@@ -181,20 +181,17 @@ if __name__ == "__main__":
     ## Let's inject differential pointing between
     ## two pixel-pair bolometers in our data!
     ## The model is the following:
-    ## * Move randomly the position of the top bolometers only
-    ##      within 10% of the beam scale (typical boresight pointing error).
     ## * Draw from a normal distribution G(mu, sigma)
     ##      the magnitudes of the differential pointing rho.
     ## * Draw from a uniform distribution U(0, 2pi) the directions
     ##      of the differential pointing theta.
     ## * Move the position of bottom bolometers as
-    ##      - x_bottom = x_top + rho * cos(theta)
-    ##      - y_bottom = x_top + rho * sin(theta)
+    ##      - x_top/bottom = \pm rho / 2 * cos(theta)
+    ##      - y_top/bottom = \pm rho / 2 * sin(theta)
     ## et voila!
     inst.beam_model.xpos, inst.beam_model.ypos = \
         modify_beam_offsets(inst.beam_model.xpos,
                             inst.beam_model.ypos,
-                            inst.beam_model.fwhm,
                             mu_diffpointing=args.mu_diffpointing,
                             sigma_diffpointing=args.sigma_diffpointing,
                             seed=args.seed_diffpointing)

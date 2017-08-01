@@ -237,10 +237,18 @@ def inject_crosstalk_SQUID_to_SQUID(bolo_data, squid_ids, bolo_ids,
     else:
         bolo_data[:] = tsout
 
-def modify_beam_offsets(bolometer_xpos, bolometer_ypos, beam_fwhm,
+def modify_beam_offsets(bolometer_xpos, bolometer_ypos,
                         mu_diffpointing=10., sigma_diffpointing=5., seed=5847):
     """
-    Modify the beam offsets.
+    Modify the beam offsets (inject differential pointing between
+    two pixel-pair bolometers). The model is the following:
+    * Draw from a normal distribution G(mu, sigma)
+      the magnitudes of the differential pointing rho.
+    * Draw from a uniform distribution U(0, 2pi) the directions
+      of the differential pointing theta.
+    * Move the position of bottom bolometers as
+      - x_top/bottom = \pm rho / 2 * cos(theta)
+      - y_top/bottom = \pm rho / 2 * sin(theta)
 
     Parameters
     ----------
@@ -248,8 +256,6 @@ def modify_beam_offsets(bolometer_xpos, bolometer_ypos, beam_fwhm,
         Initial beam centroid positions along the x axis. In radian.
     bolometer_ypos : 1d array
         Initial beam centroid positions along the y axis. In radian.
-    beam_fwhm : float
-        FWHM of the beams in arcmin.
     mu_diffpointing : float, optional
         Mean of the distribution for differential pointing in arcsecond.
     sigma_diffpointing : float, optional
@@ -271,11 +277,10 @@ def modify_beam_offsets(bolometer_xpos, bolometer_ypos, beam_fwhm,
     >>> bolometer_xpos = np.array([1., 1., -1., -1.]) * np.pi / 180.
     >>> bolometer_ypos = np.array([1., -1., -1., 1.]) * np.pi / 180.
     >>> x, y = modify_beam_offsets(bolometer_xpos, bolometer_ypos,
-    ...     beam_fwhm=3.5, mu_diffpointing=600.,
-    ...     sigma_diffpointing=300., seed=5847)
+    ...     mu_diffpointing=600., sigma_diffpointing=300., seed=5847)
     >>> print(x * 180 / np.pi, y * 180 / np.pi) #doctest: +NORMALIZE_WHITESPACE
-    [ 1.0002697   0.96045577 -0.99674897 -0.88746045]
-    [ 1.00323362 -1.05305267 -0.99500301  1.12431331]
+    [ 1.03802729  0.96197271 -1.02689298 -0.97310702]
+    [ 0.92369044 -0.92369044 -1.10310547  1.10310547]
 
     """
     assert len(bolometer_xpos) == len(bolometer_ypos), \
@@ -283,12 +288,6 @@ def modify_beam_offsets(bolometer_xpos, bolometer_ypos, beam_fwhm,
     state = np.random.RandomState(seed)
 
     npair = int(len(bolometer_xpos) / 2)
-
-    ## Fix rho_1 to be drawn from normal (0 arcsecond,10% of the beam)
-    ## [xpos, ypos in radians - convert it!]
-    beam_10pc = beam_fwhm * arcmin2rad * 0.1
-    rho_top_x = state.normal(0., beam_10pc, npair)
-    rho_top_y = state.normal(0., beam_10pc, npair)
 
     ## rho is defined by the user [xpos, ypos in radians - convert it!]
     rho = state.normal(mu_diffpointing * arcsecond2rad,
@@ -298,13 +297,13 @@ def modify_beam_offsets(bolometer_xpos, bolometer_ypos, beam_fwhm,
     ## Angle are uniformly drawn from 0 and 360 degree
     theta = state.uniform(0, 360, npair) * deg2rad
 
-    rho_bottom_x = rho_top_x + rho * np.cos(theta)
-    rho_bottom_y = rho_top_y + rho * np.sin(theta)
+    rhox = rho / 2. * np.cos(theta)
+    rhoy = rho / 2. * np.sin(theta)
 
-    bolometer_xpos[::2] += rho_top_x
-    bolometer_xpos[1::2] += rho_bottom_x
-    bolometer_ypos[::2] += rho_top_y
-    bolometer_ypos[1::2] += rho_bottom_y
+    bolometer_xpos[::2] += rhox
+    bolometer_xpos[1::2] += -rhox
+    bolometer_ypos[::2] += rhoy
+    bolometer_ypos[1::2] += -rhoy
 
     return bolometer_xpos, bolometer_ypos
 
