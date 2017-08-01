@@ -133,7 +133,7 @@ if __name__ == "__main__":
             rank, scan.nces, size))
 
     state_for_noise = np.random.RandomState(params.array_noise_seed)
-    seeds_for_noise = np.random.randint(0, 1e6, scan.nces)
+    seeds_for_noise = state_for_noise.randint(0, 1e6, scan.nces)
     for pos_CES, CESnumber in enumerate(range(rank, scan.nces, size)):
         if params.verbose:
             print("Proc [{}] with seeds ".format(rank),
