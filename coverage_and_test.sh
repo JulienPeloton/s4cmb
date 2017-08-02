@@ -6,12 +6,7 @@
 ## Skip xpure.py as it is not really part of the pipeline
 for i in s4cmb/*.py
 do
-    if [ $i == "s4cmb/xpure.py" ]
-    then
-        echo 'skip' $i
-    else
-        coverage run -a --source=s4cmb $i
-        #coverage report $i
-        #coverage html $i
-    fi
+    coverage run -a --source=s4cmb --omit=s4cmb/xpure.py $i
+    #coverage report $i
+    #coverage html $i
 done
