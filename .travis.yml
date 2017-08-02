@@ -14,8 +14,13 @@ install:
     - pip install --upgrade pip setuptools wheel
     - pip install -r requirements.txt
     - python setup.py install
+    - pip install coveralls
 
 # Tests are inside modules (doctest)
 script:
-    - ./coverage_and_test.sh
+    #- ./coverage_and_test.sh
+    - coverage run s4cmb/*.py
     - python examples/simple_app.py -inifile examples/simple_parameters.ini -tag 'test'
+
+after_success:
+    coveralls

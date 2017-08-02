@@ -1,9 +1,9 @@
 numpy>=1.12.1
-matplotlib==2.0.0
-astropy==1.2
-weave==0.16.0
-pyslalib==1.0.4
-ephem==3.7.6.0
-healpy==1.10.3
-mpi4py==2.0.0
-coverage==4.2
+matplotlib>=2.0.0
+astropy>=1.2
+weave>=0.16.0
+pyslalib>=1.0.4
+ephem>=3.7.6.0
+healpy>=1.10.3
+mpi4py>=2.0.0
+coverage>=4.2
