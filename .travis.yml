@@ -18,7 +18,8 @@ install:
 
 # Tests are inside modules (doctest)
 script:
-    - ./coverage_and_test.sh
+    #- ./coverage_and_test.sh
+    - coverage run --source=s4cmb s4cmb/*.py
     - python examples/simple_app.py -inifile examples/simple_parameters.ini -tag 'test'
 
 after_success:
