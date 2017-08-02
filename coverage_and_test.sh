@@ -5,7 +5,7 @@
 ## and open the html files under the folder htmlcov/
 for i in s4cmb/*.py
 do
-    coverage run $i
-    coverage report $i
-    coverage html $i
+    coverage run --source=s4cmb $i
+    #coverage report $i
+    #coverage html $i
 done
