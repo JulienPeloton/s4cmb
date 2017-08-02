@@ -5,6 +5,10 @@ s4cmb (public version)
 .. image:: https://travis-ci.org/JulienPeloton/s4cmb.svg?branch=master
     :target: https://travis-ci.org/JulienPeloton/s4cmb
 
+.. image:: https://coveralls.io/repos/github/JulienPeloton/s4cmb/badge.svg
+:target: https://coveralls.io/github/JulienPeloton/s4cmb
+
+
 .. figure:: https://github.com/JulienPeloton/s4cmb/blob/master/s4cmb/data/intro.png
     :scale: 25 %
 
