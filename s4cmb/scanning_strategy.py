@@ -26,7 +26,8 @@ class ScanningStrategy():
                  telescope_longitude='-67:46.816',
                  telescope_latitude='-22:56.396', telescope_elevation=5200.,
                  name_strategy='deep_patch', sampling_freq=30., sky_speed=0.4,
-                 ut1utc_fn='s4cmb/data/ut1utc.ephem', language='python'):
+                 ut1utc_fn='s4cmb/data/ut1utc.ephem', language='python',
+                 verbose=False):
         """
         A scanning strategy consists in defining the site of observation
         on earth for which we will make the observation, the region
@@ -63,6 +64,9 @@ class ScanningStrategy():
             Choose language=C or language=fortran otherwise. Note that C codes
             are compiled on-the-fly (weave), but for fortran codes you need
             first to compile it. See the setup.py or the provided Makefile.
+        verbose : bool
+            If True, print out several messages to ease the debug.
+            Default is False.
 
         """
         self.nces = nces
@@ -72,6 +76,7 @@ class ScanningStrategy():
         self.sky_speed = sky_speed
         self.language = language
         self.ut1utc_fn = ut1utc_fn
+        self.verbose = verbose
 
         self.telescope_location = self.define_telescope_location(
             telescope_longitude, telescope_latitude, telescope_elevation)
@@ -176,7 +181,7 @@ class ScanningStrategy():
                              "currently available. For a custom usage " +
                              "(advanced users), modify this routine.")
 
-    def run_one_scan(self, scan_file, scan_number, silent=True):
+    def run_one_scan(self, scan_file, scan_number):
         """
         Generate one observation (i.e. one CES) of the telescope.
 
@@ -186,8 +191,6 @@ class ScanningStrategy():
             Empty dictionary which will contain the outputs of the scan.
         scan_number : int
             Index of the scan (between 0 and nces - 1).
-        silent : bool
-            If False, print out messages about the scan. Default is True.
 
         Returns
         ----------
@@ -339,7 +342,7 @@ class ScanningStrategy():
 
         scan_file['nts'] = len(pb_mjd_array)
 
-        if not silent:
+        if self.verbose:
             print('+-----------------------------------+')
             print(' CES starts at %s and finishes at %s' % (
                 mjd_to_greg(scan_file['firstmjd']),
@@ -356,14 +359,9 @@ class ScanningStrategy():
 
         return True
 
-    def run(self, silent=True):
+    def run(self):
         """
         Generate all the observations (i.e. all CES) of the telescope.
-
-        Parameters
-        ----------
-        silent : bool
-            If False, print out messages about the scan. Default is True.
 
         Examples
         ----------
@@ -393,12 +391,10 @@ class ScanningStrategy():
 
             # Create the scan strategy
             self.run_one_scan(
-                getattr(self, 'scan{}'.format(CES_position)),
-                CES_position, silent=silent)
+                getattr(self, 'scan{}'.format(CES_position)), CES_position)
 
     def visualize_my_scan(self, nside, reso=6.9, xsize=900, rot=[0, -57.5],
-                          nfid_bolometer=6000, fp_size=180., boost=1.,
-                          test=False):
+                          nfid_bolometer=6000, fp_size=180., boost=1.):
         """
         Simple map-making: project time ordered data into sky maps for
         visualisation. It works only in pure python (i.e. if you set
@@ -423,14 +419,21 @@ class ScanningStrategy():
         boost : int
             boost factor to artificially increase the number of hits.
             It doesn't change the shape of the survey (just the amplitude).
-        test : bool
-            If True, doesn't display the result (mainly for test mode).
 
         Outputs
         ----------
             * nhit_loc: 1D array, sky map with cumulative hit counts
 
+        Examples
+        ----------
+        >>> import matplotlib
+        >>> matplotlib.use("Agg") ## remove this if you want to display
+        >>> scan = ScanningStrategy(sampling_freq=1., nces=1)
+        >>> scan.run()
+        >>> scan.visualize_my_scan(512)
+
         """
+        import pylab as pl
         if self.language != 'python':
             raise ValueError("Visualisation is available only in pure " +
                              "python because we do not provide (yet) " +
@@ -448,59 +451,30 @@ class ScanningStrategy():
                 nside, (np.pi/2.) - scan['Dec'], scan['RA'])
 
             ## Boresight pointing healpix maps
-            nhit_loc = np.zeros(npix)
-
-            ## language = C or language = fortran are not yet supported
-            ## because they are not returning RA and Dec. So for the moment
-            ## only language == python is considered.
-            ## TODO Compute RA and Dec in C and Fortran.
-            if self.language in ['python', 'C']:
-                c_code = r"""
-                int i, pix;
-                double c, s;
-                for (i=0;i<num_pts;i++)
-                {
-                    pix = pix_global[i];
-
-                    // Number of hits per pixel
-                    nhit_loc[pix] += 1;
-                }
-                """
-
-                weave.inline(c_code, [
-                    'pix_global',
-                    'num_pts',
-                    'nhit_loc'], verbose=0)
-            elif self.language == 'fortran':
-                scanning_strategy_f.mapmaking(
-                    pix_global, nhit_loc, npix, num_pts)
+            nhit_loc = np.zeros(npix, dtype=np.int32)
+            scanning_strategy_f.mapmaking(
+                pix_global, nhit_loc, npix, num_pts)
 
             ## Fake large focal plane with many bolometers for visualisation.
             nhit_loc = convolve_focalplane(nhit_loc, nfid_bolometer,
-                                           fp_size, boost,
-                                           language=self.language)
+                                           fp_size, boost)
 
             nhit += nhit_loc
 
-        ## Display the result of not testing.
-        if test:
-            import matplotlib
-            matplotlib.use("Agg")
-        import pylab as pl
+        if self.verbose:
+            print('Stats: nhits = {}/{} (fsky={}%), max hit = {}'.format(
+                len(nhit[nhit > 0]),
+                len(nhit),
+                round(len(nhit[nhit > 0])/len(nhit) * 100, 2),
+                int(np.max(nhit))))
 
-        print('Stats: nhits = {}/{} (fsky={}%), max hit = {}'.format(
-            len(nhit[nhit > 0]),
-            len(nhit),
-            round(len(nhit[nhit > 0])/len(nhit) * 100, 2),
-            int(np.max(nhit))))
         nhit[nhit == 0] = hp.UNSEEN
         hp.gnomview(nhit, rot=rot, reso=reso, xsize=xsize,
                     cmap=pl.cm.viridis,
                     title='nbolos = {}, '.format(nfid_bolometer) +
                     'fp size = {} arcmin, '.format(fp_size) +
                     'nhit boost = {}'.format(boost))
-        if not test:
-            hp.graticule()
+        hp.graticule(verbose=self.verbose)
 
         pl.show()
         pl.clf()
@@ -519,24 +493,18 @@ class ScanningStrategy():
         """
         setattr(self, name, value)
 
-def convolve_focalplane(bore_nhits, nbolos,
-                        fp_radius_amin, boost, language='C'):
+def convolve_focalplane(bore_nhits, nbolos, fp_radius_amin, boost):
     """
-    Given a nHits and bore_cos and bore_sin map,
-    perform the focal plane convolution.
+    Given a hit count map,
+    perform the focal plane convolution (that is generate the hit map as
+    if there were `nbolos`, and boosted).
     Original author: Neil Goeckner-Wald.
     Modifications by Julien Peloton.
 
     Parameters
     ----------
     bore_nhits : 1D array
-        number of hits for the reference detector.
-    bore_cos : 1D array
-        cumulative cos**2 for the reference detector.
-    bore_sin : 1D array
-        cumulative sin**2 for the reference detector.
-    bore_cs : 1D array
-        cumulative cos*sin for the reference detector.
+        number of hits per pixel for the reference detector.
     nbolos : int
         total number of bolometers desired.
     fp_radius_amin : float
@@ -544,16 +512,25 @@ def convolve_focalplane(bore_nhits, nbolos,
     boost : float
         boost factor to artificially increase the number of hits.
         It doesn't change the shape of the survey (just the amplitude).
-    language : string, optional
-        Language to use to perform core computation: C or fortran.
-        Default is C (compiled on-the-fly via weave). To use fortran,
-        you need to compile the source (see the Makefile provided).
 
     Returns
     ----------
     focalplane_nhits : 1D array
         Number of hits for the all the detectors.
 
+    Examples
+    ----------
+    >>> bore_nhits = np.zeros(hp.nside2npix(128))
+
+    ## Put a patch in the center
+    >>> bore_nhits[hp.query_disc(128, hp.ang2vec(np.pi/2, 0.),
+    ...     radius=10*np.pi/180.)] = 1.
+
+    ## Increase the number of detector (x100) and make a boost (x10)
+    >>> conv_bore_nhits = convolve_focalplane(bore_nhits, nbolos=100,
+    ...     fp_radius_amin=180, boost=10)
+    >>> print(round(np.max(bore_nhits), 2), round(np.max(conv_bore_nhits), 2))
+    1.0 1003.87
     """
     # Now we want to make the focalplane maps
     focalplane_nhits = np.zeros(bore_nhits.shape)
@@ -595,32 +572,9 @@ def convolve_focalplane(bore_nhits, nbolos,
 
         ## Necessary because the values in pixels aren't necessarily unique
         ## This is a poor design choice and should probably be fixed
-
-        ## language = C or language = fortran are not yet supported
-        ## because they are not returning RA and Dec. So for the moment
-        ## only language == python is considered.
-        ## TODO Compute RA and Dec in C and Fortran.
-        if language in ['python', 'C']:
-            c_code = r"""
-            int i, pix;
-            for (i=0;i<npix_loc;i++)
-            {
-                pix = pixels[i];
-                focalplane_nhits[pix] += bore_nhits[n] * \
-                bolo_per_pix * boost;
-            }
-            """
-
-            weave.inline(c_code, [
-                'bore_nhits',
-                'focalplane_nhits',
-                'pixels', 'bolo_per_pix',
-                'npix_loc', 'n', 'boost'], verbose=0)
-
-        elif language == 'fortran':
-            scanning_strategy_f.convolve_focalplane_f(
-                bore_nhits, focalplane_nhits, pixels,
-                bolo_per_pix, boost, npix_loc)
+        scanning_strategy_f.convolve_focalplane_f(
+            bore_nhits[n], focalplane_nhits, pixels,
+            bolo_per_pix, boost, npix_loc)
 
     return focalplane_nhits
 
