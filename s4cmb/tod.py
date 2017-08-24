@@ -470,7 +470,8 @@ class TimeOrderedDataPairDiff():
         elif ch % 2 == 0 and self.mapping_perpair:
             self.point_matrix[0] = index_local
 
-        ## Gain mode. Not yet implemented, but this is the place!
+        ## Default gain for a detector is 1.,
+        ## but you can change it using set_detector_gains.
         norm = self.gain[ch]
 
         ## Noise simulation
@@ -492,8 +493,8 @@ class TimeOrderedDataPairDiff():
 
             return (self.HealpixFitsMap.I[index_global] +
                     self.HealpixFitsMap.Q[index_global] * np.cos(2 * pol_ang) +
-                    self.HealpixFitsMap.U[index_global] *
-                    np.sin(2 * pol_ang) + noise) * norm
+                    self.HealpixFitsMap.U[index_global] * np.sin(2 * pol_ang) +
+                    noise) * norm
         else:
             return norm * (self.HealpixFitsMap.I[index_global] + noise)
 
