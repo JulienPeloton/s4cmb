@@ -186,11 +186,12 @@ if __name__ == "__main__":
                                        pixel_size=tod.pixel_size)
 
         ## Scan input map to get TODs
-        d = np.array([
-            tod.map2tod(det) for det in range(inst.focal_plane.nbolometer)])
+        for pair in tod.pair_list:
+            d = np.array([
+                tod.map2tod(det) for det in pair])
 
-        ## Project TOD to maps
-        tod.tod2map(d, sky_out_tot)
+            ## Project TOD to maps
+            tod.tod2map(d, sky_out_tot)
 
     MPI.COMM_WORLD.barrier()
 
