@@ -1366,7 +1366,7 @@ def noise_ukam(array_noise_level, fsky, nside, tobs):
 
     Note that if you want to form a noise power-spectrum, you just have to
     perform a change of units: uK.arcmin -> uk.rad -> uk
-    N_ell = (noise_ukam() * np.pi / 180 / 60)**2 / 4 / np.pi
+    N_ell = (noise_ukam() * np.pi / 180 / 60)**2
 
     Parameters
     ----------
