@@ -89,9 +89,13 @@ def addargs(parser):
 
     ## Arguments for gain variation - see s4cmb.systematics.
     parser.add_argument(
+        '-gain_mean', dest='gain_mean',
+        default=1.01, type=float,
+        help='Relative gain variation (mean).')
+    parser.add_argument(
         '-gain_variation', dest='gain_variation',
         default=0.01, type=float,
-        help='Relative gain variation.')
+        help='Relative gain variation (sigma).')
     parser.add_argument(
         '-seed', dest='seed',
         default=5438765, type=int,
@@ -178,7 +182,7 @@ if __name__ == "__main__":
             rank, scan.nces, size))
 
     state = np.random.RandomState(args.seed)
-    new_gains = state.normal(1, args.gain_variation,
+    new_gains = state.normal(args.gain_mean, args.gain_variation,
                              size=2 * inst.focal_plane.npair)
 
     ## Noise seeds
