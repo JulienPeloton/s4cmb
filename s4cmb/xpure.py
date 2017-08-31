@@ -221,7 +221,7 @@ def write_weights_a_la_xpure(OutputSkyMap, name_out, output_path, epsilon,
                          partial=False,
                          nest=False)
 
-def create_batch(batch_file, params_s4cmb, params_xpure):
+def create_batch(batch_file, name_out, params_s4cmb, params_xpure):
     """
     Create submission file for the software xpure
 
@@ -240,20 +240,14 @@ def create_batch(batch_file, params_s4cmb, params_xpure):
         print('#SBATCH -p {}'.format(params_xpure.queue), file=f)
         print('#SBATCH -N {}'.format(params_xpure.node), file=f)
         print('#SBATCH -t {}'.format(params_xpure.time), file=f)
-        print('#SBATCH -J {}_{}_{}'.format(
-            params_s4cmb.tag,
-            params_s4cmb.name_instrument,
-            params_s4cmb.name_strategy), file=f)
+        print('#SBATCH -J {}'.format(name_out), file=f)
         if host == 'cori':
             print('#SBATCH -C haswell', file=f)
 
         print(' ', file=f)
         print('######## TO BE CHANGED BY USER ########', file=f)
         print('## Name for files and folders', file=f)
-        print('name={}_{}_{}'.format(
-            params_s4cmb.tag,
-            params_s4cmb.name_instrument,
-            params_s4cmb.name_strategy), file=f)
+        print('name={}'.format(name_out), file=f)
 
         print(' ', file=f)
         print('## Radius for apodization', file=f)
