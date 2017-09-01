@@ -344,8 +344,8 @@ class TimeOrderedDataPairDiff():
             ra_src = 0.0
             dec_src = 0.0
         elif self.projection == 'flat':
-            ra_src = self.scanning_strategy.ra_mid
-            dec_src = self.scanning_strategy.dec_mid * np.pi / 180.
+            ra_src = 0.0 #self.scanning_strategy.ra_mid
+            dec_src = 0.0 #self.scanning_strategy.dec_mid * np.pi / 180.
 
             ## Perform a rotation of the input to put the point
             ## (ra_src, dec_src) at (0, 0).
@@ -450,11 +450,15 @@ class TimeOrderedDataPairDiff():
 
         ## Retrieve corresponding pixels on the sky, and their index locally.
         if self.projection == 'flat':
-            ##
+            ## ??
+            xmin = self.scanning_strategy.ra_mid * np.pi / 180. - \
+                self.width/2.*np.pi/180.
+            ymin = self.scanning_strategy.dec_mid * np.pi / 180. - \
+                self.width/2.*np.pi/180.
             index_global, index_local = build_pointing_matrix(
                 ra, dec, self.HealpixFitsMap.nside,
-                xmin=-self.width/2.*np.pi/180.,
-                ymin=-self.width/2.*np.pi/180.,
+                xmin=xmin,
+                ymin=ymin,
                 pixel_size=self.pixel_size,
                 npix_per_row=int(np.sqrt(self.npixsky)),
                 projection=self.projection)
@@ -1292,7 +1296,8 @@ def build_pointing_matrix(ra, dec, nside, projection='healpix',
         else:
             index_local[outside_pixels] = -1
     elif projection == 'flat':
-        x, y = input_sky.LamCyl(ra, dec)
+        x, y = input_sky.SFL(ra, dec)
+        # x, y = input_sky.LamCyl(ra, dec)
 
         xminmap = xmin - pixel_size / 2.0
         yminmap = ymin - pixel_size / 2.0
