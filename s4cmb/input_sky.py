@@ -342,6 +342,13 @@ def LamCyl(ra, dec):
     """
     return ra, np.sin(dec)
 
+def SFL(ra, dec):
+    '''SFL stands for Sanson-Flamsteed. In the USGS report this is
+    referred to as the Sinusoidal Projection. It is equal-area. Parallels
+    are equally spaced straight lines. Scale is true along central meridian
+    and all paralles.'''
+    return ra * np.cos(dec), dec
+
 def create_sky_map(cl_fn, nside=16, FWHM=0.0, seed=548397):
     """
     Create full sky map from input cl.
