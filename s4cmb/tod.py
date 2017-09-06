@@ -344,21 +344,21 @@ class TimeOrderedDataPairDiff():
             ra_src = 0.0
             dec_src = 0.0
         elif self.projection == 'flat':
-            ra_src = 0.0 #self.scanning_strategy.ra_mid
-            dec_src = 0.0 #self.scanning_strategy.dec_mid * np.pi / 180.
+            ra_src = self.scanning_strategy.ra_mid
+            dec_src = self.scanning_strategy.dec_mid * np.pi / 180.
 
             ## Perform a rotation of the input to put the point
             ## (ra_src, dec_src) at (0, 0).
-            r = hp.Rotator(rot=[ra_src, self.scanning_strategy.dec_mid])
-            theta, phi = hp.pix2ang(self.HealpixFitsMap.nside,
-                                    range(12 * self.HealpixFitsMap.nside**2))
-            t, p = r(theta, phi, inv=True)
-            pix = hp.ang2pix(self.HealpixFitsMap.nside, t, p)
-
-            ## Apply the rotation to our maps
-            self.HealpixFitsMap.I = self.HealpixFitsMap.I[pix]
-            self.HealpixFitsMap.Q = self.HealpixFitsMap.Q[pix]
-            self.HealpixFitsMap.U = self.HealpixFitsMap.U[pix]
+            # r = hp.Rotator(rot=[ra_src, self.scanning_strategy.dec_mid])
+            # theta, phi = hp.pix2ang(self.HealpixFitsMap.nside,
+            #                         range(12 * self.HealpixFitsMap.nside**2))
+            # t, p = r(theta, phi, inv=True)
+            # pix = hp.ang2pix(self.HealpixFitsMap.nside, t, p)
+            #
+            # ## Apply the rotation to our maps
+            # self.HealpixFitsMap.I = self.HealpixFitsMap.I[pix]
+            # self.HealpixFitsMap.Q = self.HealpixFitsMap.Q[pix]
+            # self.HealpixFitsMap.U = self.HealpixFitsMap.U[pix]
 
         self.pointing = Pointing(
             az_enc=self.scan['azimuth'],
@@ -451,9 +451,9 @@ class TimeOrderedDataPairDiff():
         ## Retrieve corresponding pixels on the sky, and their index locally.
         if self.projection == 'flat':
             ## ??
-            xmin = self.scanning_strategy.ra_mid * np.pi / 180. - \
+            xmin = 0.0*self.scanning_strategy.ra_mid * np.pi / 180. - \
                 self.width/2.*np.pi/180.
-            ymin = self.scanning_strategy.dec_mid * np.pi / 180. - \
+            ymin = 0.0*self.scanning_strategy.dec_mid * np.pi / 180. - \
                 self.width/2.*np.pi/180.
             index_global, index_local = build_pointing_matrix(
                 ra, dec, self.HealpixFitsMap.nside,
@@ -1296,8 +1296,8 @@ def build_pointing_matrix(ra, dec, nside, projection='healpix',
         else:
             index_local[outside_pixels] = -1
     elif projection == 'flat':
-        x, y = input_sky.SFL(ra, dec)
-        # x, y = input_sky.LamCyl(ra, dec)
+        # x, y = input_sky.SFL(ra, dec)
+        x, y = input_sky.LamCyl(ra, dec)
 
         xminmap = xmin - pixel_size / 2.0
         yminmap = ymin - pixel_size / 2.0
