@@ -451,10 +451,8 @@ class TimeOrderedDataPairDiff():
         ## Retrieve corresponding pixels on the sky, and their index locally.
         if self.projection == 'flat':
             ## ??
-            xmin = 0.0*self.scanning_strategy.ra_mid * np.pi / 180. - \
-                self.width/2.*np.pi/180.
-            ymin = 0.0*self.scanning_strategy.dec_mid * np.pi / 180. - \
-                self.width/2.*np.pi/180.
+            xmin = - self.width/2.*np.pi/180.
+            ymin = - self.width/2.*np.pi/180.
             index_global, index_local = build_pointing_matrix(
                 ra, dec, self.HealpixFitsMap.nside,
                 xmin=xmin,
@@ -462,11 +460,15 @@ class TimeOrderedDataPairDiff():
                 pixel_size=self.pixel_size,
                 npix_per_row=int(np.sqrt(self.npixsky)),
                 projection=self.projection)
+            ## For flat projection, one needs to flip the sign of U
+            ## (angle convention)
+            sign = -1.
         elif self.projection == 'healpix':
             index_global, index_local = build_pointing_matrix(
                 ra, dec, self.HealpixFitsMap.nside, obspix=self.obspix,
                 cut_outliers=True, ext_map_gal=self.HealpixFitsMap.ext_map_gal,
                 projection=self.projection)
+            sign = 1.
 
         ## Store list of hit pixels only for top bolometers
         if ch % 2 == 0 and not self.mapping_perpair:
@@ -497,8 +499,8 @@ class TimeOrderedDataPairDiff():
 
             return (self.HealpixFitsMap.I[index_global] +
                     self.HealpixFitsMap.Q[index_global] * np.cos(2 * pol_ang) +
-                    self.HealpixFitsMap.U[index_global] * np.sin(2 * pol_ang) +
-                    noise) * norm
+                    sign * self.HealpixFitsMap.U[index_global] *
+                    np.sin(2 * pol_ang) + noise) * norm
         else:
             return norm * (self.HealpixFitsMap.I[index_global] + noise)
 
@@ -1296,7 +1298,6 @@ def build_pointing_matrix(ra, dec, nside, projection='healpix',
         else:
             index_local[outside_pixels] = -1
     elif projection == 'flat':
-        # x, y = input_sky.SFL(ra, dec)
         x, y = input_sky.LamCyl(ra, dec)
 
         xminmap = xmin - pixel_size / 2.0
