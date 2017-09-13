@@ -25,6 +25,7 @@ from s4cmb.config_s4cmb import NormaliseParser
 
 ## Other packages needed
 import os
+import sys
 import healpy as hp
 import numpy as np
 import argparse
@@ -65,9 +66,10 @@ if __name__ == "__main__":
     addargs(parser)
     args = parser.parse_args(None)
 
-    Config = ConfigParser.ConfigParser()
-    Config.read(args.inifile)
-    params = NormaliseParser(Config._sections['s4cmb'])
+    ## Import parameters from the user parameter file
+    sys.path.insert(0, os.path.realpath(
+        os.path.join(os.getcwd(), os.path.dirname(args.inifile))))
+    import simple_parameters as params
 
     ## Overwrite ini file params with params pass to the App directly
     for key in args.__dict__.keys():
