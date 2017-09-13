@@ -30,6 +30,7 @@ import healpy as hp
 import numpy as np
 import argparse
 import ConfigParser
+import importlib
 
 try:
     from tqdm import *
@@ -69,7 +70,8 @@ if __name__ == "__main__":
     ## Import parameters from the user parameter file
     sys.path.insert(0, os.path.realpath(
         os.path.join(os.getcwd(), os.path.dirname(args.inifile))))
-    import simple_parameters as params
+    fn = os.path.basename(args.inifile).split('.py')[0]
+    params = importlib.import_module(fn)
 
     ## Overwrite ini file params with params pass to the App directly
     for key in args.__dict__.keys():
