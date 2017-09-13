@@ -29,6 +29,19 @@ import numpy as np
 import argparse
 import ConfigParser
 
+def safe_mkdir(path):
+    """
+    Create a path and catch the race condition
+    between path exists and mkdir.
+    """
+    path = os.path.abspath(path)
+    if not os.path.exists(path):
+        try:
+            os.makedirs(path)
+        except OSError as exception:
+            if exception.errno != errno.EEXIST:
+                raise
+
 def addargs(parser):
     """ Parse command line arguments for s4cmb """
 
@@ -120,6 +133,9 @@ if __name__ == "__main__":
 
     rank = MPI.COMM_WORLD.rank
     size = MPI.COMM_WORLD.size
+
+    if rank == 0:
+        safe_mkdir(params.folder_out)
 
     ##################################################################
     ## START OF THE SIMULATION
