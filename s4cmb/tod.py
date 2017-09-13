@@ -551,21 +551,6 @@ class TimeOrderedDataPairDiff():
         ...     npixsky=tod.npixsky, pixel_size=tod.pixel_size)
         >>> tod.tod2map(d, m)
 
-        Check we are looking in the right direction, i.e. mean of the maps
-        are within 1% (due to different projection, input and output cannot
-        agree completely).
-        >>> import matplotlib
-        >>> matplotlib.use("Agg")
-        >>> flat = m.get_I()
-        >>> nx = int(np.sqrt(m.npixsky))
-        >>> curve = hp.gnomview(tod.HealpixFitsMap.I, rot=[0., 0.],
-        ...     xsize=nx, ysize=nx, reso=m.pixel_size,
-        ...     return_projected_map=True, flip='geo').flatten()
-        >>> mask = flat != 0
-        >>> mean_output = np.mean(flat[mask])
-        >>> mean_input = np.mean(curve[mask])
-        >>> assert (mean_output - mean_input)/mean_output * 100 < 1.0
-
         """
         nbolofp = waferts.shape[0]
         npixfp = nbolofp / 2
