@@ -191,7 +191,8 @@ if __name__ == "__main__":
             pixel_size=params.pixel_size,
             width=params.width,
             array_noise_level=params.array_noise_level,
-            array_noise_seed=seeds_for_noise[CESnumber])
+            array_noise_seed=seeds_for_noise[CESnumber],
+            mapping_perpair=False)
 
         ## Initialise map containers for each processor
         if pos_CES == 0:

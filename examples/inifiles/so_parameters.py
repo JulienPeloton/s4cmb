@@ -79,7 +79,7 @@ angle_hwp = 0.
 ## If you want to inject white noise on-the-fly, then specify a
 ## noise level in [u]K.sqrt(s). Careful the units has to be the same as
 ## the input map! Note also that it corresponds to the polarisation level.
-array_noise_level = None
+array_noise_level = 2.273
 
 ## Seed used to generate random numbers to simulate noise.
 ## From this single seed, we generate a list of seeds

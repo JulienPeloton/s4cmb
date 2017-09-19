@@ -142,6 +142,10 @@ pixel_size = None
 ## A choice has to be made.
 width = 20.
 
+## Project time-domain data detector-by-detector to save a lot of memory.
+## Use this only if you do not have detector-to-detector correlation!
+mapping_perpair = False
+
 #####################################################################
 ######################### Misc ######################################
 #####################################################################

@@ -204,7 +204,7 @@ if __name__ == "__main__":
             width=params.width,
             array_noise_level=params.array_noise_level,
             array_noise_seed=seeds_for_noise[CESnumber],
-            mapping_perpair=True)
+            mapping_perpair=params.mapping_perpair)
 
         ## Set new gains
         tod.set_detector_gains(new_gains=new_gains)
