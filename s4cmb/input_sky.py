@@ -434,9 +434,16 @@ def write_healpix_cmbmap(output_filename, data, fits_IDL=False,
         extra_header.append(('column_names', c))
     extra_header = add_hierarch(extra_header)
 
-    hp.write_map(output_filename, data, fits_IDL=fits_IDL,
-                 coord=coord, column_names=None, partial=partial,
-                 extra_header=extra_header)
+    ## Need to introduce this workaround because the last
+    ## version of healpy introduced non-backward compatibility...
+    if hp.__version__ < '1.11.0':
+        hp.write_map(output_filename, data, fits_IDL=fits_IDL,
+                     coord=coord, column_names=None, partial=partial,
+                     extra_header=extra_header)
+    else:
+        hp.write_map(output_filename, data, fits_IDL=fits_IDL,
+                     coord=coord, column_names=None, partial=partial,
+                     extra_header=extra_header, overwrite=True)
 
 def write_dummy_map(filename='myfits_to_test_.fits', nside=16):
     """
