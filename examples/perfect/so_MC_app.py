@@ -19,9 +19,11 @@ from s4cmb.scanning_strategy import ScanningStrategy
 
 from s4cmb.tod import TimeOrderedDataPairDiff
 from s4cmb.tod import OutputSkyMap
-from s4cmb.tod import partial2full
 
-from s4cmb.config_s4cmb import NormaliseParser
+from s4cmb.config_s4cmb import import_string_as_module
+
+from s4cmb.xpure import create_batch
+import commands
 
 ## Other packages needed
 import os
@@ -29,6 +31,19 @@ import healpy as hp
 import numpy as np
 import argparse
 import ConfigParser
+
+def safe_mkdir(path):
+    """
+    Create a path and catch the race condition
+    between path exists and mkdir.
+    """
+    path = os.path.abspath(path)
+    if not os.path.exists(path):
+        try:
+            os.makedirs(path)
+        except OSError as exception:
+            if exception.errno != errno.EEXIST:
+                raise
 
 def addargs(parser):
     """ Parse command line arguments for s4cmb """
@@ -43,14 +58,50 @@ def addargs(parser):
         required=True,
         help='Tag name to identify your run. E.g. run_0_nosystematic.')
 
-    ## You can also pass any new arguments, or even overwrite those
-    ## from the ini file.
-
     ## Only for xpure use - you do not have to care.
     parser.add_argument(
         '-inifile_xpure', dest='inifile_xpure',
         default=None,
         help='Configuration file with xpure parameter values.')
+
+    ## You can also pass any new arguments, or even overwrite those
+    ## from the ini file.
+    parser.add_argument(
+        '-type_hwp', dest='type_hwp',
+        default=None,
+        help='The type of HWP that you want to mount on your instrument.')
+    parser.add_argument(
+        '-freq_hwp', dest='freq_hwp',
+        default=None, type=float,
+        help='The frequency of rotation of the HWP in Hz.')
+    parser.add_argument(
+        '-angle_hwp', dest='angle_hwp',
+        default=None, type=float,
+        help='The offset of the HWP in degree.')
+    parser.add_argument(
+        '-input_filename', dest='input_filename',
+        required=True, nargs='+',
+        help='Input fits with alms.')
+    parser.add_argument(
+        '-array_noise_seed', dest='array_noise_seed',
+        required=True, type=int,
+        help='Seed to generate noise.')
+    parser.add_argument(
+        '-sim_number', dest='sim_number',
+        required=True, type=int,
+        help='Number of the sim.')
+    parser.add_argument(
+        '-folder_out', dest='folder_out',
+        required=True,
+        help='Name of the output folder.')
+    parser.add_argument(
+        '-nside_in', dest='nside_in',
+        required=True, type=int,
+        help='Name of the output folder.')
+    parser.add_argument(
+        '-fwhm_in', dest='fwhm_in',
+        required=True, type=float,
+        help='Name of the output folder.')
 
 
 if __name__ == "__main__":
@@ -62,9 +113,8 @@ if __name__ == "__main__":
     addargs(parser)
     args = parser.parse_args(None)
 
-    Config = ConfigParser.ConfigParser()
-    Config.read(args.inifile)
-    params = NormaliseParser(Config._sections['s4cmb'])
+    ## Import parameters from the user parameter file
+    params = import_string_as_module(args.inifile)
 
     ## Overwrite ini file params with params pass to the App directly
     for key in args.__dict__.keys():
@@ -81,6 +131,13 @@ if __name__ == "__main__":
 
     rank = MPI.COMM_WORLD.rank
     size = MPI.COMM_WORLD.size
+
+    if rank == 0:
+        safe_mkdir(params.folder_out)
+
+    print('sim [{}]'.format(params.sim_number),
+          params.input_filename,
+          params.array_noise_seed)
 
     ##################################################################
     ## START OF THE SIMULATION
@@ -146,7 +203,8 @@ if __name__ == "__main__":
             pixel_size=params.pixel_size,
             width=params.width,
             array_noise_level=params.array_noise_level,
-            array_noise_seed=seeds_for_noise[CESnumber])
+            array_noise_seed=seeds_for_noise[CESnumber],
+            mapping_perpair=True)
 
         ## Initialise map containers for each processor
         if pos_CES == 0:
@@ -157,11 +215,12 @@ if __name__ == "__main__":
                                        pixel_size=tod.pixel_size)
 
         ## Scan input map to get TODs
-        d = np.array([
-            tod.map2tod(det) for det in range(inst.focal_plane.nbolometer)])
+        for pair in tod.pair_list:
+            d = np.array([
+                tod.map2tod(det) for det in pair])
 
-        ## Project TOD to maps
-        tod.tod2map(d, sky_out_tot)
+            ## Project TOD to maps
+            tod.tod2map(d, sky_out_tot)
 
     MPI.COMM_WORLD.barrier()
 
@@ -173,57 +232,45 @@ if __name__ == "__main__":
     ## final_map.coadd_MPI(sky_out_tot, MPI=MPI)
     sky_out_tot.coadd_MPI(sky_out_tot, MPI=MPI)
 
-    ## Check that output = input
     if rank == 0:
-        sky_out = partial2full(sky_out_tot.get_I(),
-                               sky_out_tot.obspix, sky_out_tot.nside,
-                               fill_with=0.0)
-        mask = sky_out != 0
-        assert np.all(np.abs(sky_in.I[mask] - sky_out[mask]) < 1e-7), \
-            ValueError("Output not equal to input!")
+        if params.projection == 'flat':
+            name_out = '{}_{}_{}'.format(params.tag,
+                                         params.name_instrument,
+                                         params.name_strategy)
+            sky_out_tot.pickle_me(
+                '{}/sim{:03d}_{}.pkl'.format(
+                    args.folder_out, args.sim_number, name_out),
+                shrink_maps=False, crop_maps=2**12,
+                epsilon=0., verbose=False)
 
-        sky_out = partial2full(sky_out_tot.get_QU()[0],
-                               sky_out_tot.obspix, sky_out_tot.nside,
-                               fill_with=0.0)
-        mask = sky_out != 0
-        assert np.all(np.abs(sky_in.Q[mask] - sky_out[mask]) < 1e-7), \
-            ValueError("Output not equal to input!")
-
-        sky_out = partial2full(sky_out_tot.get_QU()[1],
-                               sky_out_tot.obspix, sky_out_tot.nside,
-                               fill_with=0.0)
-        mask = sky_out != 0
-        assert np.all(np.abs(sky_in.U[mask] - sky_out[mask]) < 1e-7), \
-            ValueError("Output not equal to input!")
-
-        print("All OK! Greetings from processor 0!")
-
-    if rank == 0:
-        from s4cmb.xpure import write_maps_a_la_xpure
-        from s4cmb.xpure import write_weights_a_la_xpure
-        ## Save data on disk into fits file for later use in xpure
-        name_out = '{}_{}_{}'.format(params.tag,
-                                     params.name_instrument,
-                                     params.name_strategy)
-        write_maps_a_la_xpure(sky_out_tot, name_out=name_out,
-                              output_path='xpure/maps')
-        write_weights_a_la_xpure(sky_out_tot, name_out=name_out,
-                                 output_path='xpure/masks',
-                                 epsilon=0.08, HWP=False)
-
-        if args.inifile_xpure is not None:
-            from s4cmb.xpure import create_batch
-            import commands
-            Config = ConfigParser.ConfigParser()
-            Config.read(args.inifile_xpure)
-            params_xpure = NormaliseParser(Config._sections['xpure'])
-            batch_file = '{}_{}_{}.batch'.format(
+        elif params.projection == 'healpix':
+            from s4cmb.xpure import write_maps_a_la_xpure
+            from s4cmb.xpure import write_weights_a_la_xpure
+            ## Save data on disk into fits file for later use in xpure
+            name_out = 'sim{:03d}_{}_{}_{}'.format(
+                args.sim_number,
                 params.tag,
                 params.name_instrument,
                 params.name_strategy)
-            create_batch(batch_file, params, params_xpure)
 
-            qsub = commands.getoutput('sbatch ' + batch_file)
-            print(qsub)
+            write_maps_a_la_xpure(sky_out_tot, name_out=name_out,
+                                  output_path='xpure/maps')
+            write_weights_a_la_xpure(sky_out_tot, name_out=name_out,
+                                     output_path='xpure/masks',
+                                     epsilon=0.08, HWP=False)
+
+            if args.inifile_xpure is not None:
+                ## Import parameters from the user parameter file
+                params_xpure = import_string_as_module(args.inifile_xpure)
+
+                batch_file = 'sim{:03d}_{}_{}_{}.batch'.format(
+                    args.sim_number,
+                    params.tag,
+                    params.name_instrument,
+                    params.name_strategy)
+                create_batch(batch_file, name_out, params, params_xpure)
+
+                qsub = commands.getoutput('sbatch ' + batch_file)
+                print(qsub)
 
     MPI.COMM_WORLD.barrier()
