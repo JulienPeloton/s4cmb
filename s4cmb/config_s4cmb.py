@@ -6,137 +6,81 @@ Not required for the API.
 
 Author: Julien Peloton, j.peloton@sussex.ac.uk
 """
+import os
+import sys
+import importlib
 
-def floatise_it(entry):
+def compare_version_number(version, threshold):
     """
-    Convert a string to a float
+    Compare two version numbers.
 
     Parameters
     ----------
-    entry : string
-        String to convert
+    version: string
+        Version of you package x.y.z
+    threshold: string
+        Threshold version x.y.z
 
     Returns
     ----------
-    float : float
-        Converted entry.
+    result: boolean
+        True if your version is higher or equal than the threshold.
+        False otherwise.
 
     Examples
     ----------
-    >>> print(floatise_it('1.2'))
-    1.2
-    """
-    return float(entry)
-
-def intise_it(entry):
-    """
-    Convert a string to a int
-
-    Parameters
-    ----------
-    entry : string
-        String to convert
-
-    Returns
-    ----------
-    int : int
-        Converted entry.
-
-    Examples
-    ----------
-    >>> print(intise_it('10'))
-    10
-    """
-    return int(entry)
-
-def boolise_it(entry):
-    """
-    Convert a string to a bool
-
-    Parameters
-    ----------
-    entry : string
-        String to convert. Has to be 'True' or 'False'.
-
-    Returns
-    ----------
-    bool : bool
-        Converted entry.
-
-    Examples
-    ----------
-    >>> import numpy as np
-    >>> config_dict = {'toto': 'True', 'tata': 'False', 'tutu': '1.2'}
-    >>> boolise_it('True')
+    >>> version = '1.10.0'
+    >>> threshold = '1.9.1'
+    >>> compare_version_number(version, threshold)
     True
 
-    >>> boolise_it('False')
-    False
-
-    >>> boolise_it('1.2') #doctest: +NORMALIZE_WHITESPACE
-    You assign 1.2 to bool, but is neither True or False...
-    Return False by default, but I suggest that you you look at your ini file.
-    False
     """
-    if entry == 'False':
-        return False
-    elif entry == 'True':
+    ## If the two versions are equal
+    if version == threshold:
         return True
-    else:
-        print('You assign {} to bool, but is neither True or '.format(entry) +
-              'False... Return False by default, but I suggest that you ' +
-              'you look at your ini file.')
-        return False
-    return out
 
-def find_value_from_last_letter(string):
-    """
-    Routine to find the type of a variable in the parser.
-    The variable should be entered in the format
-    <name> = <value> <letter>
-    where letter is used to determine the type of the variable:
-    S(tring), F(loat), I(nteger), B(ool), N(one).
-    """
-    type_of_my_string = string[-1]
-    if type_of_my_string == 'S':
-        return string[:-2]
-    elif type_of_my_string == 'F':
-        return floatise_it(string[:-2])
-    elif type_of_my_string == 'I':
-        return intise_it(string[:-2])
-    elif type_of_my_string == 'B':
-        return boolise_it(string[:-2])
-    elif type_of_my_string == 'N':
-        return None
+    version_numbers = version.split('.')
+    threshold_numbers = threshold.split('.')
+    for v, t in zip(version_numbers, threshold_numbers):
+        v = int(v)
+        t = int(t)
+        if v == t:
+            continue
+        if v > t:
+            return True
+        if v < t:
+            return False
+    return True
 
-class NormaliseParser():
+def import_string_as_module(fn_full):
     """
-    Class to handle s4cmb parsers.
-    It converts initial dictionary into an object.
+    Import module from its name given as a string.
+
+    Parameters
+    ----------
+    fn_full: string
+        Python filename containing parameters that you
+        want to import.
+
+    Returns
+    ----------
+    params: module
+        Module containing your parameters.
+
+    Examples
+    ----------
+    >>> fn_full = 'examples/inifiles/simple_parameters.py'
+    >>> params = import_string_as_module(fn_full)
+    >>> 'do_pol' in dir(params)
+    True
+
     """
-    def __init__(self, config_dict):
-        """
-        Careful: keys should be in small caps (as returned by ConfigParser) to
-        avoid confusion.
-
-        Parameters
-        ----------
-        config_dict : dictionary
-            dictionary coming from the ini file.
-            Contains {key: val}, where val are strings
-            (default to ConfigParser).
-
-        Examples
-        ----------
-        >>> import ConfigParser
-        >>> Config = ConfigParser.ConfigParser()
-        >>> fns = Config.read('examples/simple_parameters.ini')
-        >>> params = NormaliseParser(Config._sections['s4cmb'])
-        >>> assert hasattr(params, 'nces')
-        """
-        for key, string_value in config_dict.iteritems():
-            value = find_value_from_last_letter(string_value)
-            setattr(self, key, value)
+    ## Import parameters from the user parameter file
+    fn_short = os.path.basename(fn_full).split('.py')[0]
+    sys.path.insert(0, os.path.realpath(
+        os.path.join(os.getcwd(), os.path.dirname(fn_full))))
+    params = importlib.import_module(fn_short)
+    return params
 
 
 if __name__ == "__main__":

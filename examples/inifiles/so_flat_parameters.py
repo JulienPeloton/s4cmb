@@ -1,11 +1,7 @@
-[s4cmb]
 ## Parameter file to generate SO-like data set
-## The format is <name_in_small_caps> = <value> <letter>
-## where is used to determine the type of the value:
-## S(tring), F(loat), I(nteger), B(ool), N(one).
 
 ## Run ID - this will be used to create names
-name_instrument = SO S
+name_instrument = "SO"
 
 #####################################################################
 ######################### Input sky #################################
@@ -15,78 +11,85 @@ name_instrument = SO S
 ##  2) CAMB lensed cl file (.dat) containing lensed power spectra with
 ##      order ell, TT, EE, BB, TE (maps will be created on-the-fly).
 ## /!\ Option 2) is more for test purposes /!\
-input_filename = /global/cscratch1/sd/peloton/s4cmb/additional_files/SO_v2/IQU_noBB_freq150_large_v2.fits S
+input_filename = "/global/cscratch1/sd/peloton/s4cmb/additional_files/SO_v2/IQU_noBB_freq150_large_v2.fits"
 
 ## Set do_pol to False if you want to load only intensity map.
-do_pol = True B
+do_pol = True
 
 ## If input_filename is a CAMB lensed cl file, the code generate maps at
-## a resolution nside_in and convolved with a beam having this FWHM_in [arcmin].
+## a resolution nside_in and convolved with
+## a beam having this FWHM_in [arcmin].
 ## No effect if you provide fits file with maps instead of the CAMB file.
 ## /!\ this is more for test purposes /!\
-fwhm_in = 0.0 F
-nside_in = None N
-map_seed = None N
+fwhm_in = 0.0
+nside_in = None
+map_seed = None
 
 # Remove either I, Q or U to remove possible leakages
-no_ileak = False B
-no_quleak = False B
+no_ileak = False
+no_quleak = False
 
 # Set it to True if you are reading a map in Galactic coordinate.
 # (Planck maps for example).
-ext_map_gal = False B
+ext_map_gal = False
 
 #####################################################################
 ######################### Instrument ################################
 #####################################################################
 ## creates the data used to model the instrument (see s4cmb/instrument.py).
-## Focal plane parameters: Number of crate plate, number of MUX board per crate,
+## Focal plane parameters: Number of crate plate,
+## number of MUX board per crate,
 ## number of SQUID per MUX and number of pair of bolometers per SQUID.
-ncrate = 4 I
-ndfmux_per_crate = 7 I
-nsquid_per_mux = 4 I
-npair_per_squid = 28 I
+ncrate = 4
+ndfmux_per_crate = 7
+nsquid_per_mux = 4
+npair_per_squid = 28
 
 ## The size of the focal plane [cm].
-fp_size = 60. F
+fp_size = 60.
 
 ## Beam parameters of the bolometers.
 ## Full Width Half Maximum [arcmin].
 # beams_large = {'27':9, '39':6.6, '90':2.8, '150':1.8, '220':1.2, '280':1}
 # beams_small = {'27':91, '39':66, '90':28, '150':18, '220':12, '280':10}
-fwhm = 1.8 F
+fwhm = 1.8
 
 ## Seed used to generate angle of rotation of beam axes.
-beam_seed = 58347 I
+beam_seed = 58347
 
 ## Diameter of the focal plane [degree].
-projected_fp_size = 3. F
+projected_fp_size = 3.
 
 # Pointing model parameters of the telescope.
-pm_name = 5params S
+pm_name = "5params"
 
 # Polarisation angle of the bolometers and HWP. Choose among CRHWP or stepped.
-type_hwp = CRHWP S
+type_hwp = "CRHWP"
 
 ## HWP frequency [Hz] (only if CRHWP is used).
-freq_hwp = 2. F
+freq_hwp = 2.
 
 ## starting position of the HWP if type_hwp=CRHWP is used
 ## or the daily step change of the HWP if type_hwp=stepped is used.
 ## [deg].
-angle_hwp = 0. F
+angle_hwp = 0.
 
 ## Time-domain Noise level for the whole array for one CES.
 ## Default are noiseless simulations (i.e. = None).
 ## If you want to inject white noise on-the-fly, then specify a
 ## noise level in [u]K.sqrt(s). Careful the units has to be the same as
 ## the input map! Note also that it corresponds to the polarisation level.
-array_noise_level = None N
+## 8.1 / 152**.5 * 12**.5 i.e. noise level for 5 y of
+## observations with 1/6 of efficiency. =
+## 4.3 uk.arcmin @ nside=2048 @ 12 CES
+## The multiplication by 12 comes from the fact that
+## we group observation in 12 CES.
+array_noise_level = 2.273
 
 ## Seed used to generate random numbers to simulate noise.
 ## From this single seed, we generate a list of seeds
 ## for all detectors. Has an effect only if array_noise_level is provided.
-array_noise_seed = 487587 I
+array_noise_seed = 487587
 
 #####################################################################
 ######################### Scanning strategy #########################
@@ -99,58 +102,59 @@ array_noise_seed = 487587 I
 ## Name of a pre-defined scanning strategy to define the boundaries
 ## of the scan: elevation, azimuth, and time. Only available for the:
 ## moment name_strategy = deep_patch.
-name_strategy = deep_patch S
+name_strategy = "deep_patch"
 
 ## Number of CES to run. Should not exceed the number of CES contained in
 ## the defined scanning strategy set in name_strategy.
-nces = 12 I
+nces = 12
 
 ## Starting date for observations (The format is: YYYY/M/D HH:MM:SS)
-start_date = 2013/1/1 00:00:00 S
+start_date = "2013/1/1 00:00:00"
 
 ## Position of the telescope on Earth
-telescope_longitude = -67:46.816 S
-telescope_latitude = -22:56.396 S
+telescope_longitude = "-67:46.816"
+telescope_latitude = "-22:56.396"
 
 ## Elevation (Alt) of the telescope [meter]
-telescope_elevation = 5200. F
+telescope_elevation = 5200.
 
 ## Sampling frequency at which time samples are recorded [Hz]
-sampling_freq = 15. F
+sampling_freq = 15.
 
 ## Azimuth speed of the telescope [deg/s]
-sky_speed = 0.4 F
+sky_speed = 0.4
 
 ## File containing time correction to UTC
-ut1utc_fn = /global/homes/p/peloton/s4cmb/s4cmb/data/ut1utc.ephem S
+ut1utc_fn = "/global/homes/p/peloton/s4cmb/s4cmb/data/ut1utc.ephem"
 
 #####################################################################
 ######################### Output sky maps ###########################
 #####################################################################
 ## Choose the projection of the output maps: healpix of flat
-projection = healpix S
+projection = "flat"
 
 ## If projection=healpix, choose the nside
-nside_out = 2048 I
+nside_out = 2048
 
 ## If projection=flat, choose the pixel_size
-pixel_size = None N
+pixel_size = 1.7
 
 ## Width of the output map in degree.
 ## If width < len(input scan), you will get a cropped map.
-## if width > len(input scan), you will have your entire scan + plenty of zeros.
+## if width > len(input scan), you will have your entire
+## scan + plenty of zeros.
 ## A choice has to be made.
-width = 130. F
+width = 60.
 
 ## Project time-domain data detector-by-detector to save a lot of memory.
 ## Use this only if you do not have detector-to-detector correlation!
-mapping_perpair = True B
+mapping_perpair = True
 
 #####################################################################
 ######################### Misc ######################################
 #####################################################################
 ## language use to perform core computations.
-language = fortran S
+language = "fortran"
 
 ## Verbose mode.
-verbose = False B
+verbose = False

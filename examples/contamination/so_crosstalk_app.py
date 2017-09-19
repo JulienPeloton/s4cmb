@@ -20,27 +20,20 @@ from s4cmb.scanning_strategy import ScanningStrategy
 from s4cmb.tod import TimeOrderedDataPairDiff
 from s4cmb.tod import OutputSkyMap
 
-from s4cmb.config_s4cmb import NormaliseParser
+from s4cmb.config_s4cmb import import_string_as_module
+
+from s4cmb.systematics import inject_crosstalk_inside_SQUID
+
+from s4cmb.xpure import create_batch
+from s4cmb.xpure import write_maps_a_la_xpure
+from s4cmb.xpure import write_weights_a_la_xpure
+import commands
 
 ## Other packages needed
 import os
 import healpy as hp
 import numpy as np
 import argparse
-import ConfigParser
-
-def safe_mkdir(path):
-    """
-    Create a path and catch the race condition
-    between path exists and mkdir.
-    """
-    path = os.path.abspath(path)
-    if not os.path.exists(path):
-        try:
-            os.makedirs(path)
-        except OSError as exception:
-            if exception.errno != errno.EEXIST:
-                raise
 
 def addargs(parser):
     """ Parse command line arguments for s4cmb """
@@ -54,6 +47,12 @@ def addargs(parser):
         '-tag', dest='tag',
         required=True,
         help='Tag name to identify your run. E.g. run_0_crosstalk.')
+
+    ## Only for xpure use - you do not have to care.
+    parser.add_argument(
+        '-inifile_xpure', dest='inifile_xpure',
+        default=None,
+        help='Configuration file with xpure parameter values.')
 
     ## You can also pass any new arguments, or even overwrite those
     ## from the ini file.
@@ -69,40 +68,30 @@ def addargs(parser):
         '-angle_hwp', dest='angle_hwp',
         default=None, type=float,
         help='The offset of the HWP in degree.')
-    parser.add_argument(
-        '-input_filename', dest='input_filename',
-        required=True, nargs='+',
-        help='Input fits with alms.')
-    parser.add_argument(
-        '-array_noise_seed', dest='array_noise_seed',
-        required=True, type=int,
-        help='Seed to generate noise.')
-    parser.add_argument(
-        '-sim_number', dest='sim_number',
-        required=True, type=int,
-        help='Number of the sim.')
-    parser.add_argument(
-        '-folder_out', dest='folder_out',
-        required=True,
-        help='Name of the output folder.')
-    parser.add_argument(
-        '-nside_in', dest='nside_in',
-        required=True, type=int,
-        help='Name of the output folder.')
-    parser.add_argument(
-        '-fwhm_in', dest='fwhm_in',
-        required=True, type=float,
-        help='Name of the output folder.')
 
-    ## Arguments for gain variation - see s4cmb.systematics.
+    ## Arguments for crosstalk - see s4cmb.systematics.
     parser.add_argument(
-        '-gain_variation', dest='gain_variation',
-        default=0.01, type=float,
-        help='Relative gain variation.')
+        '-radius', dest='radius',
+        default=1, type=int,
+        help='Controls the number of bolometers talking within a SQUID.')
+    parser.add_argument(
+        '-mu', dest='mu',
+        default=-0.3, type=float,
+        help='Mean of the Gaussian used to generate \
+        the level of leakage, in percent.')
+    parser.add_argument(
+        '-sigma', dest='sigma',
+        default=0.1, type=float,
+        help='Width of the Gaussian used to generate \
+        the level of leakage, in percent.')
+    parser.add_argument(
+        '-beta', dest='beta',
+        default=2, type=int,
+        help='Exponent controling the attenuation.')
     parser.add_argument(
         '-seed', dest='seed',
         default=5438765, type=int,
-        help='Control the random seed used to generate gain coefficients.')
+        help='Control the random seed used to generate leakage coefficients.')
 
 
 if __name__ == "__main__":
@@ -114,9 +103,8 @@ if __name__ == "__main__":
     addargs(parser)
     args = parser.parse_args(None)
 
-    Config = ConfigParser.ConfigParser()
-    Config.read(args.inifile)
-    params = NormaliseParser(Config._sections['s4cmb'])
+    ## Import parameters from the user parameter file
+    params = import_string_as_module(args.inifile)
 
     ## Overwrite ini file params with params pass to the App directly
     for key in args.__dict__.keys():
@@ -133,9 +121,6 @@ if __name__ == "__main__":
 
     rank = MPI.COMM_WORLD.rank
     size = MPI.COMM_WORLD.size
-
-    if rank == 0:
-        safe_mkdir(params.folder_out)
 
     ##################################################################
     ## START OF THE SIMULATION
@@ -187,13 +172,13 @@ if __name__ == "__main__":
         print("Proc [{}] doing scans".format(rank), range(
             rank, scan.nces, size))
 
-    state = np.random.RandomState(args.seed)
-    new_gains = state.normal(1, args.gain_variation,
-                             size=2 * inst.focal_plane.npair)
+    ## Get SQUID and bolo ID
+    squid_ids = inst.focal_plane.get_indices('Sq')
+    bolo_ids = inst.focal_plane.bolo_index_in_squid
 
     ## Noise seeds
     state_for_noise = np.random.RandomState(params.array_noise_seed)
-    seeds_for_noise = state_for_noise.randint(0, 1e6, scan.nces)
+    seeds_for_noise = np.random.randint(0, 1e6, scan.nces)
     for pos_CES, CESnumber in enumerate(range(rank, scan.nces, size)):
         if params.verbose:
             print("Proc [{}] with seeds ".format(rank),
@@ -207,10 +192,7 @@ if __name__ == "__main__":
             width=params.width,
             array_noise_level=params.array_noise_level,
             array_noise_seed=seeds_for_noise[CESnumber],
-            mapping_perpair=True)
-
-        ## Set new gains
-        tod.set_detector_gains(new_gains=new_gains)
+            mapping_perpair=False)
 
         ## Initialise map containers for each processor
         if pos_CES == 0:
@@ -221,12 +203,21 @@ if __name__ == "__main__":
                                        pixel_size=tod.pixel_size)
 
         ## Scan input map to get TODs
-        for pair in tod.pair_list:
-            d = np.array([
-                tod.map2tod(det) for det in pair])
+        d = np.array([
+            tod.map2tod(det) for det in range(inst.focal_plane.nbolometer)])
 
-            ## Project TOD to maps
-            tod.tod2map(d, sky_out_tot)
+        ## Inject crosstalk
+        inject_crosstalk_inside_SQUID(d,
+                                      squid_ids,
+                                      bolo_ids,
+                                      radius=args.radius,
+                                      mu=args.mu,
+                                      sigma=args.sigma,
+                                      beta=args.beta,
+                                      seed=args.seed)
+
+        ## Project TOD to maps
+        tod.tod2map(d, sky_out_tot)
 
     MPI.COMM_WORLD.barrier()
 
@@ -239,13 +230,28 @@ if __name__ == "__main__":
     sky_out_tot.coadd_MPI(sky_out_tot, MPI=MPI)
 
     if rank == 0:
+        ## Save data on disk into fits file for later use in xpure
         name_out = '{}_{}_{}'.format(params.tag,
                                      params.name_instrument,
                                      params.name_strategy)
-        sky_out_tot.pickle_me(
-            '{}/sim{:03d}_{}.pkl'.format(
-                args.folder_out, args.sim_number, name_out),
-            shrink_maps=False, crop_maps=2**12,
-            epsilon=0., verbose=False)
+        write_maps_a_la_xpure(sky_out_tot, name_out=name_out,
+                              output_path='xpure/maps')
+        write_weights_a_la_xpure(sky_out_tot, name_out=name_out,
+                                 output_path='xpure/masks',
+                                 epsilon=0.08, HWP=False)
+
+        ## Write the submission file for xpure and launch the soft on-the-fly.
+        if args.inifile_xpure is not None:
+            ## Import parameters from the user parameter file
+            params_xpure = import_string_as_module(args.inifile_xpure)
+
+            batch_file = '{}_{}_{}.batch'.format(
+                params.tag,
+                params.name_instrument,
+                params.name_strategy)
+            create_batch(batch_file, params, params_xpure)
+
+            qsub = commands.getoutput('sbatch ' + batch_file)
+            print(qsub)
 
     MPI.COMM_WORLD.barrier()

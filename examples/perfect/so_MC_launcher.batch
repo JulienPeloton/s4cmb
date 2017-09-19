@@ -52,10 +52,9 @@ for i in `seq -f "%03g" 0 $(( $NSIMS - 1 ))`
 
         time srun -N 1 -n 12 -c 4 --cpu_bind=cores \
                 python-mpi ${path_to_scripts}/so_MC_app.py \
-                -inifile ${path_to_scripts}/inifiles/so_${PROJ}parameters.ini \
-		-inifile_xpure ${path_to_scripts}/inifiles/xpure_parameters.ini \
+                -inifile ${path_to_scripts}/inifiles/so_${PROJ}parameters.py \
+		-inifile_xpure ${path_to_scripts}/inifiles/xpure_parameters.py \
                 -tag ${TAG} ${EXTRA_ARGS} &
 done
 
 wait
-

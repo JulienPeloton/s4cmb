@@ -20,29 +20,18 @@ from s4cmb.scanning_strategy import ScanningStrategy
 from s4cmb.tod import TimeOrderedDataPairDiff
 from s4cmb.tod import OutputSkyMap
 
-from s4cmb.config_s4cmb import NormaliseParser
+from s4cmb.config_s4cmb import import_string_as_module
 
-from s4cmb.systematics import modify_beam_offsets
+from s4cmb.xpure import create_batch
+from s4cmb.xpure import write_maps_a_la_xpure
+from s4cmb.xpure import write_weights_a_la_xpure
+import commands
 
 ## Other packages needed
 import os
 import healpy as hp
 import numpy as np
 import argparse
-import ConfigParser
-
-def safe_mkdir(path):
-    """
-    Create a path and catch the race condition
-    between path exists and mkdir.
-    """
-    path = os.path.abspath(path)
-    if not os.path.exists(path):
-        try:
-            os.makedirs(path)
-        except OSError as exception:
-            if exception.errno != errno.EEXIST:
-                raise
 
 def addargs(parser):
     """ Parse command line arguments for s4cmb """
@@ -55,10 +44,28 @@ def addargs(parser):
     parser.add_argument(
         '-tag', dest='tag',
         required=True,
-        help='Tag name to identify your run. E.g. run_0_nosystematic.')
+        help='Tag name to identify your run. E.g. run_0_crosstalk.')
+
+    ## Only for xpure use - you do not have to care.
+    parser.add_argument(
+        '-inifile_xpure', dest='inifile_xpure',
+        default=None,
+        help='Configuration file with xpure parameter values.')
 
     ## You can also pass any new arguments, or even overwrite those
     ## from the ini file.
+    parser.add_argument(
+        '-type_hwp', dest='type_hwp',
+        default=None,
+        help='The type of HWP that you want to mount on your instrument.')
+    parser.add_argument(
+        '-freq_hwp', dest='freq_hwp',
+        default=None, type=float,
+        help='The frequency of rotation of the HWP in Hz.')
+    parser.add_argument(
+        '-angle_hwp', dest='angle_hwp',
+        default=None, type=float,
+        help='The offset of the HWP in degree.')
     parser.add_argument(
         '-input_filename', dest='input_filename',
         required=True, nargs='+',
@@ -84,18 +91,19 @@ def addargs(parser):
         required=True, type=float,
         help='Name of the output folder.')
 
+    ## Arguments for gain variation - see s4cmb.systematics.
     parser.add_argument(
-        '-mu_diffpointing', dest='mu_diffpointing',
-        required=True, type=float,
-        help='Magnitude of the differential pointing (arcsecond).')
+        '-gain_mean', dest='gain_mean',
+        default=1.01, type=float,
+        help='Relative gain variation (mean).')
     parser.add_argument(
-        '-sigma_diffpointing', dest='sigma_diffpointing',
-        required=True, type=float,
-        help='Width of the differential pointing (arcsecond).')
+        '-gain_variation', dest='gain_variation',
+        default=0.01, type=float,
+        help='Relative gain variation (sigma).')
     parser.add_argument(
-        '-seed_diffpointing', dest='seed_diffpointing',
-        required=True, type=int,
-        help='Seed to generate differential pointing.')
+        '-seed', dest='seed',
+        default=5438765, type=int,
+        help='Control the random seed used to generate gain coefficients.')
 
 
 if __name__ == "__main__":
@@ -107,9 +115,8 @@ if __name__ == "__main__":
     addargs(parser)
     args = parser.parse_args(None)
 
-    Config = ConfigParser.ConfigParser()
-    Config.read(args.inifile)
-    params = NormaliseParser(Config._sections['s4cmb'])
+    ## Import parameters from the user parameter file
+    params = import_string_as_module(args.inifile)
 
     ## Overwrite ini file params with params pass to the App directly
     for key in args.__dict__.keys():
@@ -126,13 +133,6 @@ if __name__ == "__main__":
 
     rank = MPI.COMM_WORLD.rank
     size = MPI.COMM_WORLD.size
-
-    if rank == 0:
-        safe_mkdir(params.folder_out)
-
-    print('sim [{}]'.format(params.sim_number),
-          params.input_filename,
-          params.array_noise_seed)
 
     ##################################################################
     ## START OF THE SIMULATION
@@ -178,30 +178,17 @@ if __name__ == "__main__":
                             language=params.language)
     scan.run()
 
-    ## Let's inject differential pointing between
-    ## two pixel-pair bolometers in our data!
-    ## The model is the following:
-    ## * Draw from a normal distribution G(mu, sigma)
-    ##      the magnitudes of the differential pointing rho.
-    ## * Draw from a uniform distribution U(0, 2pi) the directions
-    ##      of the differential pointing theta.
-    ## * Move the position of bottom bolometers as
-    ##      - x_top/bottom = \pm rho / 2 * cos(theta)
-    ##      - y_top/bottom = \pm rho / 2 * sin(theta)
-    ## et voila!
-    inst.beam_model.xpos, inst.beam_model.ypos = \
-        modify_beam_offsets(inst.beam_model.xpos,
-                            inst.beam_model.ypos,
-                            mu_diffpointing=args.mu_diffpointing,
-                            sigma_diffpointing=args.sigma_diffpointing,
-                            seed=args.seed_diffpointing)
-
     ## Let's now generate our TOD from our input sky, instrument,
     ## and scanning strategy.
     if params.verbose:
         print("Proc [{}] doing scans".format(rank), range(
             rank, scan.nces, size))
 
+    state = np.random.RandomState(args.seed)
+    new_gains = state.normal(args.gain_mean, args.gain_variation,
+                             size=2 * inst.focal_plane.npair)
+
+    ## Noise seeds
     state_for_noise = np.random.RandomState(params.array_noise_seed)
     seeds_for_noise = state_for_noise.randint(0, 1e6, scan.nces)
     for pos_CES, CESnumber in enumerate(range(rank, scan.nces, size)):
@@ -217,7 +204,10 @@ if __name__ == "__main__":
             width=params.width,
             array_noise_level=params.array_noise_level,
             array_noise_seed=seeds_for_noise[CESnumber],
-            mapping_perpair=True)
+            mapping_perpair=params.mapping_perpair)
+
+        ## Set new gains
+        tod.set_detector_gains(new_gains=new_gains)
 
         ## Initialise map containers for each processor
         if pos_CES == 0:
@@ -227,12 +217,12 @@ if __name__ == "__main__":
                                        npixsky=tod.npixsky,
                                        pixel_size=tod.pixel_size)
 
-        ## Scan input map to get TODs with original beam offsets
+        ## Scan input map to get TODs
         for pair in tod.pair_list:
             d = np.array([
                 tod.map2tod(det) for det in pair])
 
-            ## Project TOD to maps with modified beam offsets
+            ## Project TOD to maps
             tod.tod2map(d, sky_out_tot)
 
     MPI.COMM_WORLD.barrier()
@@ -246,13 +236,42 @@ if __name__ == "__main__":
     sky_out_tot.coadd_MPI(sky_out_tot, MPI=MPI)
 
     if rank == 0:
-        name_out = '{}_{}_{}'.format(params.tag,
-                                     params.name_instrument,
-                                     params.name_strategy)
-        sky_out_tot.pickle_me(
-            '{}/sim{:03d}_{}.pkl'.format(
-                args.folder_out, args.sim_number, name_out),
-            shrink_maps=False, crop_maps=2**12,
-            epsilon=0., verbose=False)
+        if params.projection == 'flat':
+            name_out = '{}_{}_{}'.format(params.tag,
+                                         params.name_instrument,
+                                         params.name_strategy)
+            sky_out_tot.pickle_me(
+                '{}/sim{:03d}_{}.pkl'.format(
+                    args.folder_out, args.sim_number, name_out),
+                shrink_maps=False, crop_maps=2**12,
+                epsilon=0., verbose=False)
+
+        elif params.projection == 'healpix':
+            ## Save data on disk into fits file for later use in xpure
+            name_out = 'sim{:03d}_{}_{}_{}'.format(
+                args.sim_number,
+                params.tag,
+                params.name_instrument,
+                params.name_strategy)
+
+            write_maps_a_la_xpure(sky_out_tot, name_out=name_out,
+                                  output_path='xpure/maps')
+            write_weights_a_la_xpure(sky_out_tot, name_out=name_out,
+                                     output_path='xpure/masks',
+                                     epsilon=0.08, HWP=False)
+
+            if args.inifile_xpure is not None:
+                ## Import parameters from the user parameter file
+                params_xpure = import_string_as_module(args.inifile_xpure)
+
+                batch_file = 'sim{:03d}_{}_{}_{}.batch'.format(
+                    args.sim_number,
+                    params.tag,
+                    params.name_instrument,
+                    params.name_strategy)
+                create_batch(batch_file, name_out, params, params_xpure)
+
+                qsub = commands.getoutput('sbatch ' + batch_file)
+                print(qsub)
 
     MPI.COMM_WORLD.barrier()
