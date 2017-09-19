@@ -20,7 +20,7 @@ from s4cmb.scanning_strategy import ScanningStrategy
 from s4cmb.tod import TimeOrderedDataPairDiff
 from s4cmb.tod import OutputSkyMap
 
-from s4cmb.config_s4cmb import NormaliseParser
+from s4cmb.config_s4cmb import import_string_as_module
 
 ## Other packages needed
 import os
@@ -110,9 +110,8 @@ if __name__ == "__main__":
     addargs(parser)
     args = parser.parse_args(None)
 
-    Config = ConfigParser.ConfigParser()
-    Config.read(args.inifile)
-    params = NormaliseParser(Config._sections['s4cmb'])
+    ## Import parameters from the user parameter file
+    params = import_string_as_module(args.inifile)
 
     ## Overwrite ini file params with params pass to the App directly
     for key in args.__dict__.keys():
