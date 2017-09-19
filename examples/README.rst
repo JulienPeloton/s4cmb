@@ -1,4 +1,4 @@
-This folder contains example scripts to run basic and advanced App.
+This folder contains example scripts to run basic and advanced Apps.
 
 test
 ===============
@@ -20,3 +20,6 @@ match your tree.
 
 contamination
 ===============
+This folder contains Apps to test the library on real condition (large fraction)
+of sky, large number of detector, and so on. There are examples for couple of
+systematic effects.
