@@ -10,6 +10,48 @@ import os
 import sys
 import importlib
 
+def compare_version_number(version, threshold):
+    """
+    Compare two version numbers.
+
+    Parameters
+    ----------
+    version: string
+        Version of you package x.y.z
+    threshold: string
+        Threshold version x.y.z
+
+    Returns
+    ----------
+    result: boolean
+        True if your version is higher or equal than the threshold.
+        False otherwise.
+
+    Examples
+    ----------
+    >>> version = '1.10.0'
+    >>> threshold = '1.9.1'
+    >>> compare_version_number(version, threshold)
+    True
+
+    """
+    ## If the two versions are equal
+    if version == threshold:
+        return True
+
+    version_numbers = version.split('.')
+    threshold_numbers = threshold.split('.')
+    for v, t in zip(version_numbers, threshold_numbers):
+        v = int(v)
+        t = int(t)
+        if v == t:
+            continue
+        if v > t:
+            return True
+        if v < t:
+            return False
+    return True
+
 def import_string_as_module(fn_full):
     """
     Import module from its name given as a string.

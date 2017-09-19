@@ -16,6 +16,8 @@ import healpy as hp
 import numpy as np
 from astropy.io import fits as pyfits
 
+from s4cmb.config_s4cmb import compare_version_number
+
 class HealpixFitsMap():
     """ Class to handle fits file containing healpix maps """
     def __init__(self, input_filename,
@@ -436,14 +438,14 @@ def write_healpix_cmbmap(output_filename, data, fits_IDL=False,
 
     ## Need to introduce this workaround because the last
     ## version of healpy introduced non-backward compatibility...
-    if hp.__version__ < '1.11.0':
-        hp.write_map(output_filename, data, fits_IDL=fits_IDL,
-                     coord=coord, column_names=None, partial=partial,
-                     extra_header=extra_header)
-    else:
+    if compare_version_number(hp.__version__, '1.11.0'):
         hp.write_map(output_filename, data, fits_IDL=fits_IDL,
                      coord=coord, column_names=None, partial=partial,
                      extra_header=extra_header, overwrite=True)
+    else:
+        hp.write_map(output_filename, data, fits_IDL=fits_IDL,
+                     coord=coord, column_names=None, partial=partial,
+                     extra_header=extra_header)
 
 def write_dummy_map(filename='myfits_to_test_.fits', nside=16):
     """
