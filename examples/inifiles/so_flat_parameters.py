@@ -137,7 +137,7 @@ projection = "flat"
 nside_out = 2048
 
 ## If projection=flat, choose the pixel_size
-pixel_size = 0.745
+pixel_size = 1.7
 
 ## Width of the output map in degree.
 ## If width < len(input scan), you will get a cropped map.
