@@ -21,16 +21,14 @@ from s4cmb.tod import TimeOrderedDataPairDiff
 from s4cmb.tod import OutputSkyMap
 from s4cmb.tod import partial2full
 
-from s4cmb.config_s4cmb import NormaliseParser
+from s4cmb.config_s4cmb import import_string_as_module
 
 ## Other packages needed
 import os
-import sys
 import healpy as hp
 import numpy as np
 import argparse
 import ConfigParser
-import importlib
 
 try:
     from tqdm import *
@@ -68,10 +66,7 @@ if __name__ == "__main__":
     args = parser.parse_args(None)
 
     ## Import parameters from the user parameter file
-    sys.path.insert(0, os.path.realpath(
-        os.path.join(os.getcwd(), os.path.dirname(args.inifile))))
-    fn = os.path.basename(args.inifile).split('.py')[0]
-    params = importlib.import_module(fn)
+    params = import_string_as_module(args.inifile)
 
     ## Overwrite ini file params with params pass to the App directly
     for key in args.__dict__.keys():
