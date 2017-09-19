@@ -18,7 +18,7 @@ install:
 # Tests are inside modules (doctest)
 script:
     - ./coverage_and_test.sh
-    - python examples/test/simple_app.py -inifile examples/test/simple_parameters.py -tag 'test'
+    - python examples/test/simple_app.py -inifile examples/inifiles/simple_parameters.py -tag 'test'
 
 after_success:
     coveralls

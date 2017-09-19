@@ -23,12 +23,14 @@ from s4cmb.tod import partial2full
 
 from s4cmb.config_s4cmb import import_string_as_module
 
+from s4cmb.xpure import write_maps_a_la_xpure
+from s4cmb.xpure import write_weights_a_la_xpure
+
 ## Other packages needed
 import os
 import healpy as hp
 import numpy as np
 import argparse
-import ConfigParser
 
 try:
     from tqdm import *
@@ -200,9 +202,6 @@ if __name__ == "__main__":
         assert np.all(np.abs(sky_in.U[mask] - sky_out[mask]) < 1e-9), \
             ValueError("Output not equal to input!")
 
-
-        from s4cmb.xpure import write_maps_a_la_xpure
-        from s4cmb.xpure import write_weights_a_la_xpure
         ## Save data on disk into fits file for later use in xpure
         name_out = '{}_{}_{}'.format(params.tag,
                                      params.name_instrument,

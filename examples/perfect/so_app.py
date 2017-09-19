@@ -24,6 +24,8 @@ from s4cmb.tod import partial2full
 from s4cmb.config_s4cmb import import_string_as_module
 
 from s4cmb.xpure import create_batch
+from s4cmb.xpure import write_maps_a_la_xpure
+from s4cmb.xpure import write_weights_a_la_xpure
 import commands
 
 ## Other packages needed
@@ -31,7 +33,6 @@ import os
 import healpy as hp
 import numpy as np
 import argparse
-import ConfigParser
 
 def addargs(parser):
     """ Parse command line arguments for s4cmb """
@@ -201,8 +202,6 @@ if __name__ == "__main__":
         print("All OK! Greetings from processor 0!")
 
     if rank == 0:
-        from s4cmb.xpure import write_maps_a_la_xpure
-        from s4cmb.xpure import write_weights_a_la_xpure
         ## Save data on disk into fits file for later use in xpure
         name_out = '{}_{}_{}'.format(params.tag,
                                      params.name_instrument,

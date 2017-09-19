@@ -23,6 +23,8 @@ from s4cmb.tod import OutputSkyMap
 from s4cmb.config_s4cmb import import_string_as_module
 
 from s4cmb.xpure import create_batch
+from s4cmb.xpure import write_maps_a_la_xpure
+from s4cmb.xpure import write_weights_a_la_xpure
 import commands
 
 ## Other packages needed
@@ -30,7 +32,6 @@ import os
 import healpy as hp
 import numpy as np
 import argparse
-import ConfigParser
 
 def safe_mkdir(path):
     """
@@ -244,8 +245,6 @@ if __name__ == "__main__":
                 epsilon=0., verbose=False)
 
         elif params.projection == 'healpix':
-            from s4cmb.xpure import write_maps_a_la_xpure
-            from s4cmb.xpure import write_weights_a_la_xpure
             ## Save data on disk into fits file for later use in xpure
             name_out = 'sim{:03d}_{}_{}_{}'.format(
                 args.sim_number,
