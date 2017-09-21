@@ -20,6 +20,8 @@ from s4cmb.scanning_strategy import ScanningStrategy
 from s4cmb.tod import TimeOrderedDataPairDiff
 from s4cmb.tod import OutputSkyMap
 
+from s4cmb.systematics import inject_crosstalk_inside_SQUID
+
 from s4cmb.config_s4cmb import import_string_as_module
 
 from s4cmb.xpure import create_batch
