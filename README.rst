@@ -93,7 +93,7 @@ Try to run (you will need the package mpi4py)
 
 ::
 
-    mpirun -n <nproc> python examples/simple_app.py -inifile examples/simple_parameters.ini -tag test
+    mpirun -n <nproc> python examples/test/simple_app.py -inifile examples/inifiles/simple_parameters.py -tag test
 
 where nproc should not be greater than the number of scans to run.
 Note that for NERSC users, we also provide a submission script for jobs on Cori (see examples/nersc_cori.batch).
