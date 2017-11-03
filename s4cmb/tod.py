@@ -327,8 +327,8 @@ class TimeOrderedDataPairDiff():
 
     def set_detector_gains_pertimesample(self, new_gains=None):
         """
-        Set the gains of the detectors for each time sample (unitless).
-        This is particularly useful to introduce drift for example.
+        Set the gains of all the detectors for each timestep (unitless).
+        This is particularly useful to introduce drifts for example.
         Default is 1., that is perfectly calibrated.
 
         Parameters
@@ -344,7 +344,7 @@ class TimeOrderedDataPairDiff():
         >>> print(tod.gain[0])
         1.0
 
-        Change the value of gains
+        Change the value of gains every other sample.
         >>> new_gains = np.ones((2 * tod.npair, tod.nsamples))
         >>> new_gains[:, ::2] = 2.
         >>> tod.set_detector_gains_pertimesample(new_gains=new_gains)
