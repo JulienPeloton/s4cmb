@@ -2,6 +2,15 @@ v0.x.x
 =============
 * Current version.
 
+v0.5.2
+=============
+* Improve coverage and coverage tool.
+* Simplify the scanning strategy module.
+* Add App to study relative gain variation
+* Allow to process channel-by-channel in tod2map to save memory!
+* Update the default noise level to 5ish uk.arcmin.
+* Add routines to simulate gain drifts.
+
 v0.5.1
 =============
 * Fix bug in bolometer coordinates in the focal plane (it was mixed with pair coordinates).

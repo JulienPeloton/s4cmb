@@ -50,6 +50,7 @@ if __name__ == "__main__":
                     'examples': ['simple_app.py',
                                  'so_app.py',
                                  'so_crosstalk_app.py',
+                                 'so_gain_variation.py',
                                  'simple_parameters.ini',
                                  'so_parameters.ini',
                                  'xpure_parameters.ini',
@@ -58,9 +59,9 @@ if __name__ == "__main__":
 
     setup(
         configuration=configuration,
-        version='0.5.1',
+        version='0.5.2',
         url='https://github.com/JulienPeloton/s4cmb',
-        download_url='https://github.com/JulienPeloton/s4cmb/archive/0.5.1.tar.gz',
+        download_url='https://github.com/JulienPeloton/s4cmb/archive/0.5.2.tar.gz',
         license='GPL-3.0',
         author='Julien Peloton',
         author_email='j.peloton@sussex.ac.uk',
