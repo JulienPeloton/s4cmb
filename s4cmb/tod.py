@@ -325,6 +325,40 @@ class TimeOrderedDataPairDiff():
         else:
             self.gain = np.ones(2 * self.npair)
 
+    def set_detector_gains_pertimesample(self, new_gains=None):
+        """
+        Set the gains of the detectors for each time sample (unitless).
+        This is particularly useful to introduce drift for example.
+        Default is 1., that is perfectly calibrated.
+
+        Parameters
+        ----------
+        new_gains : 2d array of size (2*npair, nsamples)
+            Array containing the gain value for all detectors
+            (nsamples number per detector).
+
+        Examples
+        ----------
+        >>> inst, scan, sky_in = load_fake_instrument()
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in, CESnumber=1)
+        >>> print(tod.gain[0])
+        1.0
+
+        Change the value of gains
+        >>> new_gains = np.ones((2 * tod.npair, tod.nsamples))
+        >>> new_gains[:, ::2] = 2.
+        >>> tod.set_detector_gains_pertimesample(new_gains=new_gains)
+        >>> print(tod.gain[0][0:4])
+        [ 2.  1.  2.  1.]
+        """
+        if new_gains is not None:
+            msg = "You have to provide ({}, {}) new gain values!"
+            assert new_gains.shape == (2*self.npair, self.nsamples), \
+                ValueError(msg.format(2 * self.npair, self.nsamples))
+            self.gain = new_gains
+        else:
+            self.gain = np.ones((2 * self.npair, self.nsamples))
+
     def get_boresightpointing(self):
         """
         Initialise the boresight pointing for all the focal plane bolometers.
