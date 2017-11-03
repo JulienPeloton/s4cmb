@@ -327,6 +327,128 @@ def modify_pointing_parameters(values, errors):
     values_mod = [p + err for p, err in zip(values, errors)]
     return values_mod
 
+def step_function(nbolos, nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
+    """
+    Generate step functions for each bolometer from 1. to a values
+    drawn from N(mean, std). The full timestream is broken into nbreaks
+    corresponding to retuning of bolometers (gains are reset to one
+    after a break). Return the gains for all bolometers (2 bolo in a
+    pair will have the same break to avoid differential gain)
+
+    Parameters
+    ----------
+    nbolos : int
+        The number of bolometers
+    nsamples : int
+        Length of timestreams
+    mean : float
+        Mean of the distribution to sample drifts from. Default is 1.
+    std : float
+        Std of the distribution to sample drifts from.
+        Default is 0.05 (that is \pm 5% with respect to a mean=1).
+    nbreaks : int
+        Number of break (number of retuning).
+
+    Returns
+    ----------
+    gains : 2D array of size (nbolos, nsamples)
+        The gains at each timestep for all bolometers
+
+    Examples
+    ----------
+    >>> nbolos = 4
+    >>> nsamples = 4
+    >>> gains = step_function(nbolos, nsamples, nbreaks=1)
+    >>> print(gains[0])
+    [ 1.          1.          1.08820262  1.08820262]
+    """
+    ## Fix the seed
+    state = np.random.RandomState(seed)
+
+    ## Initialise gains to ones
+    gains = np.ones((nbolos, nsamples))
+
+    ## Length of each break
+    length = nsamples // nbreaks
+    sublength = nsamples // (2*nbreaks)
+
+    for pos in range(nbreaks):
+        ## 2 bolo in a pair will have the same break to avoid differential gain
+        end_points = state.normal(mean, std, size=int(nbolos/2))
+        end_points = np.tile(
+            end_points, (2, 1)).T.reshape((2*len(end_points), 1))
+
+        ## Assign values
+        shift = pos * length
+        if pos * length < nsamples:
+            gains[:, shift + sublength:shift + 2 * sublength] = \
+                end_points.reshape((len(end_points), 1))
+        else:
+            continue
+
+    return gains
+
+def linear_function(nbolos, nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
+    """
+    Generate linear functions for each bolometer from 1. to a values
+    drawn from N(mean, std). The full timestream is broken into nbreaks
+    corresponding to retuning of bolometers (gains are reset to one
+    after a break). Return the gains for all bolometers (2 bolo in a
+    pair will have the same break to avoid differential gain)
+
+    Parameters
+    ----------
+    nbolos : int
+        The number of bolometers
+    nsamples : int
+        Length of timestreams
+    mean : float
+        Mean of the distribution to sample drifts from. Default is 1.
+    std : float
+        Std of the distribution to sample drifts from.
+        Default is 0.05 (that is \pm 5% with respect to a mean=1).
+    nbreaks : int
+        Number of break (number of retuning).
+
+    Returns
+    ----------
+    gains : 2D array of size (nbolos, nsamples)
+        The gains at each timestep for all bolometers
+
+    Examples
+    ----------
+    >>> nbolos = 4
+    >>> nsamples = 4
+    >>> gains = linear_function(nbolos, nsamples, nbreaks=1)
+    >>> print(gains[0])
+    [ 1.          1.02940087  1.05880174  1.08820262]
+    """
+    ## Fix the seed
+    state = np.random.RandomState(seed)
+
+    ## Initialise gains to ones
+    gains = np.ones((nbolos, nsamples))
+
+    ## Length of each break
+    length = nsamples // nbreaks
+
+    for pos in range(nbreaks):
+        ## 2 bolo in a pair will have the same break to avoid differential gain
+        end_points = state.normal(mean, std, size=int(nbolos/2))
+        end_points = np.tile(
+            end_points, (2, 1)).T.reshape((2*len(end_points), 1))
+
+        ## Assign values
+        shift = pos * length
+        if pos * length < nsamples:
+            gains[:, shift:shift + length] = np.array([np.interp(
+                range(shift, shift + length),
+                [shift, shift + length - 1],
+                [1, end]) for end in end_points])
+        else:
+            continue
+
+    return gains
 
 if __name__ == "__main__":
     import doctest
