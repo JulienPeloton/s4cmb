@@ -218,21 +218,21 @@ if __name__ == "__main__":
             array_noise_seed=seeds_for_noise[CESnumber],
             mapping_perpair=params.mapping_perpair)
 
-        ## Set new gains
+        ## Set new gains.
+        ## Use generators to output only 2 detectors at a time.
         if args.drift_model == 'linear':
-            f = linear_function
+            f = linear_function_gen
         elif args.drift_model == 'step':
-            f = step_function
+            f = step_function_gen
         else:
             print("Drift model not understood! Need to be linear or step")
             sys.exit()
 
-        new_gains = f(2*tod.npair, tod.nsamples,
-                      mean=args.gain_mean,
-                      std=args.gain_variation,
-                      nbreaks=args.nretuning_time,
-                      seed=seeds_for_gain[CESnumber])
-        tod.set_detector_gains_pertimesample(new_gains=new_gains)
+        new_gains_gen = f(tod.nsamples,
+                          mean=args.gain_mean,
+                          std=args.gain_variation,
+                          nbreaks=args.nretuning_time,
+                          seed=seeds_for_gain[CESnumber])
 
         ## Initialise map containers for each processor
         if pos_CES == 0:
@@ -244,6 +244,7 @@ if __name__ == "__main__":
 
         ## Scan input map to get TODs
         for pair in tod.pair_list:
+            tod.set_detector_gains_perpair(new_gains=new_gains_gen.next())
             d = np.array([
                 tod.map2tod(det) for det in pair])
 
