@@ -20,8 +20,8 @@ from s4cmb.scanning_strategy import ScanningStrategy
 from s4cmb.tod import TimeOrderedDataPairDiff
 from s4cmb.tod import OutputSkyMap
 
-from s4cmb.systematics import step_function
-from s4cmb.systematics import linear_function
+from s4cmb.systematics import step_function_gen
+from s4cmb.systematics import linear_function_gen
 
 from s4cmb.config_s4cmb import import_string_as_module
 
