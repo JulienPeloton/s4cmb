@@ -235,6 +235,11 @@ def create_batch(batch_file, name_out, params_s4cmb, params_xpure):
         Object with xpure parameter values.
     """
     host = os.environ['NERSC_HOST']
+    if host == 'edison':
+        params_xpure.nproc_per_node = 24
+    elif host == 'cori':
+        params_xpure.nproc_per_node = 32
+
     with open(batch_file, 'w') as f:
         print('#!/bin/bash -l', file=f)
         print('#SBATCH -p {}'.format(params_xpure.queue), file=f)
@@ -359,7 +364,7 @@ def create_batch(batch_file, name_out, params_s4cmb, params_xpure):
         print('#########################################################################################', file=f)
         print('if [ "${FAST}" -eq "0" ]', file=f)
         print('	then', file=f)
-        print('	time srun -n {} ${{BINDIR}}/myapodizemask ${{BINARY_MASK_I1}} ${{APODIZED_MASK_I1}} -minpix 1 -inside 1 -radius ${{radius}} & time srun -n {} ${{BINDIR}}/myapodizemask ${{BINARY_MASK_P1}} ${{APODIZED_MASK_P1}} -minpix 1 -inside 1 -radius ${{radius}}'.format(params_xpure.nproc_apo, params_xpure.nproc_apo), file=f)
+        print('	time srun -N 1 -n {} ${{BINDIR}}/myapodizemask ${{BINARY_MASK_I1}} ${{APODIZED_MASK_I1}} -minpix 1 -inside 1 -radius ${{radius}} & time srun -N 1 -n {} ${{BINDIR}}/myapodizemask ${{BINARY_MASK_P1}} ${{APODIZED_MASK_P1}} -minpix 1 -inside 1 -radius ${{radius}}'.format(params_xpure.nproc_apo, params_xpure.nproc_apo), file=f)
         print('	wait', file=f)
         print('else', file=f)
         print('	echo "Go fast - skip myapodizemask"', file=f)
@@ -417,7 +422,7 @@ def create_batch(batch_file, name_out, params_s4cmb, params_xpure):
         print(' ', file=f)
         print('if [ "${FAST}" -eq "0" ]', file=f)
         print('	then', file=f)
-        print('	time srun -n {} ${{BINDIR}}/scalar2spin param_all_I11${{name}}.par >& output_scalar2spinI11${{name}} & time srun -n {} ${{BINDIR}}/scalar2spin param_all_P11${{name}}.par >& output_scalar2spinP11${{name}}'.format(params_xpure.nproc_scalar_to_spin, params_xpure.nproc_scalar_to_spin), file=f)
+        print('	time srun -N {} -n {} ${{BINDIR}}/scalar2spin param_all_I11${{name}}.par >& output_scalar2spinI11${{name}} & time srun -N {} -n {} ${{BINDIR}}/scalar2spin param_all_P11${{name}}.par >& output_scalar2spinP11${{name}}'.format(int(params_xpure.nproc_scalar_to_spin // params_xpure.nproc_per_node), params_xpure.nproc_scalar_to_spin, int(params_xpure.nproc_scalar_to_spin // params_xpure.nproc_per_node), params_xpure.nproc_scalar_to_spin), file=f)
         print('	wait', file=f)
         print('else', file=f)
         print('	echo "Go fast - skip scalar2spin"', file=f)
@@ -501,11 +506,12 @@ def create_batch(batch_file, name_out, params_s4cmb, params_xpure):
         print(' ', file=f)
         print('if [ "${FAST}" -eq "0" ]', file=f)
         print('        then', file=f)
-        print('	time srun -n {} ${{BINDIR}}/x2pure_create_mll createMll.par'.format(params_xpure.nproc_mll), file=f)
+        print('	time srun -N {} -n {} ${{BINDIR}}/x2pure_create_mll createMll.par'.format(int(params_xpure.nproc_mll//params_xpure.nproc_per_node), params_xpure.nproc_mll), file=f)
+
         print('	rm -f createMll.par', file=f)
         print('elif [ "${FAST}" -eq "2" ]', file=f)
         print('        then', file=f)
-        print('        time srun -n {} ${{BINDIR}}/x2pure_create_mll createMll.par'.format(params_xpure.nproc_mll), file=f)
+        print('        time srun -N {} -n {} ${{BINDIR}}/x2pure_create_mll createMll.par'.format(int(params_xpure.nproc_mll//params_xpure.nproc_per_node), params_xpure.nproc_mll), file=f)
         print('        rm -f createMll.par', file=f)
         print('else', file=f)
         print('	echo "Go fast - skip x2pure_create_mll"', file=f)
@@ -630,8 +636,7 @@ def create_batch(batch_file, name_out, params_s4cmb, params_xpure):
         print('lmax = ${LMAX_USER}', file=f)
         print('_EOF_', file=f)
         print('    #RUN', file=f)
-        print('    time srun -n {} ${{BINDIR}}/x2pure xpure.par'.format(
-            params_xpure.nproc_xpure), file=f)
+        print('    time srun -N {} -n {} ${{BINDIR}}/x2pure xpure.par'.format(int(params_xpure.nproc_xpure//params_xpure.nproc_per_node), params_xpure.nproc_xpure), file=f)
 
         print(' ', file=f)
         print('done', file=f)
