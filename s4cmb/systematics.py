@@ -329,11 +329,11 @@ def modify_pointing_parameters(values, errors):
 
 def step_function(nbolos, nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
     """
-    Generate step functions for each bolometer from 1. to a values
+    Generate step functions for each bolometer from 1 to a values
     drawn from N(mean, std). The full timestream is broken into nbreaks
     corresponding to retuning of bolometers (gains are reset to one
     after a break). Return the gains for all bolometers (2 bolo in a
-    pair will have the same break to avoid differential gain)
+    pair will have the same break to avoid differential gain).
 
     Parameters
     ----------
@@ -388,9 +388,69 @@ def step_function(nbolos, nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
 
     return gains
 
+def step_function_gen(nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
+    """
+    Generator of step functions for each bolometer from 1 to a values
+    drawn from N(mean, std). The full timestream is broken into nbreaks
+    corresponding to retuning of bolometers (gains are reset to one
+    after a break). Return the gains for 2 bolometers (2 bolo in a
+    pair will have the same break to avoid differential gain).
+
+    Particularly useful to save memory when simulating a lot of detectors.
+
+    Parameters
+    ----------
+    nsamples : int
+        Length of timestreams
+    mean : float
+        Mean of the distribution to sample drifts from. Default is 1.
+    std : float
+        Std of the distribution to sample drifts from.
+        Default is 0.05 (that is \pm 5% with respect to a mean=1).
+    nbreaks : int
+        Number of break (number of retuning).
+
+    Returns
+    ----------
+    gains : 2D array of size (2, nsamples)
+        The gains at each timestep for 2 bolometers in a pair
+
+    Examples
+    ----------
+    >>> nsamples = 4
+    >>> gains_gen = step_function_gen(nsamples, nbreaks=1)
+    >>> print(gains_gen.next()[0])
+    [ 1.          1.          1.08820262  1.08820262]
+    """
+    ## Fix the seed
+    state = np.random.RandomState(seed)
+
+    ## Initialise gains to ones
+    gains = np.ones((2, nsamples))
+
+    ## Length of each break
+    length = nsamples // nbreaks
+    sublength = nsamples // (2*nbreaks)
+
+    while 1:
+        for pos in range(nbreaks):
+            ## 2 bolo in a pair will have the same break to avoid differential gain
+            end_points = state.normal(mean, std, size=1)
+            end_points = np.tile(end_points, (2, 1)).T.reshape((2, 1))
+
+            ## Assign values
+            shift = pos * length
+            if pos * length < nsamples:
+                gains[:, shift + sublength:shift + 2 * sublength] = \
+                    end_points.reshape((len(end_points), 1))
+            else:
+                continue
+
+        yield gains
+
 def linear_function(nbolos, nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
     """
-    Generate linear functions for each bolometer from 1. to a values
+    Generate linear functions for each bolometer from 1 to a values
     drawn from N(mean, std). The full timestream is broken into nbreaks
     corresponding to retuning of bolometers (gains are reset to one
     after a break). Return the gains for all bolometers (2 bolo in a
@@ -449,6 +509,69 @@ def linear_function(nbolos, nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
             continue
 
     return gains
+
+def linear_function_gen(nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
+    """
+    Generator returning linear functions for each bolometer from 1 to a values
+    drawn from N(mean, std). The full timestream is broken into nbreaks
+    corresponding to retuning of bolometers (gains are reset to one
+    after a break). Yield the gains for 2 bolometers (2 bolo in a
+    pair will have the same break to avoid differential gain).
+
+    Particularly useful to save memory when simulating a lot of detectors.
+
+    Parameters
+    ----------
+    nsamples : int
+        Length of timestreams
+    mean : float
+        Mean of the distribution to sample drifts from. Default is 1.
+    std : float
+        Std of the distribution to sample drifts from.
+        Default is 0.05 (that is \pm 5% with respect to a mean=1).
+    nbreaks : int
+        Number of break (number of retuning).
+
+    Returns
+    ----------
+    gains : 2D array of size (2, nsamples)
+        The gains at each timestep for 2 bolometers in a pair
+
+    Examples
+    ----------
+    >>> nsamples = 4
+    >>> gains_gen = linear_function_gen(nsamples, nbreaks=1)
+    >>> print(gains_gen.next()[0])
+    [ 1.          1.02940087  1.05880174  1.08820262]
+    """
+    ## Fix the seed
+    state = np.random.RandomState(seed)
+
+    ## Initialise gains to ones
+    gains = np.ones((2, nsamples))
+
+    ## Length of each break
+    length = nsamples // nbreaks
+
+    while 1:
+        for pos in range(nbreaks):
+            ## 2 bolo in a pair will have the same
+            ## break to avoid differential gain
+            end_points = state.normal(mean, std, size=1)
+            end_points = np.tile(end_points, (2, 1)).T.reshape((2, 1))
+
+            ## Assign values
+            shift = pos * length
+            if pos * length < nsamples:
+                gains[:, shift:shift + length] = np.array([np.interp(
+                    range(shift, shift + length),
+                    [shift, shift + length - 1],
+                    [1, end]) for end in end_points])
+            else:
+                continue
+
+        yield gains
+
 
 if __name__ == "__main__":
     import doctest
