@@ -325,15 +325,15 @@ class TimeOrderedDataPairDiff():
         else:
             self.gain = np.ones(2 * self.npair)
 
-    def set_detector_gains_pertimesample(self, new_gains=None):
+    def set_detector_gains_perpair(self, new_gains=None):
         """
-        Set the gains of all the detectors for each timestep (unitless).
+        Set the gains of all 2 pair detectors for each timestep (unitless).
         This is particularly useful to introduce drifts for example.
         Default is 1., that is perfectly calibrated.
 
         Parameters
         ----------
-        new_gains : 2d array of size (2*npair, nsamples)
+        new_gains : 2d array of size (2, nsamples)
             Array containing the gain value for all detectors
             (nsamples number per detector).
 
@@ -345,19 +345,19 @@ class TimeOrderedDataPairDiff():
         1.0
 
         Change the value of gains every other sample.
-        >>> new_gains = np.ones((2 * tod.npair, tod.nsamples))
+        >>> new_gains = np.ones((2, tod.nsamples))
         >>> new_gains[:, ::2] = 2.
-        >>> tod.set_detector_gains_pertimesample(new_gains=new_gains)
+        >>> tod.set_detector_gains_perpair(new_gains=new_gains)
         >>> print(tod.gain[0][0:4])
         [ 2.  1.  2.  1.]
         """
         if new_gains is not None:
             msg = "You have to provide ({}, {}) new gain values!"
-            assert new_gains.shape == (2*self.npair, self.nsamples), \
-                ValueError(msg.format(2 * self.npair, self.nsamples))
+            assert new_gains.shape == (2, self.nsamples), \
+                ValueError(msg.format(2, self.nsamples))
             self.gain = new_gains
         else:
-            self.gain = np.ones((2 * self.npair, self.nsamples))
+            self.gain = np.ones((2, self.nsamples))
 
     def get_boresightpointing(self):
         """
@@ -511,8 +511,16 @@ class TimeOrderedDataPairDiff():
             self.point_matrix[0] = index_local
 
         ## Default gain for a detector is 1.,
-        ## but you can change it using set_detector_gains.
-        norm = self.gain[ch]
+        ## but you can change it using set_detector_gains or
+        ## set_detector_gains_perpair.
+        if len(self.gain) == self.npair * 2:
+            norm = self.gain[ch]
+        elif len(self.gain) == 2:
+            # print("Gains per pair")
+            if ch % 2 == 0:
+                norm = self.gain[0]
+            else:
+                norm = self.gain[1]
 
         ## Noise simulation
         if self.noise_generator is not None:
