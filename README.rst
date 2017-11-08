@@ -10,7 +10,7 @@ s4cmb (public version)
 
 .. raw:: html
 
-    <img src="https://github.com/JulienPeloton/s4cmb/blob/master/s4cmb/data/intro.png" height="100px">
+    <img src="https://github.com/JulienPeloton/s4cmb/blob/master/s4cmb/data/intro.png" height="400px">
 
 The package
 ===============
@@ -210,5 +210,6 @@ Main developers
 Support
 ===============
 
-.. image:: https://github.com/JulienPeloton/s4cmb/blob/master/s4cmb/data/LOGO-ERC.jpg
-    :scale: 10 %
+.. raw:: html
+
+    <img src="https://github.com/JulienPeloton/s4cmb/blob/master/s4cmb/data/LOGO-ERC.jpg" height="400px">
