@@ -182,24 +182,28 @@ if __name__ == "__main__":
 
     ## Check that output = input
     if rank == 0:
+        nhit = partial2full(sky_out_tot.nhit,
+                            sky_out_tot.obspix, sky_out_tot.nside,
+                            fill_with=0.0)
+
         sky_out = partial2full(sky_out_tot.get_I(),
                                sky_out_tot.obspix, sky_out_tot.nside,
                                fill_with=0.0)
-        mask = sky_out != 0
+        mask = nhit >= 1
         assert np.all(np.abs(sky_in.I[mask] - sky_out[mask]) < 1e-9), \
             ValueError("Output not equal to input!")
 
         sky_out = partial2full(sky_out_tot.get_QU()[0],
                                sky_out_tot.obspix, sky_out_tot.nside,
                                fill_with=0.0)
-        mask = sky_out != 0
+        mask = nhit >= 10
         assert np.all(np.abs(sky_in.Q[mask] - sky_out[mask]) < 1e-9), \
             ValueError("Output not equal to input!")
 
         sky_out = partial2full(sky_out_tot.get_QU()[1],
                                sky_out_tot.obspix, sky_out_tot.nside,
                                fill_with=0.0)
-        mask = sky_out != 0
+        mask = nhit >= 10
         assert np.all(np.abs(sky_in.U[mask] - sky_out[mask]) < 1e-9), \
             ValueError("Output not equal to input!")
 

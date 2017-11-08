@@ -36,7 +36,7 @@ def inject_crosstalk_inside_SQUID(bolo_data, squid_ids, bolo_ids,
     mu : float, optional
         Mean of the Gaussian used to generate the level of leakage,
         in percent. E.g. mu=1.0 means the leakage coefficients will be
-        of order 1%.
+        centred around 1%.
     sigma : float, optional
         Width of the Gaussian used to generate the level of leakage,
         in percent. E.g. sigma=1.0 means the leakage coefficients will be
