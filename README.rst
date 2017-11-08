@@ -211,4 +211,4 @@ Support
 ===============
 
 .. figure:: https://github.com/JulienPeloton/s4cmb/blob/master/s4cmb/data/LOGO-ERC.jpg
-    :scale: 25 %
+    :scale: 10 %
