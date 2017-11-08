@@ -10,7 +10,7 @@ s4cmb (public version)
 
 
 .. image:: https://github.com/JulienPeloton/s4cmb/blob/master/s4cmb/data/intro.png
-    :scale: 25 %
+    :scale: 25
 
 The package
 ===============
