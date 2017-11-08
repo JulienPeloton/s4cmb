@@ -8,11 +8,9 @@ s4cmb (public version)
 .. image:: https://coveralls.io/repos/github/JulienPeloton/s4cmb/badge.svg
     :target: https://coveralls.io/github/JulienPeloton/s4cmb
 
+.. raw:: html
 
-.. image:: https://github.com/JulienPeloton/s4cmb/blob/master/s4cmb/data/intro.png
-    :height: 100
-    :width: 100
-    :scale: 25 %
+    <img src="https://github.com/JulienPeloton/s4cmb/blob/master/s4cmb/data/intro.png" height="100px">
 
 The package
 ===============
