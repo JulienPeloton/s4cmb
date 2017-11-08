@@ -9,7 +9,7 @@ s4cmb (public version)
     :target: https://coveralls.io/github/JulienPeloton/s4cmb
 
 
-.. figure:: https://github.com/JulienPeloton/s4cmb/blob/master/s4cmb/data/intro.png
+.. image:: https://github.com/JulienPeloton/s4cmb/blob/master/s4cmb/data/intro.png
     :scale: 25 %
 
 The package
@@ -210,5 +210,5 @@ Main developers
 Support
 ===============
 
-.. figure:: https://github.com/JulienPeloton/s4cmb/blob/master/s4cmb/data/LOGO-ERC.jpg
+.. image:: https://github.com/JulienPeloton/s4cmb/blob/master/s4cmb/data/LOGO-ERC.jpg
     :scale: 10 %
