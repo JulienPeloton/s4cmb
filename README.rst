@@ -206,3 +206,9 @@ Main developers
 ===============
 * Julien Peloton (j.peloton at sussex.ac.uk)
 * Giulio Fabbian (gfabbian at ias.u-psud.fr)
+
+Support
+===============
+
+.. figure:: https://github.com/JulienPeloton/s4cmb/blob/master/s4cmb/data/LOGO-ERC.jpg
+    :scale: 25 %
