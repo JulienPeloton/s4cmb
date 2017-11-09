@@ -103,15 +103,14 @@ How to build your own s4cmb App?
 Let's say we want to build an instrument, a scanning strategy, and scan the sky to obtain
 data. Say we also want to inject crosstalk between detectors, and then reconstruct the sky maps with the contamination.
 
-* Step 1 [parameters initialisation]: create a ini file with your parameters. The best is to copy the one provided (examples/simple_parameters.ini) and change the values to yours. Do not forget to update the paths to data!
+* Step 1 [parameters initialisation]: create a file with your parameters. The best is to copy the one provided (examples/inifiles/simple_parameters.py) and change the values to yours. Do not forget to update the paths to data!
 
 ::
 
     [s4cmb]
     ## Parameter file for a fake experiment.
     ## Run ID
-    tag = gros
-    name_instrument = fake
+    name_instrument = MyInst
 
     ...
 
