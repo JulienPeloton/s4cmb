@@ -12,6 +12,8 @@ s4cmb (public version)
 
     <img src="https://github.com/JulienPeloton/s4cmb/blob/master/s4cmb/data/intro.png" height="400px">
 
+.. contents:: **Table of Contents**
+
 The package
 ===============
 Systematics For Cosmic Microwave Background (s4cmb), is a package to
@@ -86,113 +88,26 @@ Then create a new container and run an interactive session by just running
 
 Quick examples
 ===============
-You can find notebooks describing how to use basic functionalities of s4cmb
-in a separate repository: `s4cmb_notebooks <https://github.com/JulienPeloton/s4cmb_notebooks>`_.
-We also provide a quick end-to-end example for using the package with MPI.
-Try to run (you will need the package mpi4py)
+We provide a quick end-to-end example for using the package:
 
 ::
 
-    mpirun -n <nproc> python examples/test/simple_app.py -inifile examples/inifiles/simple_parameters.py -tag test
+    python examples/test/simple_app.py -inifile examples/inifiles/simple_parameters.py -tag test
+
+You can also run it on many processors, using MPI (you will need the package mpi4py):
+
+::
+
+    mpirun -n <nproc> python examples/test/simple_app.py -inifile examples/inifiles/simple_parameters.py -tag test_MPI
 
 where nproc should not be greater than the number of scans to run.
-Note that for NERSC users, we also provide a submission script for jobs on Cori (see examples/nersc_cori.batch).
+Note that for NERSC users, we also provide a quick submission script for jobs on Cori (see examples/nersc_cori.batch).
 
-How to build your own s4cmb App?
+s4cmb bootcamp
 ===============
-Let's say we want to build an instrument, a scanning strategy, and scan the sky to obtain
-data. Say we also want to inject crosstalk between detectors, and then reconstruct the sky maps with the contamination.
 
-* Step 1 [parameters initialisation]: create a file with your parameters. The best is to copy the one provided (examples/inifiles/simple_parameters.py) and change the values to yours. Do not forget to update the paths to data!
-
-::
-
-    [s4cmb]
-    ## Parameter file for a fake experiment.
-    ## Run ID
-    name_instrument = MyInst
-
-    ...
-
-* Step 2 [start the App]: Create a python script, and import relevant modules
-
-::
-
-    ## python 2/3 compatibility.
-    from __future__ import division, absolute_import, print_function
-
-    ## If you want to perform parallel computation.
-    from mpi4py import MPI
-
-    ## Import modules and routines from s4cmb.
-    import s4cmb
-
-    ...
-
-* Step 3 [tell the App what to read]: link your inifile to your App. For that one we will use the module argparse for example. Also add any useful args you want to pass:
-
-::
-
-    def addargs(parser):
-        """ Parse command line arguments for s4cmb """
-
-        ## Defaults args - load instrument, scan and sky parameters
-        parser.add_argument(
-            '-inifile', dest='inifile',
-            required=True,
-            help='Configuration file with parameter values.')
-
-        ...
-
-* Step 3 [load background]: Tell the App to load the background (instrument, scan, and so on).
-
-::
-
-    if __name__ == "__main__":
-        """
-        Launch the pipeline!
-        """
-        <grab args>
-
-        ## Initialise our input maps.
-        sky_in = s4cmb.input_sky.HealpixFitsMap(...)
-
-        ## Initialise our instrument.
-        inst = s4cmb.instrument.Hardware(...)
-
-        ## Initialize our scanning strategy and run the scans.
-        scan = s4cmb.scanning_strategy.ScanningStrategy(...)
-        scan.run()
-
-* Step 4 [perform computations]: Loop over scans, and for each scan do map2tod -> inject crosstalk -> tod2map. Note that the maps are coadded on the fly so that sky_out_tot contains all scans.
-
-::
-
-    for CESnumber in range(scan.nCES):
-        tod = s4cmb.tod.TimeOrderedDataPairDiff(...)
-
-        ## Initialise map containers for each processor
-        if CESnumber == 0:
-            sky_out_tot = s4cmb.tod.OutputSkyMap(...)
-
-        ## Scan input map to get TODs
-        d = np.array([
-            tod.map2tod(det) for det in range(inst.focal_plane.nbolometer)])
-
-        ## Inject crosstalk
-        s4cmb.systematics.inject_crosstalk_inside_SQUID(d, ...)
-
-        ## Project TOD back to maps
-        tod.tod2map(d, sky_out_tot)
-
-* Step 5 [write on disk your maps]: We provide some routines to write fits file but feel free to write your routines with your favourite I/O!
-
-::
-
-    s4cmb.xpure.write_maps_a_la_xpure(...)
-    s4cmb.xpure.write_weights_a_la_xpure(...)
-
-Et voilà! You can find this complete example in examples/so_crosstalk_app.py.
+You can find a bootcamp in two parts (notebooks + examples) at `s4cmb-resources <https://github.com/JulienPeloton/s4cmb-resources>`_.
+The goal of this bootcamp is to describe the basic parts of the API, and provide ready-to-use examples (for use on laptop and supercomputer).
 
 
 TODO
