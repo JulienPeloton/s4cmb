@@ -136,8 +136,7 @@ class ScanningStrategy():
          52.1892, 54.4114, 56.6336, 58.8558,
          61.078, 63.3002, 65.5226, 35.2126]
 
-        Only the observation of a deep patch (5 percent of the sky
-        in the southern hemisphere) is currently available.
+        Only few scanning strategies are currently available:
         >>> scan = ScanningStrategy(name_strategy='toto')
         ... # doctest: +NORMALIZE_WHITESPACE, +ELLIPSIS
         Traceback (most recent call last):
@@ -249,20 +248,18 @@ class ScanningStrategy():
             Returns True if the scan has been generated, and False if the scan
             already exists on the disk.
         """
-        ## Check if we have enough information to make a scan
-        if getattr(self, 'az_min') and getattr(self, 'dec_min'):
-            print("You cannot specify azimuth and declination!")
-            exit(1)
-        elif getattr(self, 'az_max') and getattr(self, 'dec_max'):
-            print("You cannot specify azimuth and declination!")
-            exit(1)
+        ## Check if we have too much/enough information to make a scan
+        msg = "You cannot specify azimuth and declination!"
+        assert (getattr(self, 'az_min') and not getattr(self, 'dec_min')) or \
+            (not getattr(self, 'az_min') and getattr(self, 'dec_min')), msg
+        assert (getattr(self, 'az_max') and not getattr(self, 'dec_max')) or \
+            (not getattr(self, 'az_max') and getattr(self, 'dec_max')), msg
 
-        if getattr(self, 'begin_LST') and getattr(self, 'begin_RA'):
-            print("You cannot specify LST and RA!")
-            exit(1)
-        if getattr(self, 'end_LST') and getattr(self, 'end_RA'):
-            print("You cannot specify LST and RA!")
-            exit(1)
+        msg = "You cannot specify LST and RA!"
+        assert (getattr(self, 'begin_LST') and not getattr(self, 'begin_RA')) or \
+            (not getattr(self, 'begin_LST') and getattr(self, 'begin_RA')), msg
+        assert (getattr(self, 'end_LST') and not getattr(self, 'end_RA')) or \
+            (not getattr(self, 'end_LST') and getattr(self, 'end_RA')), msg
 
         if getattr(self, 'az_min') and getattr(self, 'az_max'):
             msg = 'You need to define timing bounds!'
@@ -540,7 +537,8 @@ class ScanningStrategy():
 
         Examples
         ----------
-        >>> scan = ScanningStrategy(sampling_freq=1., nces=2)
+        >>> scan = ScanningStrategy(sampling_freq=1., nces=2,
+        ...     name_strategy='deep_patch')
         >>> scan.run()
         >>> print(scan.scan0['firstmjd'], scan.scan0['lastmjd'])
         56293.6202546 56293.8230093
@@ -552,10 +550,33 @@ class ScanningStrategy():
         codes you need first to compile it. See the setup.py or
         the provided Makefile.
         >>> scan = ScanningStrategy(sampling_freq=1., nces=2,
-        ...     language='fortran')
+        ...     language='fortran', name_strategy='shallow_patch')
         >>> scan.run()
-        >>> print(scan.scan0['firstmjd'], scan.scan0['lastmjd'])
-        56293.6202546 56293.8230093
+        >>> print(round(scan.scan0['firstmjd'], 2))
+        56293.37
+
+        Note that you can create your own scanning strategy. First choose
+        the custom ones (set everything to None):
+        >>> scan = ScanningStrategy(sampling_freq=1., nces=2,
+        ...     language='fortran', name_strategy='custom')
+
+        And then define your own parameters. Example:
+        >>> scan.nces = 1
+        >>> scan.elevation = [30.]
+        >>> scan.az_min = [60.]
+        >>> scan.az_max = [100.]
+        >>> scan.begin_LST = ['17:00:00.00']
+        >>> scan.end_LST = ['22:00:00.00']
+        >>> scan.run()
+
+        Note that you To create a scanning strategy within s4cmb,
+        you need to specify either
+        * Elevations + minimum and maximum azimuths (spatial bounds) +
+            begining and end Local Sidereal Times (timing bounds)
+        * Elevations + minimum and maximum declinations +
+            begining and end Right Ascensions (spatial & timing bounds) +
+            orientations (east/west)
+
         """
         ## Initialise the date and loop over CESes
         self.telescope_location.date = self.start_date
