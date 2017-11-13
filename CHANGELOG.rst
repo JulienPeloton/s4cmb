@@ -2,6 +2,11 @@ v0.x.x
 =============
 * Current version.
 
+v0.5.3
+=============
+* Add ACT scanning strategy, and custom scanning strategy.
+* Add link to the bootcamp in the description (now at `s4cmb-resources <https://github.com/JulienPeloton/s4cmb-resources>`_).
+
 v0.5.2
 =============
 * Improve coverage and coverage tool.
@@ -16,7 +21,7 @@ v0.5.1
 * Fix bug in bolometer coordinates in the focal plane (it was mixed with pair coordinates).
 * Allow routine in HealpixFitsMap to read alms files directly.
 * Allow the mapping per detector pair to save memory.
-* Remove the notebooks from the repo (now at `s4cmb_notebooks <https://github.com/JulienPeloton/s4cmb_notebooks>`_ ).
+* Remove the notebooks from the repo (now at `s4cmb_notebooks <https://github.com/JulienPeloton/s4cmb_notebooks>`_).
 * Add new routines to simulate differential pointing.
 * Add new routines to define detectors gain.
 
