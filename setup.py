@@ -59,9 +59,9 @@ if __name__ == "__main__":
 
     setup(
         configuration=configuration,
-        version='0.5.2',
+        version='0.5.3',
         url='https://github.com/JulienPeloton/s4cmb',
-        download_url='https://github.com/JulienPeloton/s4cmb/archive/0.5.2.tar.gz',
+        download_url='https://github.com/JulienPeloton/s4cmb/archive/0.5.3.tar.gz',
         license='GPL-3.0',
         author='Julien Peloton',
         author_email='j.peloton@sussex.ac.uk',
