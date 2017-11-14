@@ -121,6 +121,10 @@ Main developers
 * Julien Peloton (j.peloton at sussex.ac.uk)
 * Giulio Fabbian (gfabbian at ias.u-psud.fr)
 
+Thanks to
+===============
+* @ngoecknerwald: original author for a large part of the scanning strategy module.
+
 Support
 ===============
 
