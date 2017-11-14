@@ -5,7 +5,7 @@ v0.x.x
 v0.5.3
 =============
 * Add ACT scanning strategy, and custom scanning strategy.
-* Add link to the bootcamp in the description (now at `s4cmb-resources <https://github.com/JulienPeloton/s4cmb-resources>`_).
+* Add link to the bootcamp in the description (`s4cmb-resources <https://github.com/JulienPeloton/s4cmb-resources>`_).
 
 v0.5.2
 =============
