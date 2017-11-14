@@ -47,19 +47,19 @@ You can easily install the package using pip
     pip install s4cmb
 
 Otherwise you can fork the repo from the github repository and clone it to your machine.
-Use the setup.py for the installation. Just run:
+Once you have the repo cloned on your machine, use the makefile to compile the source
 
 ::
 
-    python setup.py install
+    cd /path/to/s4cmb
+    pip install -r requirements.txt
+    make
 
-Make sure you have correct permissions (otherwise just add --user at the end of the command).
-You can also directly use the code by updating manually your PYTHONPATH.
-Just add in your bashrc:
+Do not forget to update your PYTHONPATH. Just add in your bashrc:
 
 ::
 
-    s4cmbPATH=/path/to/the/package
+    s4cmbPATH=/path/to/the/s4cmb
     export PYTHONPATH=$PYTHONPATH:$s4cmbPATH
 
 Then run the test suite and the coverage:
