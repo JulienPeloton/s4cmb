@@ -488,7 +488,8 @@ class TimeOrderedDataPairDiff():
             xmin = - self.width/2.*np.pi/180.
             ymin = - self.width/2.*np.pi/180.
             index_global, index_local = build_pointing_matrix(
-                ra, dec, self.HealpixFitsMap.nside,
+                ra, dec, nside_in=self.HealpixFitsMap.nside,
+                nside_out=self.nside_out,
                 xmin=xmin,
                 ymin=ymin,
                 pixel_size=self.pixel_size,
@@ -499,7 +500,8 @@ class TimeOrderedDataPairDiff():
             sign = -1.
         elif self.projection == 'healpix':
             index_global, index_local = build_pointing_matrix(
-                ra, dec, self.HealpixFitsMap.nside, obspix=self.obspix,
+                ra, dec, nside_in=self.HealpixFitsMap.nside,
+                nside_out=self.nside_out, obspix=self.obspix,
                 cut_outliers=True, ext_map_gal=self.HealpixFitsMap.ext_map_gal,
                 projection=self.projection)
             sign = 1.
@@ -1243,8 +1245,8 @@ def partial2full(partial_obs, obspix, nside, fill_with=0.0):
     fullsky[obspix] = partial_obs
     return fullsky
 
-def build_pointing_matrix(ra, dec, nside, projection='healpix',
-                          obspix=None, ext_map_gal=False,
+def build_pointing_matrix(ra, dec, nside_in, nside_out=None,
+                          projection='healpix', obspix=None, ext_map_gal=False,
                           xmin=None, ymin=None,
                           pixel_size=None, npix_per_row=None,
                           cut_outliers=True):
@@ -1271,53 +1273,81 @@ def build_pointing_matrix(ra, dec, nside, projection='healpix',
         RA coordinates of the detector in radian.
     dec : float or 1d array
         Dec coordinates of the detector in radian.
-    nside : int
+    nside_in : int
+        Resolution of the input map.
+    nside_out : int
         Resolution for the output map.
     obspix : 1d array, optional
         Array with indices of observed pixels for the sky patch (used to make
         the conversion global indices to local indices).
-        Should have been built with nside. Default is None.
+        Should have been built with nside_out. Default is None.
+    ext_map_gal : bool, optional
+        If True, perform a rotation of the RA/Dec coordinate to Galactic
+        coordinates prior to compute healpix indices. Defaut is False.
+    xmin : int, optional
+        In flat sky projection, the patch is centered on (x0, y0)
+        and has a width=w. We define xmin = x0 - w/2. * np.pi/180.
+    ymin : int, optional
+        In flat sky projection, the patch is centered on (x0, y0)
+        and has a width=w. We define ymin = y0 - w/2. * np.pi/180.
+    pixel_size : float, optional
+        The pixel size for the output maps if projection=flat. In radian.
+    npix_per_row : int, optional
+        In flat sky projection, it corresponds to the number of pixel per row.
+        In other word, this is the square root of the total number of pixels
+        in your square patch.
     cut_outliers : bool, optional
         If True assign -1 to pixels not in obspix. If False, the routine
         crashes if there are pixels outside. No effet if obspix
         is not provided. Default is True.
-    ext_map_gal : bool, optional
-        If True, perform a rotation of the RA/Dec coordinate to Galactic
-        coordinates prior to compute healpix indices. Defaut is False.
 
     Returns
     ----------
     index_global : float or 1d array
-        The indices of pixels for a full sky healpix map.
+        The input pixels seen labeled as if it was a full sky healpix map.
+        To be used for the projection map2tod.
     index_local : None or float or 1d array
         The indices of pixels relative to where they are in obspix. None if
-        obspix is not provided.
+        obspix is not provided. To be used for the projection tod2map.
 
     Examples
     ----------
-    >>> index_global, index_local = build_pointing_matrix(0.0, -np.pi/4, 16)
+    >>> index_global, index_local = build_pointing_matrix(0.0, -np.pi/4,
+    ...     nside_in=16)
     >>> print(index_global)
     2592
 
     >>> index_global, index_local = build_pointing_matrix(
+    ...     np.array([0.0, 0.0]), np.array([-np.pi/1000, np.pi/1000]),
+    ...     nside_in=16, projection='flat', xmin=-30./60.*np.pi/180.,
+    ...     ymin=-30./60.*np.pi/180., pixel_size=15. / 60. * np.pi / 180.,
+    ...     npix_per_row=4)
+    >>> print(index_local)
+    [ 9 11]
+
+    >>> index_global, index_local = build_pointing_matrix(
     ... np.array([0.0, 0.0]), np.array([-np.pi/4, np.pi/4]),
-    ...  nside=16, obspix=np.array([0, 1200, 2592]))
+    ...  nside_in=16, nside_out=8, obspix=np.array(range(12*16**2)))
     >>> print(index_global, index_local)
-    [2592  420] [ 2 -1]
+    [2592  420] [624 112]
     """
+    if nside_out is None:
+        nside_out = nside_in
+
     theta, phi = radec2thetaphi(ra, dec)
     if ext_map_gal:
         r = hp.Rotator(coord=['C', 'G'])
         theta, phi = r(theta, phi)
 
-    index_global = hp.ang2pix(nside, theta, phi)
+    index_global = hp.ang2pix(nside_in, theta, phi)
 
     if projection == 'healpix' and obspix is not None:
+        index_global_out = hp.ang2pix(nside_out, theta, phi)
         npixsky = len(obspix)
-        index_local = obspix.searchsorted(index_global)
+        index_local = obspix.searchsorted(index_global_out)
         mask1 = index_local < npixsky
         loc = mask1
-        loc[mask1] = obspix[index_local[mask1]] == index_global[mask1]
+        loc[mask1] = obspix[index_local[mask1]] == index_global_out[mask1]
         outside_pixels = np.invert(loc)
         if (np.sum(outside_pixels) and (not cut_outliers)):
             raise ValueError(
