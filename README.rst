@@ -44,7 +44,7 @@ Installation
 The type of installation depends on what you want to do with the code:
 just using it or also developing it?
 
-**I just want to use the code**
+**I just want to use the code:**
 
 You can easily install the package using pip
 
@@ -52,7 +52,7 @@ You can easily install the package using pip
 
     pip install s4cmb
 
-**In addition to use the code, I want to be a developer**
+**In addition to use the code, I want to be a developer:**
 
 The best is to fork the repo from this github repository to your account and clone it to your machine.
 Once you have the repo cloned on your machine, use the makefile to compile the source
@@ -107,7 +107,7 @@ In addition, to display images, you should add
 
 at the beginning of each notebook.
 
-**Alternative use notebooks at NERSC**
+**Alternative use of notebooks at NERSC**
 
 Alternatively, you can execute notebooks at NERSC directly, using the command
 
