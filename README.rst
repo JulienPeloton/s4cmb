@@ -36,7 +36,7 @@ Some parts of the pipeline are written in C (and compiled on-the-fly via the
 package weave), and in Fortran (to come). The latter is interfaced with
 python using f2py. The compilation is done usually when you install the
 package (see setup.py), but we also provide a Makefile for more
-customized compilations (see dir/Makefile).
+customized compilations (see the Makefile in s4cmb).
 
 Installation
 ===============
@@ -70,7 +70,50 @@ Then run the test suite and the coverage:
 
 It should print the actual coverage of the test suite, and exit with no errors.
 
-Installation using Docker
+Installation and usage at NERSC
+===============
+
+While working at NERSC, it's better to keep most of your packages under Anaconda.
+I recommend to have a look first at the `NERSC page <https://www.nersc.gov/users/data-analytics/data-analytics-2/python/anaconda-python/>`_ describing how to use it.
+
+The installation of s4cmb can be done in few steps:
+
+* Clone the repo somewhere in your $HOME
+* Install dependencies (see requirements.txt) using Anaconda
+* Compile the source (using make in /path/s4cmb)
+
+If you want to run jupyter notebooks, see `here <http://www.nersc.gov/users/data-analytics/data-analytics-2/jupyter-and-rstudio/>`_.
+Note that jupyter.nersc.gov doesn't source your bashrc (so you won't have by default access to your modules). For a more advanced use,
+log on to jupyter-dev.nersc.gov (however, frequent errors occur... Especially conflict with your $PYTHONPATH and $JUPYTER_PATH).
+In addition, to display images, you should add
+
+::
+
+    %matplotlib inline
+
+at the beginning of each notebook.
+
+**Alternative use notebooks at NERSC**
+
+Alternatively, you can execute notebooks at NERSC directly, using the command
+
+::
+
+    jupyter nbconvert --to <desired_output_format> <your_notebook>.ipynb
+
+Output formats can be
+
+::
+
+    ['custom', 'html', 'latex', 'markdown', 'notebook', 'pdf', 'python', 'rst', 'script', 'slides']
+
+See the various options using
+
+::
+
+    jupyter-nbconvert --help
+
+Working with Docker
 ===============
 Alternatively if you do not want install the package on your computer,
 we provide a docker image for s4cmb with always the latest version. Install
