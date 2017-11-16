@@ -73,7 +73,13 @@ It should print the actual coverage of the test suite, and exit with no errors.
 Installation and usage at NERSC
 ===============
 
-While working at NERSC, it's better to keep most of your packages under Anaconda.
+Again, you can easily install the package using pip
+
+::
+
+    pip install s4cmb --user
+
+Alternatively, if you want to do dev at NERSC and do a manual installation, it's better to keep most of your packages under Anaconda.
 I recommend to have a look first at the `NERSC page <https://www.nersc.gov/users/data-analytics/data-analytics-2/python/anaconda-python/>`_ describing how to use it.
 
 The installation of s4cmb can be done in few steps:
@@ -167,6 +173,7 @@ Main developers
 Thanks to
 ===============
 * @ngoecknerwald: original author for a large part of the scanning strategy module.
+* @giuspugl, @dpole, @joydidier for all valuable comments, tests, and feedbacks!
 
 Support
 ===============
