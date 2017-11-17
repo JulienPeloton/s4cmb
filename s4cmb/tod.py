@@ -16,6 +16,9 @@ import cPickle as pickle
 
 from numpy.fft import fft, fftfreq, fftshift
 
+from scipy.signal import firwin
+from scipy import fftpack
+
 from s4cmb.detector_pointing import Pointing
 from s4cmb.detector_pointing import radec2thetaphi
 from s4cmb import input_sky
@@ -626,6 +629,348 @@ class TimeOrderedDataPairDiff():
         # Garbage collector guard
         wafermask_pixel
 
+
+class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
+    """ Class to """
+    def __init__(self, hardware, scanning_strategy, HealpixFitsMap,
+                 CESnumber, projection='healpix',
+                 nside_out=None, pixel_size=None, width=20.,
+                 array_noise_level=None, array_noise_seed=487587,
+                 mapping_perpair=False):
+        """
+        C'est parti!
+
+        Parameters
+        ----------
+        hardware : Hardware instance
+            Instance of Hardware containing instrument parameters and models.
+        scanning_strategy : ScanningStrategy instance
+            Instance of ScanningStrategy containing scan parameters.
+        HealpixFitsMap : HealpixFitsMap instance
+            Instance of HealpixFitsMap containing input sky parameters.
+        CESnumber : int
+            Number of the scan to simulate. Must be between 0 and
+            scanning_strategy.nces - 1.
+        projection : string, optional
+            Type of projection for the output map. Currently available:
+            healpix, flat. Here is a warning: Because of projection artifact,
+            if you choose flat projection, then we will scan the sky *as if
+            it was centered in [0., 0.]*. Therefore, one cannot for the moment
+            compared directly healpix and flat runs.
+        nside_out : int, optional
+            The resolution for the output maps if projection=healpix.
+            Default is nside of the input map.
+        pixel_size : float, optional
+            The pixel size for the output maps if projection=flat.
+            In arcmin. Default is resolution of the input map.
+        width : float, optional
+            Width for the output map in degree.
+        array_noise_level : float, optional
+            Noise level for the whole array in [u]K.sqrt(s). If not None, it
+            will inject on-the-fly noise in time-domain while scanning
+            the input map (map2tod). WARNING: units has to be same as the
+            input map! Note also that it corresponds to the polarisation level.
+        array_noise_seed : int, optional
+            Seed used to generate random numbers to simulate noise.
+            From this single seed, we generate a list of seeds
+            for all detectors. Has an effect only if array_noise_level is
+            provided.
+        mapping_perpair : bool, optional
+            If True, assume that you want to process pairs of bolometers
+            one-by-one, that is pairs are uncorrelated. Default is False (and
+            should be False unless you know what you are doing).
+        """
+        TimeOrderedDataPairDiff.__init__(
+            self, hardware, scanning_strategy, HealpixFitsMap,
+            CESnumber, projection=projection,
+            nside_out=nside_out, pixel_size=pixel_size, width=width,
+            array_noise_level=array_noise_level,
+            array_noise_seed=array_noise_seed, mapping_perpair=mapping_perpair)
+
+        ## Prepare the demodulation of timestreams
+        self.dm = Demodulation(
+            self.scanning_strategy.sampling_freq,
+            self.hwpangle)
+
+        ## Prepare the filters use for the demodulation
+        self.dm.prepfilter([4], [1.9], f0=1.9)
+        self.dm.prepfftedfilter(nt=self.nsamples)
+
+    def demodulate_timestreams(self, ts):
+        """
+        """
+        outshape = (ts.shape[0], 3, ts.shape[1])
+        newts = np.zeros(outshape)
+
+        self.dm.b = ts
+        # dm.b.copy()
+        self.dm.br = ts
+
+        ## Do temperature
+        self.dm.demod(0)
+        newts[:, 0, :] = self.dm.bm.real
+
+        ## Do 4f component (effectively polarisation)
+        self.dm.demod(4)
+        newts[:, 1, :] = self.dm.bm.real
+        newts[:, 2, :] = self.dm.bm.imag
+
+        return newts
+
+class Demodulation():
+    """
+    """
+    def __init__(self, sampling_freq, hwp_angles):
+        """
+        """
+        self.sampling_freq = sampling_freq
+        self.hwp_angles = hwp_angles
+
+        ## In Hz
+        self.speed = np.median(
+            np.diff(self.hwp_angles)) * self.sampling_freq / (2 * np.pi)
+
+        ## Nyquist frequency at half the sampling
+        self.nyq = self.sampling_freq / 2.
+
+    def prepfilter(self, modes, bands=None,
+                   f0=1.95, numtaps=None, relative=True):
+        """
+        Prepare the filters used for the demodulation (real space).
+
+        Parameters
+        ----------
+        modes : 1D array
+        """
+        ## Need to investigate its impact
+        # self.delfilter()
+        if numtaps is None:
+            if self.nyq < 100./6:
+                numtaps = 255
+            else:
+                numtaps = 1023
+
+        self.modes = np.array([modes]).flatten()
+
+        if bands is None:
+            self.bands = np.ones(self.modes.shape) * self.speed
+        else:
+            self.bands = np.array([bands]).flatten()
+            if self.bands.size == 1:
+                self.bands = np.tile(self.bands, self.modes.size)
+
+            if relative:
+                self.bands *= self.speed
+                f0 *= self.speed
+
+        bad = (self.modes * self.speed + self.bands > self.nyq)
+
+        print('MODES', self.modes)
+        print('SPEED', self.speed)
+        print('BANDS', self.bands)
+        print('FREQ', self.modes * self.speed + self.bands)
+        print('NYQUIST', self.nyq)
+
+        if bad.any():
+            print('mode', self.modes[bad], 'are over nyq.')
+            self.modes = self.modes[~bad]
+            self.bands = self.bands[~bad]
+
+        self.lpf0 = firwin(numtaps, f0, nyq=self.nyq)
+
+        ## Construct the filters
+        self.lpfs = []
+        self.bpfs = []
+        for mode, band in zip(self.modes, self.bands):
+            self.lpfs.append(firwin(numtaps, band, nyq=self.nyq))
+            bpfreal = firwin(
+                numtaps,
+                [self.speed * mode - band, self.speed * mode + band],
+                nyq=self.nyq,
+                pass_zero=False)
+
+            fbpf = fftpack.fft(bpfreal)
+            fbpf[: int((numtaps + 1) / 2)] = 0.
+            self.bpfs.append(fftpack.ifft(fbpf))
+
+        self.bpfs = np.array(self.bpfs)
+        self.lpfs = np.array(self.lpfs)
+        self.numtaps = numtaps
+
+    def prepfftedfilter(self, nt):
+        """
+        """
+        n = self.lpf0.size
+
+        fftsize = int(2 ** np.ceil(np.log2(nt + 3 * n - 1)))
+        self.flpf0 = fftpack.fft(self.lpf0, fftsize)
+
+        self.fbpfs = []
+        for bpf in self.bpfs:
+            self.fbpfs.append(fftpack.fft(bpf, fftsize))
+        self.fbpfs = np.asarray(self.fbpfs)
+
+        self.flpfs = []
+        for lpf in self.lpfs:
+            self.flpfs.append(fftpack.fft(lpf, fftsize))
+        self.flpfs = np.asarray(self.flpfs)
+
+    def demod(self, mode, bpf=True, lpf=True):
+        """
+        """
+        ## Temperature or not understood!
+        if mode not in self.modes:
+            if mode == 0:
+                if (self.br == 0.).all():
+                    self.bm = np.zeros(self.br.shape, dtype=self.br.dtype)
+                    return self.bm
+
+                if hasattr(self, 'flpf0'):
+                    flpf0 = self.flpf0
+                else:
+                    flpf0 = None
+
+                self.bm = convolvefilter(self.br, self.lpf0, flpf0)
+                return self.bm
+            else:
+                print('Filters for', mode, 'is not prepared!')
+                return None
+
+        ## Polarisation
+        else:
+            i = np.where(self.modes == mode)[0][0]
+
+        if hasattr(self, 'bm'):
+            del(self.bm)
+
+        if (self.br == 0.).all():
+            self.bm = np.zeros(self.br.shape, dtype=self.br.dtype) + 0.j
+            return self.bm
+
+        if bpf:
+            bpf = self.bpfs[i]
+            try:
+                fbpf = self.fbpfs[i]
+            except(AttributeError, IndexError):
+                fbpf = None
+        else:
+            bpf = None
+        if lpf:
+            lpf = self.lpfs[i]
+            try:
+                flpf = self.flpfs[i]
+            except(AttributeError, IndexError):
+                flpf = None
+        else:
+            lpf = None
+
+        self.bm = demod(self.br, np.exp(1.j * mode * self.hwp_angles),
+                        bpf=bpf, lpf=lpf, fbpf=fbpf, flpf=flpf)
+
+        return self.bm
+
+
+def demod(x, e, bpf=None, lpf=None, fbpf=None, flpf=None):
+    """
+    Actual demodulation scheme for a timestream vector x.
+    First multiply x by 2*e, and then apply Low Pass Filter and/or Band Pass
+    Filter to 2*e*x to isolate the desired part of the signal.
+
+    Parameters
+    ----------
+    x : 1D array
+        Your timestream.
+    e : 1D array
+        Vector containing the value of a complex exponential: exp(i * theta)
+    bpf : 1D array, optional
+        Coefficients of a Band Pass Filter to apply to the data.
+        See scipy.signal.firwin
+    lpf : 1D array, optional
+        Coefficients of a Low Pass Filter to apply to the data.
+        See scipy.signal.firwin
+    fbpf : float, optional
+        FFTed coefficients of the Band Pass Filter to apply to the data
+    flpf : float, optional
+        FFTed coefficients of the Low Pass Filter to apply to the data
+
+    Returns
+    ----------
+    u : 1D array
+        Demodulated part of x.
+
+    Examples
+    ----------
+    # >>> x = np.ones(10) + np.cos(...)
+    """
+    u = np.ones(list(x.shape[:-1]) + [1], x.dtype) * 2. * e
+    if bpf is not None:
+        u *= convolvefilter(x, bpf, fbpf)
+    else:
+        u *= x
+    if lpf is not None:
+        u = convolvefilter(u, lpf, flpf)
+    return u
+
+def convolvefilter(x, f, ff=None, isreal=False):
+    """
+    Apply filter f to a timestream x (convolution)
+
+    Parameters
+    ----------
+    x : 1D array
+        Your timestream vector.
+    f : 1D array
+        Coefficients of a finite impulse response filter.
+        See scipy.signal.firwin
+    ff : 1D array, optional
+        FFT of the coefficients of a finite impulse response filter.
+        See scipy.fftpack.fft
+    ireal : bool, optional
+        If True, return only the real part of the filtered x.
+
+    Returns
+    ----------
+
+    """
+    # since f might not be numpy.ndarray
+    assert np.ndim(f) == 1
+
+    ## Get shapes
+    init_shape = x.shape
+    n = f.size
+    nt = init_shape[-1]
+
+    ## How many FFTs to perform
+    fftsize = int(2 ** np.ceil(np.log2(nt + 3 * n - 1)))
+    fftslice = (slice(None), slice((3 * n - 1) // 2, (3 * n - 1) // 2 + nt))
+
+    ## I have changed that to save mem. Make sure change are correctly prop.
+    x2 = x.reshape(-1, nt)
+    # x = x.reshape(-1, nt)
+    u = np.zeros((init_shape[0], fftsize), (np.ones(1, x.dtype) + 0.j).dtype)
+    (u[:, : n].T)[:] = x2[:, 0]
+    u[:, n: nt + n] = x2
+    (u[:, nt + n: nt + n * 2].T)[:] = x2[:, -1]
+
+    if ff is None:
+        ff = fftpack.fft(f, fftsize)
+
+    for u1 in u:
+        fftpack.fft(u1, fftsize, overwrite_x=True)
+        u1 *= ff
+        fftpack.ifft(u1, fftsize, overwrite_x=True)
+
+    ## Condition to return the real part
+    cond1 = x.dtype == float or x.dtype == np.float32
+    cond2 = x.dtype == int or x.dtype == np.int32
+    cond3 = f.dtype == float or f.dtype == np.float32
+    cond4 = f.dtype == int or f.dtype == np.int32
+    if isreal or (cond1 or cond2) and (cond3 or cond4):
+        u = u.real
+
+    return u[fftslice].reshape(init_shape)
+
+
 class WhiteNoiseGenerator():
     """ Class to handle white noise """
     def __init__(self, array_noise_level, ndetectors, ntimesamples,
@@ -806,7 +1151,8 @@ def compute_asd(x, sample_rate, NFFT=2048, is_complex=False):
 class OutputSkyMap():
     """ Class to handle sky maps generated by tod2map """
     def __init__(self, projection,
-                 obspix=None, npixsky=None, nside=None, pixel_size=None):
+                 obspix=None, npixsky=None,
+                 nside=None, pixel_size=None, demodulation=False):
         """
         Initialise all maps: weights, projected TOD, and Stokes parameters.
 
@@ -833,6 +1179,7 @@ class OutputSkyMap():
         self.npixsky = npixsky
         self.nside = nside
         self.pixel_size = pixel_size
+        self.demodulation = demodulation
 
         if self.projection == 'healpix':
             assert self.obspix is not None, \
@@ -852,7 +1199,10 @@ class OutputSkyMap():
                 ValueError("You need to provide the size of " +
                            "pixels (pixel_size) in arcmin if projection=flat.")
 
-        self.initialise_sky_maps()
+        if not self.demodulation:
+            self.initialise_sky_maps()
+        else:
+            pass
 
     def initialise_sky_maps(self):
         """
