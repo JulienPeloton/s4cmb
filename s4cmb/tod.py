@@ -34,7 +34,7 @@ class TimeOrderedDataPairDiff():
                  CESnumber, projection='healpix',
                  nside_out=None, pixel_size=None, width=20.,
                  array_noise_level=None, array_noise_seed=487587,
-                 mapping_perpair=False):
+                 mapping_perpair=False, verbose=False):
         """
         C'est parti!
 
@@ -79,6 +79,7 @@ class TimeOrderedDataPairDiff():
             should be False unless you know what you are doing).
         """
         ## Initialise args
+        self.verbose = verbose
         self.hardware = hardware
         self.scanning_strategy = scanning_strategy
         self.HealpixFitsMap = HealpixFitsMap
@@ -436,7 +437,7 @@ class TimeOrderedDataPairDiff():
         >>> angles = tod.compute_simpolangle(ch=0,
         ...     parallactic_angle=np.array([np.pi] * tod.nsamples))
         >>> print(angles[:4])
-        [  0.          25.13274123  50.26548246  75.39822369]
+        [ 0.          0.31415927  0.62831853  0.9424778 ]
         """
         if not polangle_err:
             ang_pix = (90.0 - self.intrinsic_polangle[ch]) * d2r
@@ -651,7 +652,7 @@ class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
                  CESnumber, projection='healpix',
                  nside_out=None, pixel_size=None, width=20.,
                  array_noise_level=None, array_noise_seed=487587,
-                 mapping_perpair=False):
+                 mapping_perpair=False, verbose=False):
         """
         C'est parti!
 
@@ -694,25 +695,57 @@ class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
             If True, assume that you want to process pairs of bolometers
             one-by-one, that is pairs are uncorrelated. Default is False (and
             should be False unless you know what you are doing).
+
+        Examples
+        ----------
+        HEALPIX: Test the routines MAP -> TOD -> MAP.
+        >>> inst, scan, sky_in = load_fake_instrument()
+        >>> tod = TimeOrderedDataDemod(inst, scan, sky_in,
+        ...     CESnumber=0, projection='healpix', mapping_perpair=True)
+        >>> d = np.array([tod.map2tod(det) for det in range(2)])
+        >>> d = tod.demodulate_timestreams(d)
+        >>> m = OutputSkyMap(projection=tod.projection,
+        ...     nside=tod.nside_out, obspix=tod.obspix, demodulation=True)
+        >>> tod.tod2map(d, m)
         """
         TimeOrderedDataPairDiff.__init__(
             self, hardware, scanning_strategy, HealpixFitsMap,
             CESnumber, projection=projection,
             nside_out=nside_out, pixel_size=pixel_size, width=width,
             array_noise_level=array_noise_level,
-            array_noise_seed=array_noise_seed, mapping_perpair=mapping_perpair)
+            array_noise_seed=array_noise_seed,
+            mapping_perpair=mapping_perpair,
+            verbose=verbose)
 
         ## Prepare the demodulation of timestreams
         self.dm = Demodulation(
+            self.hardware.half_wave_plate.freq_hwp,
             self.scanning_strategy.sampling_freq,
-            self.hwpangle)
+            self.hwpangle,
+            self.verbose)
 
         ## Prepare the filters use for the demodulation
-        self.dm.prepfilter([4], [1.9], f0=1.9)
+        self.dm.prepfilter([4], [1.9])
         self.dm.prepfftedfilter(nt=self.nsamples)
 
     def demodulate_timestreams(self, ts):
         """
+        Perform the demodulation of timestreams, that is split full timestream
+        according to their HWP frequency dependency:
+        d --> d0 (intensity) and d4r + j * d4i (polarisation).
+
+        Careful, memory requirement explodes here! You go from an array of size
+        (ndet, nbolometer) to (ndet, 3, nbolometer), that is you need 3x more
+        memory.
+
+        Parameters
+        ----------
+        ts : array of size (ndet, nbolometer)
+            Array of timestreams.
+
+        Returns
+        ----------
+        newts : array of size (ndet, 3, nbolometer)
         """
         outshape = (ts.shape[0], 3, ts.shape[1])
         newts = np.zeros(outshape)
@@ -734,13 +767,35 @@ class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
 
 
 class Demodulation():
-    """
-    """
-    def __init__(self, sampling_freq, hwp_angles):
+    """ Class to handle demodulation of timestreams """
+    def __init__(self, hwp_freq, sampling_freq, hwp_angles, verbose=False):
         """
+        Demodulation of timestreams means here that we estimate I, Q and U
+        from a single detector timstream. That is possible realising that I
+        is the 0f component while Q and U are 4f components wrt the HWP angle.
+
+        The demodulation comports two parts. The first one is to prepare the
+        low pass filter and band pass filter that will be used to split out
+        I and Q&U. The second part is to rotate fields (effectively applying
+        a complex exp) and convolving them with the filters.
+
+        Parameters
+        ----------
+        hwp_freq : float
+            HWP spin frequency in Hz.
+        sampling_freq : float
+            Detector sampling frequency in Hz.
+        hwp_angles : 1D array
+            Array containing the hwp angles sampled at the detector
+            sampling frequency. In radians.
+
+        For examples, see TimeOrderedDataDemod.
+
         """
+        self.hwp_freq = hwp_freq
         self.sampling_freq = sampling_freq
         self.hwp_angles = hwp_angles
+        self.verbose = verbose
 
         ## In Hz
         self.speed = np.median(
@@ -749,17 +804,29 @@ class Demodulation():
         ## Nyquist frequency at half the sampling
         self.nyq = self.sampling_freq / 2.
 
-    def prepfilter(self, modes, bands=None,
-                   f0=1.95, numtaps=None, relative=True):
+    def prepfilter(self, modes, bands=None, numtaps=None, relative=True):
         """
         Prepare the filters used for the demodulation (real space).
 
         Parameters
         ----------
-        modes : 1D array
+        modes : 1D array of int
+            This is where you specify which multiplier of hwp_freq you care
+            about. For example if you want the 4f component of your
+            timestream, modes = [4]. Intensity (0) is never specified.
+            For the moment, only 4f is implemented.
+        bands : 1D array of int
+            Band width around your frequency of interest [Hz]. If not
+            specified, it is equal to the speed of the HWP.
+        numtaps : int, optional
+            Length of the filter (number of coefficients, i.e. the filter
+            order + 1).  `numtaps` must be even if a passband includes the
+            Nyquist frequency.
+        relative : bool
+            If True, bands and HWP frequency are relative to the HWP speed.
+            Default is True.
+
         """
-        ## Need to investigate its impact
-        # self.delfilter()
         if numtaps is None:
             if self.nyq < 100./6:
                 numtaps = 255
@@ -777,22 +844,22 @@ class Demodulation():
 
             if relative:
                 self.bands *= self.speed
-                f0 *= self.speed
+                self.hwp_freq *= self.speed
 
         bad = (self.modes * self.speed + self.bands > self.nyq)
 
-        print('MODES', self.modes)
-        print('SPEED', self.speed)
-        print('BANDS', self.bands)
-        print('FREQ', self.modes * self.speed + self.bands)
-        print('NYQUIST', self.nyq)
-
         if bad.any():
+            print('You need freq = modes * speed + bands < nyquist')
+            print('MODES', self.modes)
+            print('SPEED', self.speed)
+            print('BANDS', self.bands)
+            print('FREQ', self.modes * self.speed + self.bands)
+            print('NYQUIST', self.nyq)
             print('mode', self.modes[bad], 'are over nyq.')
             self.modes = self.modes[~bad]
             self.bands = self.bands[~bad]
 
-        self.lpf0 = firwin(numtaps, f0, nyq=self.nyq)
+        self.lpf0 = firwin(numtaps, self.hwp_freq, nyq=self.nyq)
 
         ## Construct the filters
         self.lpfs = []
@@ -815,6 +882,12 @@ class Demodulation():
 
     def prepfftedfilter(self, nt):
         """
+        Prepare the filters used for the demodulation (Fourier space).
+
+        Parameters
+        ----------
+        nt : int
+            Length of the timestreams to filter (number of time samples).
         """
         n = self.lpf0.size
 
@@ -833,13 +906,26 @@ class Demodulation():
 
     def demod(self, mode, bpf=True, lpf=True):
         """
+        Perform the demodulation of timestreams.
+
+        TODO: self.bm and self.br are weirdly set. Get rid of self,
+        put br in args are ts, and output bm.
+
+        Parameters
+        ----------
+        mode : int
+            mode=0 is intensity, mode=4 is for polarisation (complex).
+        bpf : bool, optional
+            If True, perform a Band Pass Filtering. Default is True.
+        lpf : bool, optional
+            If True, perform a Low Pass Filtering. Default is True.
         """
         ## Temperature or not understood!
         if mode not in self.modes:
             if mode == 0:
-                if (self.br == 0.).all():
-                    self.bm = np.zeros(self.br.shape, dtype=self.br.dtype)
-                    return self.bm
+                # if (self.br == 0.).all():
+                #     self.bm = np.zeros(self.br.shape, dtype=self.br.dtype)
+                #     return self.bm
 
                 if hasattr(self, 'flpf0'):
                     flpf0 = self.flpf0
@@ -859,9 +945,9 @@ class Demodulation():
         if hasattr(self, 'bm'):
             del(self.bm)
 
-        if (self.br == 0.).all():
-            self.bm = np.zeros(self.br.shape, dtype=self.br.dtype) + 0.j
-            return self.bm
+        # if (self.br == 0.).all():
+        #     self.bm = np.zeros(self.br.shape, dtype=self.br.dtype) + 0.j
+        #     return self.bm
 
         if bpf:
             bpf = self.bpfs[i]
@@ -914,9 +1000,8 @@ def demod(x, e, bpf=None, lpf=None, fbpf=None, flpf=None):
     u : 1D array
         Demodulated part of x.
 
-    Examples
-    ----------
-    # >>> x = np.ones(10) + np.cos(...)
+    For examples, see TimeOrderedDataDemod.
+
     """
     u = np.ones(list(x.shape[:-1]) + [1], x.dtype) * 2. * e
     if bpf is not None:
@@ -946,7 +1031,10 @@ def convolvefilter(x, f, ff=None, isreal=False):
 
     Returns
     ----------
+    u : 1D array
+        Filtered x.
 
+    For examples, see TimeOrderedDataDemod.
     """
     # since f might not be numpy.ndarray
     assert np.ndim(f) == 1
@@ -960,9 +1048,7 @@ def convolvefilter(x, f, ff=None, isreal=False):
     fftsize = int(2 ** np.ceil(np.log2(nt + 3 * n - 1)))
     fftslice = (slice(None), slice((3 * n - 1) // 2, (3 * n - 1) // 2 + nt))
 
-    ## I have changed that to save mem. Make sure change are correctly prop.
     x2 = x.reshape(-1, nt)
-    # x = x.reshape(-1, nt)
     u = np.zeros((init_shape[0], fftsize), (np.ones(1, x.dtype) + 0.j).dtype)
     (u[:, : n].T)[:] = x2[:, 0]
     u[:, n: nt + n] = x2
@@ -1236,6 +1322,9 @@ class OutputSkyMap():
         * ss : projected noise weighted sine**2
         * cs : projected noise weighted cosine * sine.
 
+        Work with pair differenced data only.
+        See initialise_sky_maps_demod for demodulated data.
+
         """
         if self.demodulation:
             self.initialise_sky_maps_demod()
@@ -1256,7 +1345,8 @@ class OutputSkyMap():
     def get_I(self):
         """
         Solve for the intensity map I from projected sum timestream map d
-        and weights w: w * I = d.
+        and weights w: w * I = d. Work with pair differenced data only.
+        See get_I_demod for demodulated data.
 
         Returns
         ----------
@@ -1279,6 +1369,9 @@ class OutputSkyMap():
 
         [cc cs]   [Q]   [dc]
         [cs ss] * [U] = [ds]
+
+        Work with pair differenced data only. See get_QU_demod for
+        demodulated data.
 
         Returns
         ----------
@@ -1321,6 +1414,23 @@ class OutputSkyMap():
         [0 cc cs]   [Q]   [dc]
         [0 cs ss] * [U] = [ds]
 
+        or demodulated data:
+
+        [w0  0  0]   [I]   [d0 ]
+        [ 0 w4  0]   [Q]   [d4r]
+        [ 0  0 w4] * [U] = [d4i]
+
+        Examples
+        ----------
+        Pair difference data
+        >>> m1 = OutputSkyMap(projection='healpix',
+        ...     nside=16, obspix=np.array([0, 1, 2, 3]), demodulation=False)
+        >>> I, Q, U = m1.get_IQU()
+
+        >>> m1 = OutputSkyMap(projection='healpix',
+        ...     nside=16, obspix=np.array([0, 1, 2, 3]), demodulation=True)
+        >>> I, Q, U = m1.get_IQU()
+
         Returns
         ----------
         I : 1d array
@@ -1362,6 +1472,17 @@ class OutputSkyMap():
         >>> m1.nhit = np.ones(4)
         >>> m2 = OutputSkyMap(projection='healpix',
         ...     nside=16, obspix=np.array([0, 1, 2, 3]))
+        >>> m2.nhit = np.ones(4)
+        >>> m1.coadd(m2)
+        >>> print(m1.nhit)
+        [ 2.  2.  2.  2.]
+
+        Same idea for demodulated data.
+        >>> m1 = OutputSkyMap(projection='healpix',
+        ...     nside=16, obspix=np.array([0, 1, 2, 3]), demodulation=True)
+        >>> m1.nhit = np.ones(4)
+        >>> m2 = OutputSkyMap(projection='healpix',
+        ...     nside=16, obspix=np.array([0, 1, 2, 3]), demodulation=True)
         >>> m2.nhit = np.ones(4)
         >>> m1.coadd(m2)
         >>> print(m1.nhit)
@@ -1426,6 +1547,8 @@ class OutputSkyMap():
                   epsilon=0., verbose=False):
         """
         Save data into pickle file.
+        Work with pair differenced data only. See pickle_me_demod for
+        demodulated data.
 
         Parameters
         ----------
@@ -1477,6 +1600,9 @@ class OutputSkyMap():
         * ss : projected noise weighted sine**2
         * cs : projected noise weighted cosine * sine.
 
+        Work with demodulated data only. See initialise_sky_maps for
+        pair differenced.
+
         """
         # To accumulate A^T N^-1 d
         self.d0 = np.zeros(self.npixsky)
@@ -1492,7 +1618,7 @@ class OutputSkyMap():
     def get_I_demod(self):
         """
         Solve for the intensity map I from projected sum timestream map d
-        and weights w0: w0 * I = d0.
+        and weights w0: w0 * I = d0. Work with demodulated data only.
 
         Returns
         ----------
@@ -1510,8 +1636,10 @@ class OutputSkyMap():
         Solve for the polarisation maps from projected difference timestream
         maps and weights:
 
-        [cc cs]   [Q]   [dc]
-        [cs ss] * [U] = [ds]
+        [w4  0]   [Q]   [d4r]
+        [0  w4] * [U] = [d4i]
+
+        Work with demodulated data only.
 
         Returns
         ----------
@@ -1536,6 +1664,7 @@ class OutputSkyMap():
                         epsilon=0., verbose=False):
         """
         Save data into pickle file.
+        Work with demodulated data only.
 
         Parameters
         ----------
@@ -1899,7 +2028,7 @@ def load_fake_instrument(nside=16, nsquid_per_mux=1):
                     nsquid_per_mux=nsquid_per_mux, npair_per_squid=4,
                     fp_size=60., fwhm=3.5,
                     beam_seed=58347, projected_fp_size=3., pm_name='5params',
-                    type_hwp='CRHWP', freq_hwp=2., angle_hwp=0., verbose=False)
+                    type_hwp='CRHWP', freq_hwp=0.2, angle_hwp=0., verbose=False)
 
     ## Scanning strategy
     scan = ScanningStrategy(nces=2, start_date='2013/1/1 00:00:00',
@@ -1907,7 +2036,7 @@ def load_fake_instrument(nside=16, nsquid_per_mux=1):
                             telescope_latitude='-22:56.396',
                             telescope_elevation=5200.,
                             name_strategy='deep_patch',
-                            sampling_freq=1., sky_speed=0.4,
+                            sampling_freq=8., sky_speed=0.4,
                             language='fortran')
     scan.run()
 
