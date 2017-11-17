@@ -406,8 +406,7 @@ class TimeOrderedDataPairDiff():
             ut1utc_fn=self.scanning_strategy.ut1utc_fn,
             lat=lat, ra_src=ra_src, dec_src=dec_src)
 
-    def compute_simpolangle(self, ch, parallactic_angle, do_demodulation=False,
-                            polangle_err=False):
+    def compute_simpolangle(self, ch, parallactic_angle, polangle_err=False):
         """
         Compute the full polarisation angles used to generate timestreams.
         The polarisation angle contains intrinsic polarisation angle (from
@@ -420,8 +419,6 @@ class TimeOrderedDataPairDiff():
             Channel index in the focal plane.
         parallactic_angle : 1d array
             All parallactic angles for detector ch.
-        do_demodulation : bool, optional
-            If True, use the convention for the demodulation (extra minus sign)
         polangle_err : bool, optional
             If True, inject systematic effect.
             TODO: remove that in the systematic module.
@@ -443,7 +440,10 @@ class TimeOrderedDataPairDiff():
         """
         if not polangle_err:
             ang_pix = (90.0 - self.intrinsic_polangle[ch]) * d2r
-            if not do_demodulation:
+
+            ## Demodulation or pair diff use different convention
+            ## for the definition of the angle.
+            if not hasattr(self, 'dm'):
                 pol_ang = parallactic_angle + ang_pix + 2.0 * self.hwpangle
             else:
                 pol_ang = parallactic_angle - ang_pix - 2.0 * self.hwpangle
@@ -534,15 +534,20 @@ class TimeOrderedDataPairDiff():
             noise = 0.0
 
         if self.HealpixFitsMap.do_pol:
-            pol_ang = self.compute_simpolangle(ch, pa,
-                                               do_demodulation=False,
-                                               polangle_err=False)
+            pol_ang = self.compute_simpolangle(ch, pa, polangle_err=False)
+
+            ## For demodulation, HWP angles are not included at the level
+            ## of the pointing matrix (convention).
+            if hasattr(self, 'dm'):
+                pol_ang_out = pol_ang + 2.0 * self.hwpangle
+            else:
+                pol_ang_out = pol_ang
 
             ## Store list polangle only for top bolometers
             if ch % 2 == 0 and not self.mapping_perpair:
-                self.pol_angs[int(ch/2)] = pol_ang
+                self.pol_angs[int(ch/2)] = pol_ang_out
             elif ch % 2 == 0 and self.mapping_perpair:
-                self.pol_angs[0] = pol_ang
+                self.pol_angs[0] = pol_ang_out
 
             return (self.HealpixFitsMap.I[index_global] +
                     self.HealpixFitsMap.Q[index_global] * np.cos(2 * pol_ang) +
@@ -601,7 +606,8 @@ class TimeOrderedDataPairDiff():
         """
         nbolofp = waferts.shape[0]
         npixfp = nbolofp / 2
-        nt = int(waferts.shape[1])
+        # nt = int(waferts.shape[1])
+        nt = int(waferts.shape[-1])
 
         ## Check sizes
         assert npixfp == self.point_matrix.shape[0]
@@ -620,12 +626,21 @@ class TimeOrderedDataPairDiff():
         sum_weight = self.sum_weight.flatten()
         wafermask_pixel = self.wafermask_pixel.flatten()
 
-        tod_f.tod2map_alldet_f(output_maps.d, output_maps.w, output_maps.dc,
-                               output_maps.ds, output_maps.cc, output_maps.cs,
-                               output_maps.ss, output_maps.nhit,
-                               point_matrix, pol_angs, waferts,
-                               diff_weight, sum_weight, nt,
-                               wafermask_pixel, npixfp, self.npixsky)
+        if hasattr(self, 'dm'):
+            tod_f.tod2map_hwp_f(
+                output_maps.d0, output_maps.d4r, output_maps.d4i,
+                output_maps.w0, output_maps.w4, output_maps.nhit,
+                point_matrix, pol_angs, waferts,
+                diff_weight, sum_weight, nt,
+                wafermask_pixel, npixfp, self.npixsky)
+        else:
+            tod_f.tod2map_pair_f(
+                output_maps.d, output_maps.w, output_maps.dc,
+                output_maps.ds, output_maps.cc, output_maps.cs,
+                output_maps.ss, output_maps.nhit,
+                point_matrix, pol_angs, waferts,
+                diff_weight, sum_weight, nt,
+                wafermask_pixel, npixfp, self.npixsky)
         # Garbage collector guard
         wafermask_pixel
 
@@ -716,6 +731,7 @@ class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
         newts[:, 2, :] = self.dm.bm.imag
 
         return newts
+
 
 class Demodulation():
     """
@@ -1199,10 +1215,12 @@ class OutputSkyMap():
                 ValueError("You need to provide the size of " +
                            "pixels (pixel_size) in arcmin if projection=flat.")
 
+        self.initialise_sky_maps()
+
         if not self.demodulation:
-            self.initialise_sky_maps()
+            self.to_coadd = 'd dc ds w cc cs ss nhit'
         else:
-            pass
+            self.to_coadd = 'd0 d4r d4i w0 w4 nhit'
 
     def initialise_sky_maps(self):
         """
@@ -1219,18 +1237,21 @@ class OutputSkyMap():
         * cs : projected noise weighted cosine * sine.
 
         """
-        # To accumulate A^T N^-1 d
-        self.d = np.zeros(self.npixsky)
-        self.dc = np.zeros(self.npixsky)
-        self.ds = np.zeros(self.npixsky)
+        if self.demodulation:
+            self.initialise_sky_maps_demod()
+        else:
+            # To accumulate A^T N^-1 d
+            self.d = np.zeros(self.npixsky)
+            self.dc = np.zeros(self.npixsky)
+            self.ds = np.zeros(self.npixsky)
 
-        # To accumulate A^T N^-1 A
-        self.w = np.zeros(self.npixsky)
-        self.cc = np.zeros(self.npixsky)
-        self.cs = np.zeros(self.npixsky)
-        self.ss = np.zeros(self.npixsky)
+            # To accumulate A^T N^-1 A
+            self.w = np.zeros(self.npixsky)
+            self.cc = np.zeros(self.npixsky)
+            self.cs = np.zeros(self.npixsky)
+            self.ss = np.zeros(self.npixsky)
 
-        self.nhit = np.zeros(self.npixsky, dtype=np.int32)
+            self.nhit = np.zeros(self.npixsky, dtype=np.int32)
 
     def get_I(self):
         """
@@ -1243,6 +1264,9 @@ class OutputSkyMap():
             Intensity map. Note that only the observed pixels defined in
             obspix are returned (and not the full sky map).
         """
+        if self.demodulation:
+            return self.get_I_demod()
+
         hit = self.w > 0
         I = np.zeros_like(self.d)
         I[hit] = self.d[hit]/self.w[hit]
@@ -1265,6 +1289,9 @@ class OutputSkyMap():
             Stokes U map. Note that only the observed pixels defined in
             obspix are returned (and not the full sky map).
         """
+        if self.demodulation:
+            return self.get_QU_demod()
+
         testcc = self.cc * self.ss - self.cs * self.cs
         idet = np.zeros(testcc.shape)
         inonzero = (testcc != 0.)
@@ -1310,7 +1337,7 @@ class OutputSkyMap():
         Q, U = self.get_QU()
         return I, Q, U
 
-    def coadd(self, other, to_coadd='d dc ds w cc cs ss nhit'):
+    def coadd(self, other, to_coadd=None):
         """
         Add other\'s vectors into our vectors.
 
@@ -1354,13 +1381,16 @@ class OutputSkyMap():
         assert np.all(self.obspix == other.obspix), \
             ValueError("To add maps together, they must have the same obspix!")
 
+        if to_coadd is None:
+            to_coadd = self.to_coadd
+
         to_coadd_split = to_coadd.split(' ')
         for k in to_coadd_split:
             a = getattr(self, k)
             b = getattr(other, k)
             a += b
 
-    def coadd_MPI(self, other, MPI, to_coadd='d dc ds w cc cs ss nhit'):
+    def coadd_MPI(self, other, MPI, to_coadd=None):
         """
         Crappy way of coadding vectors through different processors.
 
@@ -1384,6 +1414,9 @@ class OutputSkyMap():
         >>> ## do whatever you want with the maps
         >>> m.coadd_MPI(m, MPI)
         """
+        if to_coadd is None:
+            to_coadd = self.to_coadd
+
         to_coadd_split = to_coadd.split(' ')
         for k in to_coadd_split:
             setattr(self, k, MPI.COMM_WORLD.allreduce(
@@ -1407,12 +1440,120 @@ class OutputSkyMap():
             0 <= epsilon < 1/4. The higher the more selective.
 
         """
+        if self.demodulation:
+            self.pickle_me_demod(
+                fn, shrink_maps=shrink_maps, crop_maps=crop_maps,
+                epsilon=epsilon, verbose=verbose)
+        else:
+            I, Q, U = self.get_IQU()
+            wP = qu_weight_mineig(self.cc, self.cs, self.ss,
+                                  epsilon=epsilon, verbose=verbose)
+
+            data = {'I': I, 'Q': Q, 'U': U,
+                    'wI': self.w, 'wP': wP, 'nhit': self.nhit,
+                    'projection': self.projection,
+                    'nside': self.nside, 'pixel_size': self.pixel_size,
+                    'obspix': self.obspix}
+
+            if shrink_maps and self.projection == 'flat':
+                data = shrink_me(data, based_on='wP')
+            elif crop_maps is not False and self.projection == 'flat':
+                data = crop_me(data, based_on='wP', npix_per_row=crop_maps)
+
+            with open(fn, 'wb') as f:
+                pickle.dump(data, f, protocol=2)
+
+    def initialise_sky_maps_demod(self):
+        """
+        Create empty sky maps. This includes:
+        * d : projected weighted sum of timestreams
+        * dc : projected noise weighted difference of timestreams
+            multiplied by cosine
+        * ds : projected noise weighted difference of timestreams
+            multiplied by sine
+        * nhit : projected hit counts.
+        * w : projected (inverse) noise weights and hits.
+        * cc : projected noise weighted cosine**2
+        * ss : projected noise weighted sine**2
+        * cs : projected noise weighted cosine * sine.
+
+        """
+        # To accumulate A^T N^-1 d
+        self.d0 = np.zeros(self.npixsky)
+        self.d4r = np.zeros(self.npixsky)
+        self.d4i = np.zeros(self.npixsky)
+
+        # To accumulate A^T N^-1 A
+        self.w0 = np.zeros(self.npixsky)
+        self.w4 = np.zeros(self.npixsky)
+
+        self.nhit = np.zeros(self.npixsky, dtype=np.int32)
+
+    def get_I_demod(self):
+        """
+        Solve for the intensity map I from projected sum timestream map d
+        and weights w0: w0 * I = d0.
+
+        Returns
+        ----------
+        I : 1d array
+            Intensity map. Note that only the observed pixels defined in
+            obspix are returned (and not the full sky map).
+        """
+        hit = self.w0 > 0
+        I = np.zeros_like(self.d0)
+        I[hit] = self.d0[hit]/self.w0[hit]
+        return I
+
+    def get_QU_demod(self):
+        """
+        Solve for the polarisation maps from projected difference timestream
+        maps and weights:
+
+        [cc cs]   [Q]   [dc]
+        [cs ss] * [U] = [ds]
+
+        Returns
+        ----------
+        Q : 1d array
+            Stokes Q map. Note that only the observed pixels defined in
+            obspix are returned (and not the full sky map).
+        U : 1d array
+            Stokes U map. Note that only the observed pixels defined in
+            obspix are returned (and not the full sky map).
+        """
+        hit = self.w4 > 0
+
+        Q = np.zeros_like(self.d4r)
+        U = np.zeros_like(self.d4i)
+
+        Q[hit] = self.d4r[hit]/self.w4[hit]
+        U[hit] = self.d4i[hit]/self.w4[hit]
+
+        return Q, U
+
+    def pickle_me_demod(self, fn, shrink_maps=True, crop_maps=False,
+                        epsilon=0., verbose=False):
+        """
+        Save data into pickle file.
+
+        Parameters
+        ----------
+        fn: string
+            The name of the file where data will be stored.
+        shrink_maps : bool, optional
+            If true, remove unecessary zeros before storing the maps.
+        crop_me : False or int
+            If not False, crop the output maps as map[:crop_me][:crop_me].
+        epsilon : float, optional
+            Threshold for selecting the pixels in polarisation.
+            0 <= epsilon < 1/4. The higher the more selective.
+
+        """
         I, Q, U = self.get_IQU()
-        wP = qu_weight_mineig(self.cc, self.cs, self.ss,
-                              epsilon=epsilon, verbose=verbose)
 
         data = {'I': I, 'Q': Q, 'U': U,
-                'wI': self.w, 'wP': wP, 'nhit': self.nhit,
+                'wI': self.w0, 'wP': self.w4, 'nhit': self.nhit,
                 'projection': self.projection,
                 'nside': self.nside, 'pixel_size': self.pixel_size,
                 'obspix': self.obspix}
