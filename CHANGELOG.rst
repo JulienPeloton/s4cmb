@@ -2,6 +2,11 @@ v0.x.x
 =============
 * Current version.
 
+v0.6.0
+=============
+* Add HWP demodulation (in addition to pair difference) to estimate I, Q, and U from timestreams.
+* Allow different nside (input vs output) to be used.
+
 v0.5.3
 =============
 * Add ACT scanning strategy, and custom scanning strategy.
