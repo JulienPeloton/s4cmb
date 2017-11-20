@@ -856,6 +856,8 @@ class Demodulation():
             print('FREQ', self.modes * self.speed + self.bands)
             print('NYQUIST', self.nyq)
             print('mode', self.modes[bad], 'are over nyq.')
+            print('You need either to increase the sampling frequency of',
+                  'your detectors, or decrease the spin frequency of the HWP.')
             self.modes = self.modes[~bad]
             self.bands = self.bands[~bad]
 
