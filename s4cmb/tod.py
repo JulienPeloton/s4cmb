@@ -12,7 +12,11 @@ import os
 
 import numpy as np
 import healpy as hp
-import cPickle as pickle
+# Python3 does not have the cPickle module
+try:
+    import cPickle as pickle
+except:
+    import pickle
 
 from numpy.fft import fft, fftfreq, fftshift
 

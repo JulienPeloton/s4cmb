@@ -10,7 +10,6 @@ import os
 import ephem
 import numpy as np
 import healpy as hp
-import weave
 
 from s4cmb.scanning_strategy_f import scanning_strategy_f
 
@@ -452,6 +451,7 @@ class ScanningStrategy():
                 self.telescope_location.date += ephem.second / sampling_freq
 
         elif self.language == 'C':
+            import weave
             c_code = r'''
             int t;
             for (t=1;t<num_pts;t++)

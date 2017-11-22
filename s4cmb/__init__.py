@@ -1,8 +1,8 @@
-import instrument
-import scanning_strategy
-import input_sky
-import detector_pointing
-import tod
-import systematics
-import config_s4cmb
-import xpure
+from . import instrument
+from . import scanning_strategy
+from . import input_sky
+from . import detector_pointing
+from . import tod
+from . import systematics
+from . import config_s4cmb
+from . import xpure
