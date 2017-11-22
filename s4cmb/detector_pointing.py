@@ -45,7 +45,7 @@ def get_ut1utc(ut1utc_fn, mjd):
 
     Examples
     ----------
-    >>> round(get_ut1utc('s4cmb/data/ut1utc.ephem', 56293), 3)
+    >>> print(round(get_ut1utc('s4cmb/data/ut1utc.ephem', 56293), 3))
     0.277
     """
     umjds, ut1utcs = np.loadtxt(ut1utc_fn, usecols=(1, 2)).T

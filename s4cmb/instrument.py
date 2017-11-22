@@ -807,12 +807,12 @@ class PointingModel():
         Examples
         --------
         >>> pm = PointingModel()
-        >>> [(i, round(j,3)) for i, j in zip(
+        >>> [(i, str(round(j,3))) for i, j in zip(
         ...     pm.allowed_params.split(), pm.value_params)]
         ... # doctest: +NORMALIZE_WHITESPACE
-        [('ia', -10.285), ('ie', 8.74),
-         ('ca', -15.598), ('an', -0.51),
-         ('aw', 0.109)]
+        [('ia', '-10.285'), ('ie', '8.74'),
+         ('ca', '-15.598'), ('an', '-0.51'),
+         ('aw', '0.109')]
 
         >>> pm = PointingModel(pm_name='super-model-trop-bien')
         ... # doctest: +NORMALIZE_WHITESPACE, +ELLIPSIS

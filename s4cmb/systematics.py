@@ -419,7 +419,7 @@ def step_function_gen(nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
     ----------
     >>> nsamples = 4
     >>> gains_gen = step_function_gen(nsamples, nbreaks=1)
-    >>> print(gains_gen.next()[0])
+    >>> print(next(gains_gen)[0])
     [ 1.          1.          1.08820262  1.08820262]
     """
     ## Fix the seed
@@ -541,7 +541,7 @@ def linear_function_gen(nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
     ----------
     >>> nsamples = 4
     >>> gains_gen = linear_function_gen(nsamples, nbreaks=1)
-    >>> print(gains_gen.next()[0])
+    >>> print(next(gains_gen)[0])
     [ 1.          1.02940087  1.05880174  1.08820262]
     """
     ## Fix the seed
