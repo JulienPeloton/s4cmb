@@ -15,7 +15,7 @@ import healpy as hp
 # Python3 does not have the cPickle module
 try:
     import cPickle as pickle
-except:
+except ImportError:
     import pickle
 
 from numpy.fft import fft, fftfreq, fftshift

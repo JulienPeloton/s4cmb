@@ -58,11 +58,11 @@ class ScanningStrategy():
         language : string, optional
             Language used for core computations. For big experiments, the
             computational time can be big, and some part of the code can be
-            speeded up by interfacing python with C or Fortran.
+            speeded up by interfacing python with Fortran.
             Default is python (i.e. no interfacing and can be slow).
-            Choose language=C or language=fortran otherwise. Note that C codes
-            are compiled on-the-fly (weave), but for fortran codes you need
-            first to compile it. See the setup.py or the provided Makefile.
+            Choose language=fortran otherwise. Note that for fortran codes you
+            need first to compile it. See the setup.py or
+            the provided Makefile.
         verbose : bool
             If True, print out several messages to ease the debug.
             Default is False.
@@ -450,44 +450,6 @@ class ScanningStrategy():
                 ## Increment the time by one second / sampling rate
                 self.telescope_location.date += ephem.second / sampling_freq
 
-        elif self.language == 'C':
-            import weave
-            c_code = r'''
-            int t;
-            for (t=1;t<num_pts;t++)
-            {
-                // Set the Azimuth and time
-                pb_az_array[t] = running_az;
-
-                // Case to change the direction of the scan
-                if (running_az > upper_az)
-                {
-                    pb_az_dir = -1.0;
-                }
-                else if (running_az < lower_az)
-                {
-                    pb_az_dir = 1.0;
-                }
-
-                running_az += az_speed * pb_az_dir / sampling_freq;
-
-                // Increment the time by one second / sampling rate
-                pb_mjd_array[t] = pb_mjd_array[t-1] + second / sampling_freq;
-            }
-            '''
-            second = 1./24./3600.
-            az_speed = float(az_speed)
-            pb_az_dir = float(pb_az_dir)
-            sampling_freq = float(sampling_freq)
-            running_az = float(running_az)
-            upper_az = float(upper_az)
-            lower_az = float(lower_az)
-            weave.inline(c_code, [
-                'num_pts',
-                'running_az', 'pb_az_array', 'upper_az',
-                'lower_az', 'az_speed', 'pb_az_dir', 'pb_mjd_array',
-                'second', 'sampling_freq'], verbose=0)
-
         elif self.language == 'fortran':
             second = 1./24./3600.
             scanning_strategy_f.run_one_scan_f(
@@ -545,10 +507,9 @@ class ScanningStrategy():
 
         By default, the language used for the core computation is the Python.
         It can be quite slow for heavy configuration, and one can set up
-        the language to C or fortran for speeding up the computation (x1000).
-        Note that C codes are compiled on-the-fly (weave), but for fortran
-        codes you need first to compile it. See the setup.py or
-        the provided Makefile.
+        the language to fortran for speeding up the computation (x1000).
+        Note that for using fortran codes you need first to compile it.
+        See the setup.py or the provided Makefile.
         >>> scan = ScanningStrategy(sampling_freq=1., nces=2,
         ...     language='fortran', name_strategy='shallow_patch')
         >>> scan.run()
@@ -634,7 +595,7 @@ class ScanningStrategy():
         if self.language != 'python':
             raise ValueError("Visualisation is available only in pure " +
                              "python because we do not provide (yet) " +
-                             "RA and Dec in C or fortran. Relaunch " +
+                             "RA and Dec in fortran. Relaunch " +
                              "using language='python' in the class " +
                              "ScanningStrategy.")
 

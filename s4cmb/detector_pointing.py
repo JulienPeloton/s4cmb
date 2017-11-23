@@ -623,63 +623,6 @@ def mult(p, q):
 
     return pq
 
-def mult_inline(p, q):
-    """
-    Inline version for when p is an array of quaternions
-    and q is a single quaternion. Big speed-up.
-
-    DO NOT USE FOR TEST - prefer the fortran version instead
-
-    Parameters
-    ----------
-    p : ndarray
-        Array of quaternions of size (np, 4)
-    q : ndarray
-        Array of quaternions of size (1, 4)
-
-    Returns
-    ----------
-    pq : ndarray
-        Array of size (np, 4)
-    """
-    import weave
-
-    assert p.ndim == 2, AssertionError("Wrong size!")
-    assert p.shape[1] == 4, AssertionError("Wrong size!")
-    assert q.ndim == 1, AssertionError("Wrong size!")
-    assert q.size == 4, AssertionError("Wrong size!")
-    pq = np.zeros_like(p)
-    n = p.shape[0]
-
-    c_code = '''
-    int i;
-
-    for(i=0;i<4*n;i+=4)
-    {
-        pq[i+3] = p[i+3] * q[3];
-        pq[i+3] -= p[i] * q[0] + p[i+1] * q[1] + p[i+2] * q[2];
-
-        pq[i] = p[i+3] * q[0] + p[i] * q[3] + \
-            p[i+1] * q[2] - p[i+2] * q[1];
-
-        pq[i+1] = p[i+3] * q[1] + p[i+1] * q[3] + \
-            p[i+2] * q[0] - p[i+0] * q[2];
-
-        pq[i+2] = p[i+3] * q[2] + p[i+2] * q[3] + \
-            p[i+0] * q[1] - p[i+1] * q[0];
-    }
-    '''
-
-    shape = pq.shape
-    pq = pq.flatten()
-    p = p.flatten()
-    q = q.flatten()
-
-    weave.inline(c_code, ['pq', 'p', 'q', 'n'])
-
-    pq = pq.reshape(shape)
-    return pq
-
 def mult_fortran(p, q):
     """
     Inline version for when p is an array of quaternions
@@ -838,47 +781,6 @@ def quat_to_radecpa_fortran(seq):
 
     detector_pointing_f.quat_to_radecpa_fortran_f(
         q0, q1, q2, q3, phi, theta, psi, n)
-    return phi, theta, psi
-
-def quat_to_radecpa_c(seq):
-    """
-    Routine to compute phi/theta/psi from a sequence
-    of quaternions. Computation is done in C.
-
-    WARNING: you still need to convert phi/theta/psi to get to RA/Dec/PA.
-
-    Parameters
-    ----------
-    seq : array of arrays
-        Array of quaternions.
-
-    Returns
-    ----------
-    phi : 1d array
-    theta : 1d array
-    psi : 1d array
-    """
-    import weave
-
-    q1, q2, q3, q0 = seq.T
-    c_code = '''
-    int i;
-    for(i=0;i<n;i++)
-    {
-        phi(i) = atan2(2.0 * (q0(i) * q1(i) + q2(i) * q3(i)), \
-            1.0 - 2.0 * (q1(i) * q1(i) + q2(i) * q2(i)));
-        theta(i) = asin(2.0 * (q0(i) * q2(i) - q3(i) * q1(i)));
-        psi(i) = atan2(2.0 * (q0(i) * q3(i) + q1(i) * q2(i)), \
-            1.0 - 2.0 * (q2(i) * q2(i) + q3(i) * q3(i)));
-    }
-    '''
-    n = q0.size
-    phi = np.zeros_like(q0)
-    theta = np.zeros_like(q0)
-    psi = np.zeros_like(q0)
-    weave.inline(c_code,
-                 ['phi', 'theta', 'psi', 'q0', 'q1', 'q2', 'q3', 'n'],
-                 type_converters=weave.converters.blitz)
     return phi, theta, psi
 
 def quat_to_radecpa_python(seq):
