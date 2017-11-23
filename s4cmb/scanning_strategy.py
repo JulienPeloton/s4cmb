@@ -450,43 +450,43 @@ class ScanningStrategy():
                 ## Increment the time by one second / sampling rate
                 self.telescope_location.date += ephem.second / sampling_freq
 
-        elif self.language == 'C':
-            import weave
-            c_code = r'''
-            int t;
-            for (t=1;t<num_pts;t++)
-            {
-                // Set the Azimuth and time
-                pb_az_array[t] = running_az;
-
-                // Case to change the direction of the scan
-                if (running_az > upper_az)
-                {
-                    pb_az_dir = -1.0;
-                }
-                else if (running_az < lower_az)
-                {
-                    pb_az_dir = 1.0;
-                }
-
-                running_az += az_speed * pb_az_dir / sampling_freq;
-
-                // Increment the time by one second / sampling rate
-                pb_mjd_array[t] = pb_mjd_array[t-1] + second / sampling_freq;
-            }
-            '''
-            second = 1./24./3600.
-            az_speed = float(az_speed)
-            pb_az_dir = float(pb_az_dir)
-            sampling_freq = float(sampling_freq)
-            running_az = float(running_az)
-            upper_az = float(upper_az)
-            lower_az = float(lower_az)
-            weave.inline(c_code, [
-                'num_pts',
-                'running_az', 'pb_az_array', 'upper_az',
-                'lower_az', 'az_speed', 'pb_az_dir', 'pb_mjd_array',
-                'second', 'sampling_freq'], verbose=0)
+        # elif self.language == 'C':
+        #     import weave
+        #     c_code = r'''
+        #     int t;
+        #     for (t=1;t<num_pts;t++)
+        #     {
+        #         // Set the Azimuth and time
+        #         pb_az_array[t] = running_az;
+        #
+        #         // Case to change the direction of the scan
+        #         if (running_az > upper_az)
+        #         {
+        #             pb_az_dir = -1.0;
+        #         }
+        #         else if (running_az < lower_az)
+        #         {
+        #             pb_az_dir = 1.0;
+        #         }
+        #
+        #         running_az += az_speed * pb_az_dir / sampling_freq;
+        #
+        #         // Increment the time by one second / sampling rate
+        #         pb_mjd_array[t] = pb_mjd_array[t-1] + second / sampling_freq;
+        #     }
+        #     '''
+        #     second = 1./24./3600.
+        #     az_speed = float(az_speed)
+        #     pb_az_dir = float(pb_az_dir)
+        #     sampling_freq = float(sampling_freq)
+        #     running_az = float(running_az)
+        #     upper_az = float(upper_az)
+        #     lower_az = float(lower_az)
+        #     weave.inline(c_code, [
+        #         'num_pts',
+        #         'running_az', 'pb_az_array', 'upper_az',
+        #         'lower_az', 'az_speed', 'pb_az_dir', 'pb_mjd_array',
+        #         'second', 'sampling_freq'], verbose=0)
 
         elif self.language == 'fortran':
             second = 1./24./3600.
