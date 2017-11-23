@@ -18,7 +18,13 @@ The package
 ===============
 Systematics For Cosmic Microwave Background (s4cmb), is a package to
 study instrumental systematic effects in the context of current and future
-Cosmic Microwave Background experiments.
+Cosmic Microwave Background experiments. Currently accessible:
+
+* Electrical crosstalk in the multiplexed readout.
+* Relative gain-calibration uncertainty between the two detectors in a focal plane pixel.
+* Time drift of the gains between two consecutive calibration measurements.
+* Differential pointing between the two detectors in a pixel.
+* ... more to come!
 
 Requirements
 ===============
