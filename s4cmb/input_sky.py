@@ -22,7 +22,7 @@ class HealpixFitsMap():
     """ Class to handle fits file containing healpix maps """
     def __init__(self, input_filename,
                  do_pol=True, verbose=False, fwhm_in=0.0, nside_in=16,
-                 map_seed=53543, no_ileak=False, no_quleak=False,
+                 lmax=None, map_seed=53543, no_ileak=False, no_quleak=False,
                  ext_map_gal=False):
         """
 
@@ -47,6 +47,9 @@ class HealpixFitsMap():
             If input_filename is a CAMB lensed cl file, the maps will be
             generated at a resolution nside_in. No effect if you provide maps
             directly.
+        lmax : None or int, optional
+            Maximum multipole when creating a map from cl. If none, it
+            is set automatically to 2*nside_in
         map_seed : int, optional
             If input_filename is a CAMB lensed cl file, this is the seed used
             to create the maps. No effect if you provide maps directly.
@@ -69,6 +72,10 @@ class HealpixFitsMap():
         self.ext_map_gal = ext_map_gal
         self.fwhm_in = fwhm_in
         self.nside_in = nside_in
+        if lmax is None:
+            self.lmax = 2 * self.nside_in
+        else:
+            self.lmax = lmax
         self.map_seed = map_seed
 
         self.I = None
@@ -226,12 +233,14 @@ class HealpixFitsMap():
                 self.I, self.Q, self.U = create_sky_map(self.input_filename,
                                                         nside=self.nside_in,
                                                         FWHM=self.fwhm_in,
-                                                        seed=self.map_seed)
+                                                        seed=self.map_seed,
+                                                        lmax=self.lmax)
             else:
                 self.I = create_sky_map(self.input_filename,
                                         nside=self.nside_in,
                                         FWHM=self.fwhm_in,
-                                        seed=self.map_seed)
+                                        seed=self.map_seed,
+                                        lmax=self.lmax)
             self.nside = hp.npix2nside(len(self.I))
         else:
             print("External data already present in memory")
@@ -351,7 +360,7 @@ def SFL(ra, dec):
     and all paralles.'''
     return ra * np.cos(dec), dec
 
-def create_sky_map(cl_fn, nside=16, FWHM=0.0, seed=548397):
+def create_sky_map(cl_fn, nside=16, FWHM=0.0, seed=548397, lmax=None):
     """
     Create full sky map from input cl.
 
@@ -379,6 +388,8 @@ def create_sky_map(cl_fn, nside=16, FWHM=0.0, seed=548397):
     [  55.51567033   50.94330727   39.69851524 ...,   36.2265932   107.64964085
        80.8613084 ]
     """
+    if lmax is None:
+        lmax = 2*nside
     ell, TT, EE, BB, TE = np.loadtxt(cl_fn).T
 
     ## Take out the normalisation...
@@ -389,7 +400,7 @@ def create_sky_map(cl_fn, nside=16, FWHM=0.0, seed=548397):
 
     np.random.seed(seed)
     I, Q, U = hp.synfast([TT / llp, EE / llp, BB / llp, TE / llp], nside,
-                         lmax=2*nside, mmax=None, alm=False,
+                         lmax=lmax, mmax=None, alm=False,
                          pol=True, pixwin=False,
                          fwhm=FWHM_rad, sigma=None, new=True,
                          verbose=False)
