@@ -18,7 +18,6 @@ from numpy import cos
 from numpy import sin
 from numpy import tan
 from pyslalib import slalib
-import weave
 
 from s4cmb.detector_pointing_f import detector_pointing_f
 
@@ -46,7 +45,7 @@ def get_ut1utc(ut1utc_fn, mjd):
 
     Examples
     ----------
-    >>> round(get_ut1utc('s4cmb/data/ut1utc.ephem', 56293), 3)
+    >>> print(round(get_ut1utc('s4cmb/data/ut1utc.ephem', 56293), 3))
     0.277
     """
     umjds, ut1utcs = np.loadtxt(ut1utc_fn, usecols=(1, 2)).T
@@ -643,6 +642,7 @@ def mult_inline(p, q):
     pq : ndarray
         Array of size (np, 4)
     """
+    import weave
 
     assert p.ndim == 2, AssertionError("Wrong size!")
     assert p.shape[1] == 4, AssertionError("Wrong size!")
@@ -858,6 +858,8 @@ def quat_to_radecpa_c(seq):
     theta : 1d array
     psi : 1d array
     """
+    import weave
+
     q1, q2, q3, q0 = seq.T
     c_code = '''
     int i;

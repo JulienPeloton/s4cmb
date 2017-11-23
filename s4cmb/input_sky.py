@@ -438,11 +438,11 @@ def write_healpix_cmbmap(output_filename, data, fits_IDL=False,
 
     ## Need to introduce this workaround because the last
     ## version of healpy introduced non-backward compatibility...
-    if compare_version_number(hp.__version__, '1.11.0'):
+    try:
         hp.write_map(output_filename, data, fits_IDL=fits_IDL,
                      coord=coord, column_names=None, partial=partial,
                      extra_header=extra_header, overwrite=True)
-    else:
+    except:
         hp.write_map(output_filename, data, fits_IDL=fits_IDL,
                      coord=coord, column_names=None, partial=partial,
                      extra_header=extra_header)
