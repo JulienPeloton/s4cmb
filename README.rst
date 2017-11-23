@@ -149,7 +149,7 @@ Main developers
 Thanks to
 ===============
 * @ngoecknerwald: original author for a large part of the scanning strategy module.
-* @giuspugl, @dpole, @joydidier for all valuable comments, tests, and feedbacks!
+* @giuspugl, @dpole, @joydidier, and all `contributors <https://github.com/JulienPeloton/s4cmb/graphs/contributors>`_ for all valuable comments, tests, and feedbacks!
 
 Support
 ===============
