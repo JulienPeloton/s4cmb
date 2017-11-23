@@ -22,18 +22,17 @@ Cosmic Microwave Background experiments.
 
 Requirements
 ===============
-The pipeline is mainly written in python and it has the following dependencies:
+The pipeline is mainly written in python and it has the following dependencies (see requirements.txt):
 
 * numpy, matplotlib
 * astropy, ephem, pyslalib, healpy (astro libs)
-* f2py, weave (interfacing with python)
+* f2py (interfacing with python)
 
-While we use python 2.7, we try to make it compatible with python 3.x.
+While we use python 2.7, we try to make it compatible with python 3.5 and 3.6.
 If you are using python 3.x and you encounter an error, please open an issue or a
 pull request so that we fix it asap.
 
-Some parts of the pipeline are written in C (and compiled on-the-fly via the
-package weave), and in Fortran (to come). The latter is interfaced with
+Some parts of the pipeline are written in Fortran which is interfaced with
 python using f2py. The compilation is done usually when you install the
 package (see setup.py), but we also provide a Makefile for more
 customized compilations (see the Makefile in s4cmb).
