@@ -36,7 +36,7 @@ class TimeOrderedDataPairDiff():
     """ Class to handle Time-Ordered Data (TOD) """
     def __init__(self, hardware, scanning_strategy, HealpixFitsMap,
                  CESnumber, projection='healpix',
-                 nside_out=None, pixel_size=None, width=20.,
+                 nside_out=None, pixel_size=None, width=140.,
                  cut_pixels_outside=True,
                  array_noise_level=None, array_noise_seed=487587,
                  mapping_perpair=False, verbose=False):
@@ -671,7 +671,7 @@ class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
     """ Class to """
     def __init__(self, hardware, scanning_strategy, HealpixFitsMap,
                  CESnumber, projection='healpix',
-                 nside_out=None, pixel_size=None, width=20.,
+                 nside_out=None, pixel_size=None, width=140.,
                  cut_pixels_outside=True,
                  array_noise_level=None, array_noise_seed=487587,
                  mapping_perpair=False, verbose=False):
