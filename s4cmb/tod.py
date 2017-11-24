@@ -37,6 +37,7 @@ class TimeOrderedDataPairDiff():
     def __init__(self, hardware, scanning_strategy, HealpixFitsMap,
                  CESnumber, projection='healpix',
                  nside_out=None, pixel_size=None, width=20.,
+                 cut_pixels_outside=True,
                  array_noise_level=None, array_noise_seed=487587,
                  mapping_perpair=False, verbose=False):
         """
@@ -67,6 +68,18 @@ class TimeOrderedDataPairDiff():
             In arcmin. Default is resolution of the input map.
         width : float, optional
             Width for the output map in degree.
+        cut_pixels_outside : bool, optional
+            The mapping time -> map is done relatively to the sky patch
+            defined by (width, ra_src, dec_src). So if for some reason your
+            scanning strategy goes outside the defined sky patch, the routine
+            will assign -1 to the pixel index
+            (or crash if cut_pixels_outside is False).
+            Long story short: make sure that (width, ra_src, dec_src) returns a
+            sky patch bigger than what has been defined in the
+            scanning strategy, or you will have truncated output sky maps.
+            Why this is so? To save memory by not having full sky maps stored
+            in the memory and in the same time be able to coadd maps from
+            different scans easily. If you have a better idea, let me know!
         array_noise_level : float, optional
             Noise level for the whole array in [u]K.sqrt(s). If not None, it
             will inject on-the-fly noise in time-domain while scanning
@@ -89,6 +102,7 @@ class TimeOrderedDataPairDiff():
         self.HealpixFitsMap = HealpixFitsMap
         self.mapping_perpair = mapping_perpair
         self.width = width
+        self.cut_pixels_outside = cut_pixels_outside
         self.projection = projection
         assert self.projection in ['healpix', 'flat'], \
             ValueError("Projection <{}> for ".format(self.projection) +
@@ -502,16 +516,19 @@ class TimeOrderedDataPairDiff():
                 ymin=ymin,
                 pixel_size=self.pixel_size,
                 npix_per_row=int(np.sqrt(self.npixsky)),
-                projection=self.projection)
+                projection=self.projection,
+                cut_pixels_outside=self.cut_pixels_outside)
             ## For flat projection, one needs to flip the sign of U
             ## (angle convention)
             sign = -1.
         elif self.projection == 'healpix':
             index_global, index_local = build_pointing_matrix(
                 ra, dec, nside_in=self.HealpixFitsMap.nside,
-                nside_out=self.nside_out, obspix=self.obspix,
-                cut_outliers=True, ext_map_gal=self.HealpixFitsMap.ext_map_gal,
-                projection=self.projection)
+                nside_out=self.nside_out,
+                obspix=self.obspix,
+                ext_map_gal=self.HealpixFitsMap.ext_map_gal,
+                projection=self.projection,
+                cut_pixels_outside=self.cut_pixels_outside)
             sign = 1.
 
         ## Store list of hit pixels only for top bolometers
@@ -655,6 +672,7 @@ class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
     def __init__(self, hardware, scanning_strategy, HealpixFitsMap,
                  CESnumber, projection='healpix',
                  nside_out=None, pixel_size=None, width=20.,
+                 cut_pixels_outside=True,
                  array_noise_level=None, array_noise_seed=487587,
                  mapping_perpair=False, verbose=False):
         """
@@ -716,6 +734,7 @@ class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
             self, hardware, scanning_strategy, HealpixFitsMap,
             CESnumber, projection=projection,
             nside_out=nside_out, pixel_size=pixel_size, width=width,
+            cut_pixels_outside=cut_pixels_outside,
             array_noise_level=array_noise_level,
             array_noise_seed=array_noise_seed,
             mapping_perpair=mapping_perpair,
@@ -1875,7 +1894,7 @@ def build_pointing_matrix(ra, dec, nside_in, nside_out=None,
                           projection='healpix', obspix=None, ext_map_gal=False,
                           xmin=None, ymin=None,
                           pixel_size=None, npix_per_row=None,
-                          cut_outliers=True):
+                          cut_pixels_outside=True):
     """
     Given pointing coordinates (RA/Dec), retrieve the corresponding healpix
     pixel index for a full sky map. This acts effectively as an operator
@@ -1887,7 +1906,7 @@ def build_pointing_matrix(ra, dec, nside_in, nside_out=None,
     Note that the indexing is done relatively to the sky patch defined by
     (width, ra_src, dec_src). So if for some reason your scanning strategy
     goes outside the defined sky patch, the routine will assign -1 to the
-    pixel index (or crash if cut_outliers is False).
+    pixel index (or crash if cut_pixels_outside is False).
 
     Long story short: make sure that (width, ra_src, dec_src) returns a
     sky patch bigger than what has been defined in the scanning strategy, or
@@ -1922,10 +1941,9 @@ def build_pointing_matrix(ra, dec, nside_in, nside_out=None,
         In flat sky projection, it corresponds to the number of pixel per row.
         In other word, this is the square root of the total number of pixels
         in your square patch.
-    cut_outliers : bool, optional
+    cut_pixels_outside : bool, optional
         If True assign -1 to pixels not in obspix. If False, the routine
-        crashes if there are pixels outside. No effet if obspix
-        is not provided. Default is True.
+        crashes if there are pixels outside. Default is True.
 
     Returns
     ----------
@@ -1969,17 +1987,30 @@ def build_pointing_matrix(ra, dec, nside_in, nside_out=None,
 
     if projection == 'healpix' and obspix is not None:
         index_global_out = hp.ang2pix(nside_out, theta, phi)
-        npixsky = len(obspix)
         index_local = obspix.searchsorted(index_global_out)
-        mask1 = index_local < npixsky
+        mask1 = index_local < len(obspix)
         loc = mask1
         loc[mask1] = obspix[index_local[mask1]] == index_global_out[mask1]
         outside_pixels = np.invert(loc)
-        if (np.sum(outside_pixels) and (not cut_outliers)):
-            raise ValueError(
-                "Pixels outside patch boundaries. Patch width insufficient")
-        else:
+
+        ## Handling annoying cases.
+        if (np.sum(outside_pixels) and (not cut_pixels_outside)):
+            msg = "Pixels outside patch boundaries. " + \
+                "Patch width insufficient. To avoid this, " + \
+                "increase the parameter width while initialising the TOD " + \
+                "or set cut_pixels_outside to True to get a cropped map."
+            raise ValueError(msg)
+        elif (np.sum(outside_pixels) and cut_pixels_outside):
+            if (not ('msg_cut' in globals())):
+                global msg_cut
+                msg_cut = "Pixels outside patch boundaries. " + \
+                    "Your output map will be cropped. To avoid this, " + \
+                    "increase the parameter width while initialising the TOD."
+                print(msg_cut)
             index_local[outside_pixels] = -1
+        else:
+            pass
+
     elif projection == 'flat':
         x, y = input_sky.LamCyl(ra, dec)
 
@@ -1991,9 +2022,27 @@ def build_pointing_matrix(ra, dec, nside_in, nside_out=None,
 
         index_local = ix * npix_per_row + iy
 
-        outside = (ix < 0) | (ix >= npix_per_row) | \
+        outside_pixels = (ix < 0) | (ix >= npix_per_row) | \
             (iy < 0) | (iy >= npix_per_row)
-        index_local[outside] = - 1
+
+        ## Handling annoying cases.
+        if (np.sum(outside_pixels) and (not cut_pixels_outside)):
+            msg = "Pixels outside patch boundaries. " + \
+                "Patch width insufficient. To avoid this, " + \
+                "increase the parameter width while initialising the TOD " + \
+                "or set cut_pixels_outside to True to get a cropped map."
+            raise ValueError(msg)
+        elif (np.sum(outside_pixels) and cut_pixels_outside):
+            if (not ('msg_cut' in globals())):
+                global msg_cut
+                msg_cut = "Pixels outside patch boundaries. " + \
+                    "Your output map will be cropped. To avoid this, " + \
+                    "increase the parameter width while initialising the TOD."
+                print(msg_cut)
+            index_local[outside_pixels] = -1
+
+        else:
+            pass
     else:
         index_local = None
 
