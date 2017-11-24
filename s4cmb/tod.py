@@ -2033,12 +2033,12 @@ def build_pointing_matrix(ra, dec, nside_in, nside_out=None,
                 "or set cut_pixels_outside to True to get a cropped map."
             raise ValueError(msg)
         elif (np.sum(outside_pixels) and cut_pixels_outside):
-            if (not ('msg_cut' in globals())):
-                global msg_cut
-                msg_cut = "Pixels outside patch boundaries. " + \
+            if (not ('msg_cut_flat' in globals())):
+                global msg_cut_flat
+                msg_cut_flat = "Pixels outside patch boundaries. " + \
                     "Your output map will be cropped. To avoid this, " + \
                     "increase the parameter width while initialising the TOD."
-                print(msg_cut)
+                print(msg_cut_flat)
             index_local[outside_pixels] = -1
 
         else:
