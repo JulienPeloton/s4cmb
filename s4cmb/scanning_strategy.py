@@ -53,7 +53,8 @@ class ScanningStrategy():
         sky_speed : float, optional
             Azimuth speed of the telescope in deg/s.
         ut1utc_fn : string, optional
-            File containing time correction to UTC.
+            File containing time correction to UTC (leap second).
+            See http://tycho.usno.navy.mil/leapsec.html.
             This is not used here, but pass to the pointing module later on.
         language : string, optional
             Language used for core computations. For big experiments, the
@@ -74,7 +75,15 @@ class ScanningStrategy():
         self.sampling_freq = sampling_freq
         self.sky_speed = sky_speed
         self.language = language
+
         self.ut1utc_fn = ut1utc_fn
+        if not os.path.isfile(self.ut1utc_fn):
+            url = 'http://tycho.usno.navy.mil/leapsec.html'
+            msg = 'The path {} does not point to a valid file! see ' + \
+                's4cmb/data/ut1utc.ephem provided with the package. ' + \
+                'For more information, see {}.'
+            raise Exception(msg.format(self.ut1utc_fn, url))
+
         self.verbose = verbose
 
         self.telescope_location = self.define_telescope_location(
