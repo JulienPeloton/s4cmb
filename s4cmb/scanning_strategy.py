@@ -641,7 +641,6 @@ class ScanningStrategy():
         hp.graticule(verbose=self.verbose)
 
         pl.show()
-        pl.clf()
 
     def _update(self, name, value):
         """

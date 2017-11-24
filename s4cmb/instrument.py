@@ -238,9 +238,9 @@ def show_focal_plane(bolo_xcoord, bolo_ycoord, bolo_polangle=None,
 
     if save_on_disk:
         pl.savefig(fn_out)
+        pl.clf()
     if display:
         pl.show()
-    pl.clf()
 
 def convert_cm_to_rad(xcm, ycm, conversion):
     """
