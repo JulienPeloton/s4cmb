@@ -28,8 +28,12 @@ APPARENT_GEOCENTRIC = 1
 APPARENT_TOPOCENTRIC = 2
 
 def get_ut1utc(ut1utc_fn, mjd):
-    """
-    Return the time correction to UTC.
+    """ Return the time correction to UTC.
+
+    Those are computed from 01 01 2012 (MJD=55927) to 01 01 2018 (MJD=58119).
+    Unfortunately the database used to compute those is currently down
+    (http://maia.usno.navy.mil/cgi-bin/search.cgi), so for date > 01 01 2018,
+    the correction applied will be the one on 01 01 2018.
 
     Parameters
     ----------
@@ -45,12 +49,26 @@ def get_ut1utc(ut1utc_fn, mjd):
 
     Examples
     ----------
-    >>> print(round(get_ut1utc('s4cmb/data/ut1utc.ephem', 56293), 3))
+    >>> fn = 's4cmb/data/ut1utc.ephem'
+    >>> print(round(get_ut1utc(fn, mjd=56293), 3))
     0.277
+
+    For date > 01 01 2018 (MJD=58119), we do not have data currently.
+    So by default it will return the correction for 01 01 2018.
+    >>> print(round(get_ut1utc(fn, mjd=58119), 3))
+    0.128
+    >>> print(round(get_ut1utc(fn, mjd=59119), 3))
+    0.128
     """
-    umjds, ut1utcs = np.loadtxt(ut1utc_fn, usecols=(1, 2)).T
-    uindex = np.searchsorted(umjds, mjd)
-    ut1utc = ut1utcs[uindex]
+    if mjd <= 58119:
+        umjds, ut1utcs = np.loadtxt(ut1utc_fn, usecols=(1, 2)).T
+        uindex = np.searchsorted(umjds, mjd)
+        ut1utc = ut1utcs[uindex]
+    else:
+        mjd_tmp = 58119
+        umjds, ut1utcs = np.loadtxt(ut1utc_fn, usecols=(1, 2)).T
+        uindex = np.searchsorted(umjds, mjd_tmp)
+        ut1utc = ut1utcs[uindex]
 
     return ut1utc
 
