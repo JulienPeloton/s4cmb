@@ -1482,6 +1482,7 @@ class OutputSkyMap():
         ...     nside=16, obspix=np.array([0, 1, 2, 3]), demodulation=False)
         >>> I, Q, U = m1.get_IQU()
 
+        Demodulation
         >>> m1 = OutputSkyMap(projection='healpix',
         ...     nside=16, obspix=np.array([0, 1, 2, 3]), demodulation=True)
         >>> I, Q, U = m1.get_IQU()
@@ -1798,12 +1799,41 @@ class OutputSkyMapIGQU(OutputSkyMap):
         self.s = np.zeros(self.npixsky)
 
     def buildV(self, ipix):
-        """
+        """ Build vector of projected polarisation TOD for a given sky pixel
+
+        It includes G template for deprojection (dm).
+
+        Parameters
+        ----------
+        ipix : int
+            Pixel index (relative to 0 in the observed pixels)
+
+        Returns
+        ----------
+        vec : 1d array of length 3.
+            vector of projected polarisation TOD for a given sky pixel
         """
         return np.array([self.dm[ipix], self.dc[ipix], self.ds[ipix]])
 
     def buildP(self, ipix):
-        """
+        """ Build pixel weight matrix for polarisation.
+
+        The [3x3] matrix contains the weights for G, Q and U components of
+        the mapmaking:
+
+        [wm  c  s]   [G]   [dm]
+        [c  cc cs]   [Q]   [dc]
+        [s  cs ss] * [U] = [ds]
+
+        Parameters
+        ----------
+        ipix : int
+            Pixel index (relative to 0 in the observed pixels)
+
+        Returns
+        ----------
+        M : 3x3 array
+            Pixel weight matrix for polarisation
         """
         M = np.zeros((3, 3))
         M[0, :] = np.array([self.wm[ipix], self.c[ipix], self.s[ipix]])
@@ -1821,6 +1851,7 @@ class OutputSkyMapIGQU(OutputSkyMap):
         goodpix : 1D arrray
             Array containing the inverse determinant of the weight matrix for
             each sky pixel.
+
         """
         ## We have 4 components: I, Q, U and G.
         inonzero = [pix for pix in range(self.npixsky) if self.nhit[pix] > 4]
@@ -1852,6 +1883,44 @@ class OutputSkyMapIGQU(OutputSkyMap):
             Q[ipix] = GQU[1]
             U[ipix] = GQU[2]
         return G, Q, U
+
+    def get_IQU(self):
+        """
+        Solve for the temperature and polarisation maps from
+        projected sum and difference timestream maps and weights plus
+        a constant projected spurious polarisation component (G):
+
+        [w 0   0  0]   [I]   [d ]
+        [0 wm  c  s]   [G]   [dm]
+        [0 c  cc cs]   [Q]   [dc]
+        [0 cs cs ss] * [U] = [ds]
+
+        Examples
+        ----------
+        Pair difference data
+        >>> m1 = OutputSkyMapIGQU(projection='healpix',
+        ...     nside=16, obspix=np.array([0, 1, 2, 3]))
+        >>> I, G, Q, U = m1.get_IQU()
+
+        Returns
+        ----------
+        I : 1d array
+            Intensity map. Note that only the observed pixels defined in
+            obspix are returned (and not the full sky map).
+        G : 1d array
+            Spurious deprojected polarisation signal. Note that only the
+            observed pixels defined in obspix are returned
+            (and not the full sky map).
+        Q : 1d array
+            Stokes Q map. Note that only the observed pixels defined in
+            obspix are returned (and not the full sky map).
+        U : 1d array
+            Stokes U map. Note that only the observed pixels defined in
+            obspix are returned (and not the full sky map).
+        """
+        I = self.get_I()
+        G, Q, U = self.get_QU()
+        return I, G, Q, U
 
 
 def shrink_me(dic, based_on):
