@@ -154,11 +154,12 @@ class ScanningStrategy():
         modify this routine.
 
         >>> scan.allowed_scanning_strategies
-        ['deep_patch', 'shallow_patch', 'custom']
+        ['deep_patch', 'shallow_patch', 'small_aperture', 'custom']
         """
         self.allowed_scanning_strategies = [
             'deep_patch',
             'shallow_patch',
+            'small_aperture',
             'custom']
 
         if self.name_strategy == 'deep_patch':
@@ -193,6 +194,30 @@ class ScanningStrategy():
             ## Center of the patch in RA/Dec
             self.ra_mid = 0.
             self.dec_mid = -57.5
+        elif self.name_strategy == 'small_aperture':
+            self.elevation = [50.] * 6
+
+            self.az_min = [37.1, 282.8, 110.3,
+                           197.0, 110.3, 197.0]
+
+            self.az_max = [77.7, 322.9, 163.0,
+                           250.2, 163.0, 250.2]
+
+            self.begin_LST = ['08:30:00.00', '12:30:00.00', '16:30:00.00',
+                              '02:30:00.00', '16:30:00.00', '22:30:00.00']
+
+            self.end_LST = ['12:29:59.32', '16:29:59.32', '02:29:59.30',
+                            '08:29:59.98', '22:29:59.99', '08:29:59.30']
+
+            self.dec_min = None
+            self.dec_max = None
+            self.begin_RA = None
+            self.end_RA = None
+            self.orientation = None
+
+            ## Center of the patch in RA/Dec
+            self.ra_mid = 0.
+            self.dec_mid = 0.
         elif self.name_strategy == 'shallow_patch':
             self.elevation = [30., 30., 30., 30., 30., 30.]
 
