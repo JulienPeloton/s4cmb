@@ -1812,6 +1812,12 @@ class OutputSkyMapIGQU(OutputSkyMap):
         ----------
         vec : 1d array of length 3.
             vector of projected polarisation TOD for a given sky pixel
+
+        Examples
+        ----------
+        >>> m1 = OutputSkyMapIGQU(projection='healpix',
+        ...     nside=16, obspix=np.array(range(12*16**2)))
+        >>> V = m1.buildV(1000)
         """
         return np.array([self.dm[ipix], self.dc[ipix], self.ds[ipix]])
 
@@ -1834,6 +1840,12 @@ class OutputSkyMapIGQU(OutputSkyMap):
         ----------
         M : 3x3 array
             Pixel weight matrix for polarisation
+
+        Examples
+        ----------
+        >>> m1 = OutputSkyMapIGQU(projection='healpix',
+        ...     nside=16, obspix=np.array(range(12*16**2)))
+        >>> M = m1.buildP(1000)
         """
         M = np.zeros((3, 3))
         M[0, :] = np.array([self.wm[ipix], self.c[ipix], self.s[ipix]])
@@ -1852,6 +1864,11 @@ class OutputSkyMapIGQU(OutputSkyMap):
             Array containing the inverse determinant of the weight matrix for
             each sky pixel.
 
+        Examples
+        ----------
+        >>> m1 = OutputSkyMapIGQU(projection='healpix',
+        ...     nside=16, obspix=np.array(range(12*16**2)))
+        >>> m1.set_goodpix()
         """
         ## We have 4 components: I, Q, U and G.
         inonzero = [pix for pix in range(self.npixsky) if self.nhit[pix] > 4]
@@ -1866,6 +1883,27 @@ class OutputSkyMapIGQU(OutputSkyMap):
 
     def get_QU(self):
         """
+        Solve for the polarisation maps from projected difference timestream
+        maps and weights and G component:
+
+        [wm  c  s]   [G]   [dm]
+        [c  cc cs]   [Q]   [dc]
+        [s  cs ss] * [U] = [ds]
+
+        Work with pair differenced data only.
+
+        Returns
+        ----------
+        G : 1d array
+            Spurious deprojected polarisation signal. Note that only the
+            observed pixels defined in obspix are returned
+            (and not the full sky map).
+        Q : 1d array
+            Stokes Q map. Note that only the observed pixels defined in
+            obspix are returned (and not the full sky map).
+        U : 1d array
+            Stokes U map. Note that only the observed pixels defined in
+            obspix are returned (and not the full sky map).
         """
         if not hasattr(self, 'goodpix'):
             self.set_goodpix()
