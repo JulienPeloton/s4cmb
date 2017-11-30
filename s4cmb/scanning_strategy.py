@@ -145,6 +145,9 @@ class ScanningStrategy():
          61.078, 63.3002, 65.5226, 35.2126]
 
         Only few scanning strategies are currently available:
+        >>> scan = ScanningStrategy(name_strategy='shallow_patch')
+        >>> scan = ScanningStrategy(name_strategy='small_aperture')
+        >>> scan = ScanningStrategy(name_strategy='custom')
         >>> scan = ScanningStrategy(name_strategy='toto')
         ... # doctest: +NORMALIZE_WHITESPACE, +ELLIPSIS
         Traceback (most recent call last):
