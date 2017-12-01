@@ -1420,6 +1420,13 @@ class OutputSkyMap():
         I : 1d array
             Intensity map. Note that only the observed pixels defined in
             obspix are returned (and not the full sky map).
+
+        Examples
+        ----------
+        Pair difference data
+        >>> m1 = OutputSkyMap(projection='healpix',
+        ...     nside=16, obspix=np.array([0, 1, 2, 3]), demodulation=False)
+        >>> I = m1.get_I()
         """
         if self.demodulation:
             return self.get_I_demod()
@@ -1448,6 +1455,13 @@ class OutputSkyMap():
         U : 1d array
             Stokes U map. Note that only the observed pixels defined in
             obspix are returned (and not the full sky map).
+
+        Examples
+        ----------
+        Pair difference data
+        >>> m1 = OutputSkyMap(projection='healpix',
+        ...     nside=16, obspix=np.array([0, 1, 2, 3]), demodulation=False)
+        >>> Q, U = m1.get_QU()
         """
         if self.demodulation:
             return self.get_QU_demod()
@@ -1681,6 +1695,13 @@ class OutputSkyMap():
         I : 1d array
             Intensity map. Note that only the observed pixels defined in
             obspix are returned (and not the full sky map).
+
+        Examples
+        ----------
+        Demodulated data
+        >>> m1 = OutputSkyMap(projection='healpix',
+        ...     nside=16, obspix=np.array([0, 1, 2, 3]), demodulation=True)
+        >>> I = m1.get_I()
         """
         hit = self.w0 > 0
         I = np.zeros_like(self.d0)
@@ -1705,6 +1726,13 @@ class OutputSkyMap():
         U : 1d array
             Stokes U map. Note that only the observed pixels defined in
             obspix are returned (and not the full sky map).
+
+        Examples
+        ----------
+        Demodulated data
+        >>> m1 = OutputSkyMap(projection='healpix',
+        ...     nside=16, obspix=np.array([0, 1, 2, 3]), demodulation=True)
+        >>> Q, U = m1.get_QU()
         """
         hit = self.w4 > 0
 
@@ -1904,6 +1932,13 @@ class OutputSkyMapIGQU(OutputSkyMap):
         U : 1d array
             Stokes U map. Note that only the observed pixels defined in
             obspix are returned (and not the full sky map).
+
+        Examples
+        ----------
+        Pair difference data
+        >>> m1 = OutputSkyMapIGQU(projection='healpix',
+        ...     nside=16, obspix=np.array([0, 1, 2, 3]))
+        >>> G, Q, U = m1.get_QU()
         """
         if not hasattr(self, 'goodpix'):
             self.set_goodpix()
