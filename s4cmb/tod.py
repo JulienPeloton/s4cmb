@@ -644,7 +644,6 @@ class TimeOrderedDataPairDiff():
         """
         nbolofp = waferts.shape[0]
         npixfp = nbolofp / 2
-        # nt = int(waferts.shape[1])
         nt = int(waferts.shape[-1])
 
         ## Check sizes
@@ -655,7 +654,7 @@ class TimeOrderedDataPairDiff():
             'If mapping_perpair=False, one first load all the pixel and ' + \
             'then you need to perform the mapmaking with all the pixels ' + \
             'at once. If mapping_perpair=True, one should load ' + \
-            'pixel-by-pixel and the mapmaking is done pair-by-pair.' + \
+            'pair-by-pair and the mapmaking is done pair-by-pair.' + \
             'See so_MC_crosstalk.py vs so_MC_gain_drift.py to see both ' + \
             'approaches (s4cmb-resources/Part2), and example in doctest above.'
         assert npixfp == self.point_matrix.shape[0], msg
