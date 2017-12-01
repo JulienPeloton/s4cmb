@@ -598,14 +598,26 @@ class TimeOrderedDataPairDiff():
 
         Examples
         ----------
-        HEALPIX: Test the routines MAP -> TOD -> MAP.
+        HEALPIX: Test the routines MAP -> TOD -> MAP (mapping all detectors
+        at once).
         >>> inst, scan, sky_in = load_fake_instrument()
         >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in,
-        ...     CESnumber=0, projection='healpix')
+        ...     CESnumber=0, projection='healpix', mapping_perpair=False)
         >>> d = np.array([tod.map2tod(det) for det in range(2 * tod.npair)])
         >>> m = OutputSkyMap(projection=tod.projection,
         ...     nside=tod.nside_out, obspix=tod.obspix)
         >>> tod.tod2map(d, m)
+
+        HEALPIX: Test the routines MAP -> TOD -> MAP with mapping_perpair to
+        save memory (only 2 TOD at a time are loaded)
+        >>> inst, scan, sky_in = load_fake_instrument()
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in,
+        ...     CESnumber=0, projection='healpix', mapping_perpair=True)
+        >>> m = OutputSkyMap(projection=tod.projection,
+        ...     nside=tod.nside_out, obspix=tod.obspix)
+        >>> for pair in tod.pair_list:
+        ...   d = np.array([tod.map2tod(det) for det in pair])
+        ...   tod.tod2map(d, m)
 
         Check intensity map
         >>> sky_out = np.zeros(12 * tod.nside_out**2)
@@ -636,14 +648,24 @@ class TimeOrderedDataPairDiff():
         nt = int(waferts.shape[-1])
 
         ## Check sizes
-        assert npixfp == self.point_matrix.shape[0]
-        assert nt == self.point_matrix.shape[1]
+        msg = 'Most likely you set mapping_perpair wrongly when ' + \
+            'initialising your TOD.' + \
+            'The way you loop over focal plane pixel to do the mapmaking' + \
+            'depends on the value of mapping_perpair parameter. ' + \
+            'If mapping_perpair=False, one first load all the pixel and ' + \
+            'then you need to perform the mapmaking with all the pixels ' + \
+            'at once. If mapping_perpair=True, one should load ' + \
+            'pixel-by-pixel and the mapmaking is done pair-by-pair.' + \
+            'See so_MC_crosstalk.py vs so_MC_gain_drift.py to see both ' + \
+            'approaches (s4cmb-resources/Part2), and example in doctest above.'
+        assert npixfp == self.point_matrix.shape[0], msg
+        assert nt == self.point_matrix.shape[1], msg
 
-        assert npixfp == self.pol_angs.shape[0]
-        assert nt == self.pol_angs.shape[1]
+        assert npixfp == self.pol_angs.shape[0], msg
+        assert nt == self.pol_angs.shape[1], msg
 
-        assert npixfp == self.diff_weight.shape[0]
-        assert npixfp == self.sum_weight.shape[0]
+        assert npixfp == self.diff_weight.shape[0], msg
+        assert npixfp == self.sum_weight.shape[0], msg
 
         point_matrix = self.point_matrix.flatten()
         pol_angs = self.pol_angs.flatten()
