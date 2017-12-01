@@ -41,6 +41,12 @@ def configuration(parent_package='', top_path=None):
 
 
 if __name__ == "__main__":
+    ## version
+    version = '0.6.1'
+
+    ## Download url
+    d_url = 'https://github.com/JulienPeloton/s4cmb/archive/{}.tar.gz'.format(
+        version)
     # The requirements may be too stringent and older versions
     # may be alright. Haven't checked.
     reqs = open('requirements.txt', 'r').read().strip().splitlines()
@@ -59,9 +65,9 @@ if __name__ == "__main__":
 
     setup(
         configuration=configuration,
-        version='0.6.0',
+        version=version,
         url='https://github.com/JulienPeloton/s4cmb',
-        download_url='https://github.com/JulienPeloton/s4cmb/archive/0.6.0.tar.gz',
+        download_url=d_url,
         license='GPL-3.0',
         author='Julien Peloton',
         author_email='j.peloton@sussex.ac.uk',

@@ -2,6 +2,16 @@ v0.x.x
 =============
 * Current version.
 
+v0.6.1
+=============
+* Add Neil small aperture scan
+* Add method to perform systematic deprojection (IGQU)
+* Add App for differential pointing
+* Fix bug in dealing with leap second correction.
+* Allow python 3.5 & 3.6 (both code and Travis fixed)
+* Allow image in interactive ipython to be shown
+* Completely remove weave - never used in practice (use fortran instead for speed-up)
+
 v0.6.0
 =============
 * Add HWP demodulation (in addition to pair difference) to estimate I, Q, and U from timestreams.
