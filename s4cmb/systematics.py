@@ -1067,7 +1067,6 @@ def diffbeam_map2ts(out, intensity_derivatives,
     timestream using the differential beam model kernel
     '''
     npix, nt = out.shape
-    print(npix, nt)
     assert point_matrix.shape == out.shape
 
     assert npix == diffbeam_kernels.shape[0]
