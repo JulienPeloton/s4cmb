@@ -434,7 +434,8 @@ def step_function_gen(nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
 
     while 1:
         for pos in range(nbreaks):
-            ## 2 bolo in a pair will have the same break to avoid differential gain
+            ## 2 bolo in a pair will have the same break
+            ## to avoid differential gain
             end_points = state.normal(mean, std, size=1)
             end_points = np.tile(end_points, (2, 1)).T.reshape((2, 1))
 
