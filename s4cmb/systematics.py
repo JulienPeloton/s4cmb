@@ -7,8 +7,10 @@ Author: Julien Peloton, j.peloton@sussex.ac.uk
 from __future__ import division, absolute_import, print_function
 
 import numpy as np
+from scipy import signal
 
 from s4cmb.systematics_f import systematics_f
+from s4cmb.instrument import construct_beammap
 
 arcsecond2rad = np.pi / 180. / 3600.
 arcmin2rad = np.pi / 180. / 60.
@@ -307,6 +309,101 @@ def modify_beam_offsets(bolometer_xpos, bolometer_ypos,
 
     return bolometer_xpos, bolometer_ypos
 
+def inject_beam_ellipticity(sigma_gaussian, mu_beamellipticity,
+                            sigma_beamellipticity, nbolo,
+                            do_diffbeamellipticity=True, seed=54875):
+    """
+    Inject differential beam ellipticity (and beam ellipticity)
+    Starting from the definition of the beam ellipticity:
+        * eps = (sig1 - sig2)/(sig1 + sig2)
+        * Assume ellipticity follows normal distribution
+          centered on X% with Y% width
+        * Assume sig2 = sig1 + d, where d is a small deviation
+        * relate d and eps
+    Furthermore, we assume the angle of the ellipses are taken
+    from an uniform distribution btw -90 and 90 degrees.
+
+    Parameters
+    ----------
+    sigma_gaussian : float
+        Initial beam size (sigma). [radian]
+    mu_beamellipticity : float
+        Mean of the beam ellipticity distribution. [in percent]
+        Between -100 and 100 percent.
+    sigma_beamellipticity : float
+        Width of the beam ellipticity distribution. [in percent]
+    nbolo : int
+        Number of bolometers for which beams have to be perturbed.
+    do_diffbeamellipticity : bool, optional
+        If False, bolometers in the same pair will have the same ellipticity.
+        If True, add differential beam ellipticity between two bolometers.
+        Default is True.
+    seed : int, optional
+        Seed for random number generation.
+
+    Returns
+    ----------
+    sig_1 : 1d array of float
+        Vector containing new values for semi-major axes for all bolometers
+        in an elliptical Gaussian representation of the beam.
+    sig_2 : 1d array of float
+        Vector containing new values for semi-minor axes for all bolometers
+        in an elliptical Gaussian representation of the beam.
+    ellip_ang : 1d array of float
+        Angles of rotation of beams around 0 for all bolometers.
+
+    Examples
+    ----------
+    >>> from s4cmb.instrument import BeamModel
+    >>> from s4cmb.instrument import FocalPlane
+    >>> fp = FocalPlane(npair_per_squid=2, verbose=False)
+    >>> bm = BeamModel(fp, verbose=False)
+
+    Unperturbed beams (2 pairs of bolometers)
+    >>> print(bm.sig_1)
+    [ 0.00043235  0.00043235  0.00043235  0.00043235]
+
+    Different pairs have different ellipticity
+    (but not differential ellipticity within pairs)
+    >>> sig_1, sig_2, ellip_ang = inject_beam_ellipticity(
+    ...     bm.sig_1[0], 10, 5, 4, do_diffbeamellipticity=False)
+    >>> print(sig_1)
+    [ 0.0004715   0.0004715   0.00045276  0.00045276]
+
+    Different pairs have different ellipticity and differential ellipticity
+    within pairs
+    >>> sig_1, sig_2, ellip_ang = inject_beam_ellipticity(
+    ...     bm.sig_1[0], 10, 5, 4, do_diffbeamellipticity=True)
+    >>> print(sig_1)
+    [ 0.0004715   0.00045571  0.00045276  0.00046666]
+
+    """
+    state = np.random.RandomState(seed)
+
+    eps = state.normal(
+        mu_beamellipticity/100., sigma_beamellipticity/100., nbolo)
+
+    if do_diffbeamellipticity:
+        d_plus = 2 * sigma_gaussian / eps * (1. + np.sqrt((1 - eps**2)))
+        d_minus = 2 * sigma_gaussian / eps * (1. - np.sqrt((1 - eps**2)))
+        d = d_minus
+    else:
+        ## Bolometers in the same pair will have the same ellipticity.
+        ## This assumes that bolometers i and i+1 belong
+        ## to the same pair (default behaviour)
+        eps = np.repeat(eps[::2], 2)
+        d_plus = 2 * sigma_gaussian / eps * (1. + np.sqrt((1 - eps**2)))
+        d_minus = 2 * sigma_gaussian / eps * (1. - np.sqrt((1 - eps**2)))
+        d = d_minus
+
+    sig_1 = np.ones(nbolo) * sigma_gaussian + d/2.
+    sig_2 = np.ones(nbolo) * sigma_gaussian - d/2.
+
+    ## Angle between ellipses
+    ellip_ang = state.uniform(-90, 90, nbolo)
+
+    return sig_1, sig_2, ellip_ang
+
 def modify_pointing_parameters(values, errors):
     """
     This routine is not realistic at all for the moment!
@@ -572,6 +669,158 @@ def linear_function_gen(nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
                 continue
 
         yield gains
+
+def get_kernel_coefficients(beamprm, pairlist, nx, pix_size=None):
+    """ Generate beam expansion coefficients.
+
+    Here we compute the coefficients of the operator K to go from the observed
+    temperature map to the T->P leakage. It is based on the sum and difference
+    beam maps:
+
+    diffbeam = K conv sumbeam,
+
+    with
+
+    K = a.D,
+
+    where D is a vector containing temperature map and its derivatives:
+
+    D = (I, dI/dt, dI/dp, d2I/dt2, d2I/d2p, d2I/dpdt),
+
+    and a are coefficients computed and returned from this routine.
+
+    Parameters
+    ----------
+    beamprm : beam_model instance
+        Instance of beam_model.
+    pairlist : list
+        List containing the indices of bolometers
+    nx : int
+        Number of pixels per row/column (in pixel) to construct the beam maps.
+
+    Returns
+    ----------
+    out : dictionary
+        Dictionary containing beam coefficients (one for each T derivative)
+        for each pair.
+
+    Examples
+    ----------
+    >>> from s4cmb.instrument import FocalPlane
+    >>> from s4cmb.instrument import BeamModel
+    >>> fp = FocalPlane(verbose=False)
+    >>> pairlist = np.reshape(fp.bolo_index_in_fp, (fp.npair, 2))
+
+    If the beams are identical, the coefficients will be zeros
+    >>> bm = BeamModel(fp, verbose=False)
+    >>> coeffs = get_kernel_coefficients(bm, pairlist, nx=32)
+    >>> print(coeffs[0]) #doctest: +NORMALIZE_WHITESPACE
+    [ -4.07957247e-18   6.98047346e-37  -4.98058334e-37
+       1.57466587e-25   1.66338983e-26   4.29908155e-26]
+
+    Let's perturb the beam now by adding beam ellipticity
+    >>> bm = BeamModel(fp, verbose=False)
+    >>> bm.sig_1, bm.sig_2, bm.ellip_ang = inject_beam_ellipticity(
+    ...     bm.sig_1[0], 10, 5, fp.nbolometer, do_diffbeamellipticity=True)
+    >>> coeffs = get_kernel_coefficients(bm, pairlist, nx=32)
+    >>> print(coeffs[0]) #doctest: +NORMALIZE_WHITESPACE
+    [ -1.31867240e-03  -3.25190225e-22   8.50186573e-22
+      -5.45597911e-10   2.49079346e-11  -2.84095891e-11]
+
+    You can see that beam ellipticity involves T and its second derivatives,
+    but not the first derivatives (2nd and 3rd coefficients are zeros).
+
+    Let's perturb the beam now by adding differential pointing
+    >>> bm = BeamModel(fp, verbose=False)
+    >>> bm.xpos, bm.ypos = modify_beam_offsets(bm.xpos, bm.ypos,
+    ...     mu_diffpointing=600., sigma_diffpointing=300., seed=5847)
+    >>> coeffs = get_kernel_coefficients(bm, pairlist, nx=32)
+    >>> print(coeffs[0]) #doctest: +NORMALIZE_WHITESPACE
+    [ -2.85331622e-14   1.65793103e-06   1.63405900e-06
+      -4.31916726e-24   6.11529697e-23   1.58477077e-22]
+
+    You can see that differential pointing only first derivatives of T,
+    but not the teperature itself and its second derivatives
+    (0th, 4th, 5th, and 6th coefficients are zeros)
+    """
+    if pix_size is None:
+        ## Go from sigma to FWHM
+        mean_FWHM_x = np.mean(beamprm.sig_1) / np.sqrt(8*np.log(2))
+        mean_FWHM_y = np.mean(beamprm.sig_2) / np.sqrt(8*np.log(2))
+
+        ## 1/7th of the beam size.
+        pix_size = (mean_FWHM_x + mean_FWHM_y) / 2. / 7.
+
+    out = {}
+
+    ngood = 0
+    nbad = 0
+    for ct, cb in pairlist:
+        summap, diffmap = construct_beammap(beamprm, ct, cb, nx, pix_size)
+        if summap is not None and diffmap is not None:
+            ngood += 1
+            kernel = split_deriv(summap, diffmap, pix_size)
+        else:
+            nbad += 1
+            kernel = None
+
+        out[ct] = kernel
+
+    if nbad > 0:
+        print(
+            "Channel with asymmetry: {} / {}" .format(
+                2*ngood, 2*(ngood+nbad)))
+
+    return out
+
+def split_deriv(basekernel, splitme, pix_size):
+    """
+    Try to split a convolution kernel splitme in to two convolutions,
+    one low order derivatives, and the other a base kernel
+
+    E.g. splitme is the difference pixel beam,
+    basekernel is the sum pixel beam, and the result
+    is something like a gauss hermite expansion for the
+    difference beam in terms of the sum pixel beam.
+    """
+    ds = derivs(basekernel, pix_size)
+
+    A = ds.reshape((6, basekernel.shape[0] * basekernel.shape[1])).T
+    b = splitme.reshape(splitme.shape[0] * splitme.shape[1])
+
+    x, residues, rank, s = np.linalg.lstsq(A, b)
+
+    return x
+
+def xderiv(m, pix_size):
+    """
+    """
+    kernel = np.array([[1, 0, -1]]) / (2.0*pix_size)
+    v = signal.convolve2d(m, kernel, mode='same')
+    return -v
+
+def yderiv(m, pix_size):
+    """
+    """
+    kernel = np.array([[1, 0, -1]]).T / (2.0*pix_size)
+    v = signal.convolve2d(m, kernel, mode='same')
+    return -v
+
+def derivs(m, pix_size):
+    """
+    Compute derivatives of a map
+    Map should be in "view2d" layout, where m[i,j] i increasing is
+    dec increasing, j increasing is ra increasing.
+    This is plotted with pl.imshow(m, origin='lower')
+    """
+    m00 = m
+    m10 = xderiv(m, pix_size)
+    m01 = yderiv(m, pix_size)
+    m11 = yderiv(m10, pix_size)
+    m20 = xderiv(m10, pix_size)
+    m02 = yderiv(m01, pix_size)
+
+    return np.array((m00, m10, m01, m11, m20, m02))
 
 
 if __name__ == "__main__":
