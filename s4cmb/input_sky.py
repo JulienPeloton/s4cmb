@@ -290,20 +290,20 @@ class HealpixFitsMap():
         """
         """
         if fromalm:
-            print('Load alm')
+            # print('Load alm')
             alm = hp.read_alm(self.input_filename[0])
         else:
-            print('Generate alm from map')
+            # print('Generate alm from map')
             alm = hp.map2alm(self.I, self.lmax)
 
-        print('Compute 1st derivatives')
+        # print('Compute 1st derivatives')
         junk, self.dIdt, self.dIdp = hp.alm2map_der1(
             alm, self.nside_in, self.lmax)
 
         alm_der1_theta = hp.map2alm(self.dIdt, self.lmax)
         alm_der1_phi = hp.map2alm(self.dIdp, self.lmax)
 
-        print('Compute 2nd derivatives')
+        # print('Compute 2nd derivatives')
         junk, self.d2Id2t, der2map_theta_phi = hp.alm2map_der1(
             alm_der1_theta, self.nside_in, self.lmax)
         junk, self.d2Idpdt, self.d2Id2p = hp.alm2map_der1(

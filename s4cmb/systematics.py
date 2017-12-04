@@ -685,24 +685,25 @@ def get_kernel_coefficients(beamprm, pairlist, nx, pix_size=None):
 
     where D is a vector containing temperature map and its derivatives:
 
-    D = (I, dI/dt, dI/dp, d2I/dt2, d2I/d2p, d2I/dpdt),
+    D = (I, dI/dt, dI/dp, d2I/dpdt, d2I/dt2, d2I/d2p),
 
-    and a are coefficients computed and returned from this routine.
+    and a are coefficients.
 
     Parameters
     ----------
     beamprm : beam_model instance
         Instance of beam_model.
-    pairlist : list
-        List containing the indices of bolometers
+    pairlist : list of list
+        List containing the indices of bolometers grouped by pair
+        [[0, 1], [2, 3], ...]
     nx : int
         Number of pixels per row/column (in pixel) to construct the beam maps.
 
     Returns
     ----------
-    out : dictionary
-        Dictionary containing beam coefficients (one for each T derivative)
-        for each pair.
+    out : array of array
+        Array containing beam kernel coefficients
+        (one for each T derivative) for all pairs.
 
     Examples
     ----------
@@ -751,42 +752,63 @@ def get_kernel_coefficients(beamprm, pairlist, nx, pix_size=None):
         ## 1/7th of the beam size.
         pix_size = (mean_FWHM_x + mean_FWHM_y) / 2. / 7.
 
-    out = {}
+    out = []
 
-    ngood = 0
-    nbad = 0
     for ct, cb in pairlist:
         summap, diffmap = construct_beammap(beamprm, ct, cb, nx, pix_size)
         if summap is not None and diffmap is not None:
-            ngood += 1
             kernel = split_deriv(summap, diffmap, pix_size)
         else:
-            nbad += 1
             kernel = None
 
-        out[ct] = kernel
+        out.append(kernel)
 
-    if nbad > 0:
-        print(
-            "Channel with asymmetry: {} / {}" .format(
-                2*ngood, 2*(ngood+nbad)))
+    return np.array(out)
 
-    return out
-
-def split_deriv(basekernel, splitme, pix_size):
+def split_deriv(sumbeam, diffbeam, pix_size):
     """
-    Try to split a convolution kernel splitme in to two convolutions,
-    one low order derivatives, and the other a base kernel
+    Try to split a convolution kernel diffbeam (B-) in to two convolutions,
+    one low order derivatives (K), and the other a base kernel (B+):
 
-    E.g. splitme is the difference pixel beam,
-    basekernel is the sum pixel beam, and the result
-    is something like a gauss hermite expansion for the
-    difference beam in terms of the sum pixel beam.
+    B- = K conv B+
+
+    where K = a.D, with D is a vector containing temperature map
+    and its derivatives:
+
+    D = (I, dI/dt, dI/dp, d2I/dpdt, d2I/dt2, d2I/d2p),
+
+    and a are coefficients.
+
+    Parameters
+    ----------
+    sumbeam : 2d array
+        Sum beam map
+    diffbeam : 2d array
+        Difference beam map
+    pix_size : float
+        Size of a pixel [radian]
+
+    Returns
+    ----------
+    x : 1d array of 6 elements
+        Vector containing the beam kernel coefficients
+        (one for each T derivative).
+
+    Examples
+    ----------
+    >>> from s4cmb.instrument import FocalPlane
+    >>> from s4cmb.instrument import BeamModel
+    >>> fp = FocalPlane(verbose=False)
+    >>> bm = BeamModel(fp, verbose=False)
+    >>> pix_size = 0.5 / 60. * np.pi / 180.
+    >>> summap, diffmap = construct_beammap(bm, 0, 1, nx=32, pix_size=pix_size)
+    >>> K = split_deriv(summap, diffmap, pix_size)
+
     """
-    ds = derivs(basekernel, pix_size)
+    ds = derivs(sumbeam, pix_size)
 
-    A = ds.reshape((6, basekernel.shape[0] * basekernel.shape[1])).T
-    b = splitme.reshape(splitme.shape[0] * splitme.shape[1])
+    A = ds.reshape((6, sumbeam.shape[0] * sumbeam.shape[1])).T
+    b = diffbeam.reshape(diffbeam.shape[0] * diffbeam.shape[1])
 
     x, residues, rank, s = np.linalg.lstsq(A, b)
 
@@ -794,6 +816,24 @@ def split_deriv(basekernel, splitme, pix_size):
 
 def xderiv(m, pix_size):
     """
+    Perform the derivative of a 2d map with respect to x coordinate.
+
+    Parameters
+    ----------
+    m : 2d array
+        Input 2d map
+    pix_size : float
+        Size of a pixel [radian]
+
+    Returns
+    ----------
+    -v : 2d array
+        Derivative of the input beam map with respect to x coordinate.
+
+    Examples
+    ----------
+    >>> m = np.ones((10, 10)) * np.arange(10)
+    >>> dmx = xderiv(m, pix_size=0.5/60.*np.pi/180.)
     """
     kernel = np.array([[1, 0, -1]]) / (2.0*pix_size)
     v = signal.convolve2d(m, kernel, mode='same')
@@ -801,6 +841,24 @@ def xderiv(m, pix_size):
 
 def yderiv(m, pix_size):
     """
+    Perform the derivative of a 2d map with respect to y coordinate.
+
+    Parameters
+    ----------
+    m : 2d array
+        Input 2d map
+    pix_size : float
+        Size of a pixel [radian]
+
+    Returns
+    ----------
+    -v : 2d array
+        Derivative of the input beam map with respect to y coordinate.
+
+    Examples
+    ----------
+    >>> m = np.ones((10, 10)) * np.arange(10)
+    >>> dmy = yderiv(m.T, pix_size=0.5/60.*np.pi/180.)
     """
     kernel = np.array([[1, 0, -1]]).T / (2.0*pix_size)
     v = signal.convolve2d(m, kernel, mode='same')
@@ -808,10 +866,25 @@ def yderiv(m, pix_size):
 
 def derivs(m, pix_size):
     """
-    Compute derivatives of a map
-    Map should be in "view2d" layout, where m[i,j] i increasing is
-    dec increasing, j increasing is ra increasing.
-    This is plotted with pl.imshow(m, origin='lower')
+    Compute full 1st and 2nd derivatives of a 2d map (flat sky).
+
+    Parameters
+    ----------
+    m : 2d array
+        Input 2d map
+    pix_size : float
+        Size of a pixel [radian]
+
+    Returns
+    ----------
+    v : array of 2d array
+        Derivatives of the input beam map with respect to x and y coordinates.
+
+    Examples
+    ----------
+    >>> m = np.ones((10, 10)) * np.arange(10)
+    >>> m = m.T * np.arange(10)
+    >>> m00, m10, m01, m11, m20, m02 = derivs(m, pix_size=0.5/60.*np.pi/180.)
     """
     m00 = m
     m10 = xderiv(m, pix_size)
@@ -821,6 +894,196 @@ def derivs(m, pix_size):
     m02 = yderiv(m01, pix_size)
 
     return np.array((m00, m10, m01, m11, m20, m02))
+
+def fixspin(K, spin):
+    """
+    Selects derivatives of only a given spin (by default we do not compute
+    all spins if this is unecessary) and rearrange for later use.
+
+    Parameters
+    ----------
+    K : 1d array
+        Kernel coefficients of the beam map decomposition
+    spins : string
+        Which type of derivatives you want to use for you leakage.
+        Example: beam ellipticity would use 0 and 2, while differential
+        pointing would use just 1.
+
+    Returns
+    ----------
+    es : 1d array
+        Selected kernel coefficients of the beam map decomposition
+
+    Examples
+    ----------
+    >>> from s4cmb.instrument import FocalPlane
+    >>> from s4cmb.instrument import BeamModel
+    >>> fp = FocalPlane(verbose=False)
+    >>> bm = BeamModel(fp, verbose=False)
+    >>> pix_size = 0.5 / 60. * np.pi / 180.
+    >>> summap, diffmap = construct_beammap(bm, 0, 1, nx=32, pix_size=pix_size)
+    >>> K = split_deriv(summap, diffmap, pix_size)
+    >>> SK = fixspin(K, spin='012')
+
+    """
+    d00, d10, d01, d11, d20, d02 = K
+    x = (d20 + d02) * 0.5
+    y = (d20 - d02) * 0.5
+
+    e00 = 0.0
+    e10 = 0.0
+    e01 = 0.0
+    e11 = 0.0
+    e20 = 0.0
+    e02 = 0.0
+
+    if '0' in spin:
+        e00 += d00
+        e10 += 0.0
+        e01 += 0.0
+        e11 += 0.0
+        e20 += x
+        e02 += x
+    if '1' in spin:
+        e00 += 0.0
+        e10 += d10
+        e01 += d01
+        e11 += 0.0
+        e20 += 0.0
+        e02 += 0.0
+    if '2' in spin:
+        e00 += 0.0
+        e10 += 0.0
+        e01 += 0.0
+        e11 += d11
+        e20 += y
+        e02 += -y
+
+    return np.array((e00, e10, e01, e11, e20, e02))
+
+def rotate_deriv(K, theta):
+    """
+    Rotate a vector of derivative kernel coefficients K by an angle theta.
+
+    Parameters
+    ----------
+    K : 1d array
+        Kernel coefficients of the beam map decomposition
+    theta : float
+        Orientation of the pixel [radian]
+
+    Returns
+    ----------
+    es : 1d array
+        Rotated kernel coefficients of the beam map decomposition.
+
+    Examples
+    ----------
+    >>> from s4cmb.instrument import FocalPlane
+    >>> from s4cmb.instrument import BeamModel
+    >>> fp = FocalPlane(verbose=False)
+    >>> bm = BeamModel(fp, verbose=False)
+    >>> pix_size = 0.5 / 60. * np.pi / 180.
+    >>> summap, diffmap = construct_beammap(bm, 0, 1, nx=32, pix_size=pix_size)
+    >>> K = split_deriv(summap, diffmap, pix_size)
+    >>> RK = rotate_deriv(K, theta=np.pi)
+
+    """
+
+    d00, d10, d01, d11, d20, d02 = K
+
+    c = np.cos(theta)
+    s = np.sin(theta)
+
+    e00 = np.ones_like(theta) * d00
+
+    e10 = c * d10 - s * d01
+    e01 = s * d10 + c * d01
+
+    e20 = c * c * d20 - 2.0 * c * s * d11 + s * s * d02
+    e02 = s * s * d20 + 2.0 * c * s * d11 + c * c * d02
+    e11 = (c * c - s * s) * d11 + c * s * (d20 - d02)
+
+    es = np.array((e00, e10, e01, e11, e20, e02))
+
+    return es
+
+def waferts_add_diffbeam(waferts, point_matrix, beam_orientation,
+                         intensity_derivatives, diffbeam_kernels,
+                         pairlist, spins='012'):
+    """
+    Modify timestreams by injecting T->P leakage from beam mismatch.
+    Note that timestreams are modified on-the-fly.
+
+    Parameters
+    ----------
+    waferts : ndarray
+        Array containing timestreams
+    point_matrix : ndarray
+        Array containing pointing information
+    beam_orientation : ndarray
+        Array containing intrinsic orientation of the pixels
+    intensity_derivatives : ndarray
+        Containing map of the intensity and its derivatives (6 maps)
+    diffbeam_kernels : 1d array of 6 elements
+        Array containing beam kernel coefficients
+        (one for each T derivative) for all pairs.
+    pairlist : list of list
+        List containing the indices of bolometers grouped by pair
+        [[0, 1], [2, 3], ...].
+    spins : string
+        Which type of derivatives you want to use for you leakage.
+        Example: beam ellipticity would use 0 and 2, while differential
+        pointing would use just 1.
+
+
+    Examples
+    ----------
+    >>>
+
+    """
+    diffbeam_kernels[:, 0] = 0.0
+    diffbeam_kernels[:, 1] *= -1
+    diffbeam_kernels[:, 3] *= -1
+
+    for i in range(len(diffbeam_kernels)):
+        diffbeam_kernels[i] = fixspin(diffbeam_kernels[i], spins)
+
+    diffbeamleak = np.zeros((int(waferts.shape[0]/2), waferts.shape[1]))
+    diffbeam_map2ts(
+        diffbeamleak,
+        intensity_derivatives,
+        point_matrix,
+        beam_orientation,
+        diffbeam_kernels)
+
+    waferts[::2] += diffbeamleak
+    waferts[1::2] -= diffbeamleak
+
+def diffbeam_map2ts(out, intensity_derivatives,
+                    point_matrix, beam_orientation, diffbeam_kernels):
+    '''
+    Add the leakage from the I map into the differential beam
+    timestream using the differential beam model kernel
+    '''
+    npix, nt = out.shape
+    print(npix, nt)
+    assert point_matrix.shape == out.shape
+
+    assert npix == diffbeam_kernels.shape[0]
+    assert len(intensity_derivatives) == diffbeam_kernels.shape[1]
+    assert (npix, nt) == beam_orientation.shape
+
+    for ipix in range(npix):
+        i1d = point_matrix[ipix, :]
+        okpointing = i1d != -1
+        io = i1d[okpointing]
+        k = rotate_deriv(
+            diffbeam_kernels[ipix],
+            -beam_orientation[ipix, okpointing])
+
+        for coeff in range(len(k)):
+            out[ipix, okpointing] += intensity_derivatives[coeff, io]*k[coeff]
 
 
 if __name__ == "__main__":
