@@ -7,8 +7,10 @@ Author: Julien Peloton, j.peloton@sussex.ac.uk
 from __future__ import division, absolute_import, print_function
 
 import numpy as np
+from scipy import signal
 
 from s4cmb.systematics_f import systematics_f
+from s4cmb.instrument import construct_beammap
 
 arcsecond2rad = np.pi / 180. / 3600.
 arcmin2rad = np.pi / 180. / 60.
@@ -307,6 +309,101 @@ def modify_beam_offsets(bolometer_xpos, bolometer_ypos,
 
     return bolometer_xpos, bolometer_ypos
 
+def inject_beam_ellipticity(sigma_gaussian, mu_beamellipticity,
+                            sigma_beamellipticity, nbolo,
+                            do_diffbeamellipticity=True, seed=54875):
+    """
+    Inject differential beam ellipticity (and beam ellipticity)
+    Starting from the definition of the beam ellipticity:
+        * eps = (sig1 - sig2)/(sig1 + sig2)
+        * Assume ellipticity follows normal distribution
+          centered on X% with Y% width
+        * Assume sig2 = sig1 + d, where d is a small deviation
+        * relate d and eps
+    Furthermore, we assume the angle of the ellipses are taken
+    from an uniform distribution btw -90 and 90 degrees.
+
+    Parameters
+    ----------
+    sigma_gaussian : float
+        Initial beam size (sigma). [radian]
+    mu_beamellipticity : float
+        Mean of the beam ellipticity distribution. [in percent]
+        Between -100 and 100 percent.
+    sigma_beamellipticity : float
+        Width of the beam ellipticity distribution. [in percent]
+    nbolo : int
+        Number of bolometers for which beams have to be perturbed.
+    do_diffbeamellipticity : bool, optional
+        If False, bolometers in the same pair will have the same ellipticity.
+        If True, add differential beam ellipticity between two bolometers.
+        Default is True.
+    seed : int, optional
+        Seed for random number generation.
+
+    Returns
+    ----------
+    sig_1 : 1d array of float
+        Vector containing new values for semi-major axes for all bolometers
+        in an elliptical Gaussian representation of the beam.
+    sig_2 : 1d array of float
+        Vector containing new values for semi-minor axes for all bolometers
+        in an elliptical Gaussian representation of the beam.
+    ellip_ang : 1d array of float
+        Angles of rotation of beams around 0 for all bolometers.
+
+    Examples
+    ----------
+    >>> from s4cmb.instrument import BeamModel
+    >>> from s4cmb.instrument import FocalPlane
+    >>> fp = FocalPlane(npair_per_squid=2, verbose=False)
+    >>> bm = BeamModel(fp, verbose=False)
+
+    Unperturbed beams (2 pairs of bolometers)
+    >>> print(bm.sig_1)
+    [ 0.00043235  0.00043235  0.00043235  0.00043235]
+
+    Different pairs have different ellipticity
+    (but not differential ellipticity within pairs)
+    >>> sig_1, sig_2, ellip_ang = inject_beam_ellipticity(
+    ...     bm.sig_1[0], 10, 5, 4, do_diffbeamellipticity=False)
+    >>> print(sig_1)
+    [ 0.0004715   0.0004715   0.00045276  0.00045276]
+
+    Different pairs have different ellipticity and differential ellipticity
+    within pairs
+    >>> sig_1, sig_2, ellip_ang = inject_beam_ellipticity(
+    ...     bm.sig_1[0], 10, 5, 4, do_diffbeamellipticity=True)
+    >>> print(sig_1)
+    [ 0.0004715   0.00045571  0.00045276  0.00046666]
+
+    """
+    state = np.random.RandomState(seed)
+
+    eps = state.normal(
+        mu_beamellipticity/100., sigma_beamellipticity/100., nbolo)
+
+    if do_diffbeamellipticity:
+        d_plus = 2 * sigma_gaussian / eps * (1. + np.sqrt((1 - eps**2)))
+        d_minus = 2 * sigma_gaussian / eps * (1. - np.sqrt((1 - eps**2)))
+        d = d_minus
+    else:
+        ## Bolometers in the same pair will have the same ellipticity.
+        ## This assumes that bolometers i and i+1 belong
+        ## to the same pair (default behaviour)
+        eps = np.repeat(eps[::2], 2)
+        d_plus = 2 * sigma_gaussian / eps * (1. + np.sqrt((1 - eps**2)))
+        d_minus = 2 * sigma_gaussian / eps * (1. - np.sqrt((1 - eps**2)))
+        d = d_minus
+
+    sig_1 = np.ones(nbolo) * sigma_gaussian + d/2.
+    sig_2 = np.ones(nbolo) * sigma_gaussian - d/2.
+
+    ## Angle between ellipses
+    ellip_ang = state.uniform(-90, 90, nbolo)
+
+    return sig_1, sig_2, ellip_ang
+
 def modify_pointing_parameters(values, errors):
     """
     This routine is not realistic at all for the moment!
@@ -572,6 +669,482 @@ def linear_function_gen(nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
                 continue
 
         yield gains
+
+def get_kernel_coefficients(beamprm, pairlist, nx=128, pix_size=None):
+    """ Generate beam expansion coefficients.
+
+    Here we compute the coefficients of the operator K to go from the observed
+    temperature map to the T->P leakage. It is based on the sum and difference
+    beam maps:
+
+    diffbeam = K conv sumbeam,
+
+    with
+
+    K = a.D,
+
+    where D is a vector containing temperature map and its derivatives:
+
+    D = (I, dI/dt, dI/dp, d2I/dpdt, d2I/dt2, d2I/d2p),
+
+    and a are coefficients.
+
+    Parameters
+    ----------
+    beamprm : beam_model instance
+        Instance of beam_model.
+    pairlist : list of list
+        List containing the indices of bolometers grouped by pair
+        [[0, 1], [2, 3], ...]
+    nx : int, optional
+        Number of pixels per row/column (in pixel) to construct the beam maps.
+        You want nx * pix_size to be a large number compared to the beam size
+        to make sure to incorporate all beam features.
+    pix_size : float, optional
+        Pixel size in radian. If None, set automatically to be 1/7th of the
+        beam size.
+
+    Returns
+    ----------
+    out : array of array
+        Array containing beam kernel coefficients
+        (one for each T derivative) for all pairs.
+
+    Examples
+    ----------
+    >>> from s4cmb.instrument import FocalPlane
+    >>> from s4cmb.instrument import BeamModel
+    >>> fp = FocalPlane(verbose=False)
+    >>> pairlist = np.reshape(fp.bolo_index_in_fp, (fp.npair, 2))
+
+    If the beams are identical, the coefficients will be zeros
+    >>> bm = BeamModel(fp, verbose=False)
+    >>> coeffs = get_kernel_coefficients(bm, pairlist, nx=32)
+    >>> print(coeffs[0]) #doctest: +NORMALIZE_WHITESPACE
+    [ -4.07957247e-18   6.98047346e-37  -4.98058334e-37
+       1.57466587e-25   1.66338983e-26   4.29908155e-26]
+
+    Let's perturb the beam now by adding beam ellipticity
+    >>> bm = BeamModel(fp, verbose=False)
+    >>> bm.sig_1, bm.sig_2, bm.ellip_ang = inject_beam_ellipticity(
+    ...     bm.sig_1[0], 10, 5, fp.nbolometer, do_diffbeamellipticity=True)
+    >>> coeffs = get_kernel_coefficients(bm, pairlist, nx=32)
+    >>> print(coeffs[0]) #doctest: +NORMALIZE_WHITESPACE
+    [ -1.31867240e-03  -3.25190225e-22   8.50186573e-22
+      -5.45597911e-10   2.49079346e-11  -2.84095891e-11]
+
+    You can see that beam ellipticity involves T and its second derivatives,
+    but not the first derivatives (2nd and 3rd coefficients are zeros).
+
+    Let's perturb the beam now by adding differential pointing
+    >>> bm = BeamModel(fp, verbose=False)
+    >>> bm.xpos, bm.ypos = modify_beam_offsets(bm.xpos, bm.ypos,
+    ...     mu_diffpointing=600., sigma_diffpointing=300., seed=5847)
+    >>> coeffs = get_kernel_coefficients(bm, pairlist, nx=32)
+    >>> print(coeffs[0]) #doctest: +NORMALIZE_WHITESPACE
+    [ -2.85331622e-14   1.65793103e-06   1.63405900e-06
+      -4.31916726e-24   6.11529697e-23   1.58477077e-22]
+
+    You can see that differential pointing only first derivatives of T,
+    but not the teperature itself and its second derivatives
+    (0th, 4th, 5th, and 6th coefficients are zeros)
+    """
+    if pix_size is None:
+        ## Go from sigma to FWHM
+        mean_FWHM_x = np.mean(beamprm.sig_1) / np.sqrt(8*np.log(2))
+        mean_FWHM_y = np.mean(beamprm.sig_2) / np.sqrt(8*np.log(2))
+
+        ## 1/7th of the beam size.
+        pix_size = (mean_FWHM_x + mean_FWHM_y) / 2. / 7.
+
+    out = []
+
+    for ct, cb in pairlist:
+        summap, diffmap = construct_beammap(beamprm, ct, cb, nx, pix_size)
+        if summap is not None and diffmap is not None:
+            kernel = split_deriv(summap, diffmap, pix_size)
+        else:
+            kernel = None
+
+        out.append(kernel)
+
+    return np.array(out)
+
+def split_deriv(sumbeam, diffbeam, pix_size):
+    """
+    Try to split a convolution kernel diffbeam (B-) in to two convolutions,
+    one low order derivatives (K), and the other a base kernel (B+):
+
+    B- = K conv B+
+
+    where K = a.D, with D is a vector containing temperature map
+    and its derivatives:
+
+    D = (I, dI/dt, dI/dp, d2I/dpdt, d2I/dt2, d2I/d2p),
+
+    and a are coefficients.
+
+    Parameters
+    ----------
+    sumbeam : 2d array
+        Sum beam map
+    diffbeam : 2d array
+        Difference beam map
+    pix_size : float
+        Size of a pixel [radian]
+
+    Returns
+    ----------
+    x : 1d array of 6 elements
+        Vector containing the beam kernel coefficients
+        (one for each T derivative).
+
+    Examples
+    ----------
+    >>> from s4cmb.instrument import FocalPlane
+    >>> from s4cmb.instrument import BeamModel
+    >>> fp = FocalPlane(verbose=False)
+    >>> bm = BeamModel(fp, verbose=False)
+    >>> pix_size = 0.5 / 60. * np.pi / 180.
+    >>> summap, diffmap = construct_beammap(bm, 0, 1, nx=32, pix_size=pix_size)
+    >>> K = split_deriv(summap, diffmap, pix_size)
+
+    """
+    ds = derivs(sumbeam, pix_size)
+
+    A = ds.reshape((6, sumbeam.shape[0] * sumbeam.shape[1])).T
+    b = diffbeam.reshape(diffbeam.shape[0] * diffbeam.shape[1])
+
+    x, residues, rank, s = np.linalg.lstsq(A, b)
+
+    return x
+
+def xderiv(m, pix_size):
+    """
+    Perform the derivative of a 2d map with respect to x coordinate.
+
+    Parameters
+    ----------
+    m : 2d array
+        Input 2d map
+    pix_size : float
+        Size of a pixel [radian]
+
+    Returns
+    ----------
+    -v : 2d array
+        Derivative of the input beam map with respect to x coordinate.
+
+    Examples
+    ----------
+    >>> m = np.ones((10, 10)) * np.arange(10)
+    >>> dmx = xderiv(m, pix_size=0.5/60.*np.pi/180.)
+    """
+    kernel = np.array([[1, 0, -1]]) / (2.0*pix_size)
+    v = signal.convolve2d(m, kernel, mode='same')
+    return -v
+
+def yderiv(m, pix_size):
+    """
+    Perform the derivative of a 2d map with respect to y coordinate.
+
+    Parameters
+    ----------
+    m : 2d array
+        Input 2d map
+    pix_size : float
+        Size of a pixel [radian]
+
+    Returns
+    ----------
+    -v : 2d array
+        Derivative of the input beam map with respect to y coordinate.
+
+    Examples
+    ----------
+    >>> m = np.ones((10, 10)) * np.arange(10)
+    >>> dmy = yderiv(m.T, pix_size=0.5/60.*np.pi/180.)
+    """
+    kernel = np.array([[1, 0, -1]]).T / (2.0*pix_size)
+    v = signal.convolve2d(m, kernel, mode='same')
+    return -v
+
+def derivs(m, pix_size):
+    """
+    Compute full 1st and 2nd derivatives of a 2d map (flat sky).
+
+    Parameters
+    ----------
+    m : 2d array
+        Input 2d map
+    pix_size : float
+        Size of a pixel [radian]
+
+    Returns
+    ----------
+    v : array of 2d array
+        Derivatives of the input beam map with respect to x and y coordinates.
+
+    Examples
+    ----------
+    >>> m = np.ones((10, 10)) * np.arange(10)
+    >>> m = m.T * np.arange(10)
+    >>> m00, m10, m01, m11, m20, m02 = derivs(m, pix_size=0.5/60.*np.pi/180.)
+    """
+    m00 = m
+    m10 = xderiv(m, pix_size)
+    m01 = yderiv(m, pix_size)
+    m11 = yderiv(m10, pix_size)
+    m20 = xderiv(m10, pix_size)
+    m02 = yderiv(m01, pix_size)
+
+    return np.array((m00, m10, m01, m11, m20, m02))
+
+def fixspin(K, spin):
+    """
+    Selects derivatives of only a given spin (by default we do not compute
+    all spins if this is unecessary) and rearrange for later use.
+
+    Parameters
+    ----------
+    K : 1d array
+        Kernel coefficients of the beam map decomposition
+    spins : string
+        Which type of derivatives you want to use for you leakage.
+        Example: beam ellipticity would use 0 and 2, while differential
+        pointing would use just 1.
+
+    Returns
+    ----------
+    es : 1d array
+        Selected kernel coefficients of the beam map decomposition
+
+    Examples
+    ----------
+    >>> from s4cmb.instrument import FocalPlane
+    >>> from s4cmb.instrument import BeamModel
+    >>> fp = FocalPlane(verbose=False)
+    >>> bm = BeamModel(fp, verbose=False)
+    >>> pix_size = 0.5 / 60. * np.pi / 180.
+    >>> summap, diffmap = construct_beammap(bm, 0, 1, nx=32, pix_size=pix_size)
+    >>> K = split_deriv(summap, diffmap, pix_size)
+    >>> SK = fixspin(K, spin='012')
+
+    """
+    d00, d10, d01, d11, d20, d02 = K
+    x = (d20 + d02) * 0.5
+    y = (d20 - d02) * 0.5
+
+    e00 = 0.0
+    e10 = 0.0
+    e01 = 0.0
+    e11 = 0.0
+    e20 = 0.0
+    e02 = 0.0
+
+    if '0' in spin:
+        e00 += d00
+        e10 += 0.0
+        e01 += 0.0
+        e11 += 0.0
+        e20 += x
+        e02 += x
+    if '1' in spin:
+        e00 += 0.0
+        e10 += d10
+        e01 += d01
+        e11 += 0.0
+        e20 += 0.0
+        e02 += 0.0
+    if '2' in spin:
+        e00 += 0.0
+        e10 += 0.0
+        e01 += 0.0
+        e11 += d11
+        e20 += y
+        e02 += -y
+
+    return np.array((e00, e10, e01, e11, e20, e02))
+
+def rotate_deriv(K, theta):
+    """
+    Rotate a vector of derivative kernel coefficients K by an angle theta.
+
+    Parameters
+    ----------
+    K : 1d array
+        Kernel coefficients of the beam map decomposition
+    theta : float
+        Orientation of the pixel [radian]
+
+    Returns
+    ----------
+    es : 1d array
+        Rotated kernel coefficients of the beam map decomposition.
+
+    Examples
+    ----------
+    >>> from s4cmb.instrument import FocalPlane
+    >>> from s4cmb.instrument import BeamModel
+    >>> fp = FocalPlane(verbose=False)
+    >>> bm = BeamModel(fp, verbose=False)
+    >>> pix_size = 0.5 / 60. * np.pi / 180.
+    >>> summap, diffmap = construct_beammap(bm, 0, 1, nx=32, pix_size=pix_size)
+    >>> K = split_deriv(summap, diffmap, pix_size)
+    >>> RK = rotate_deriv(K, theta=np.pi)
+
+    """
+
+    d00, d10, d01, d11, d20, d02 = K
+
+    c = np.cos(theta)
+    s = np.sin(theta)
+
+    e00 = np.ones_like(theta) * d00
+
+    e10 = c * d10 - s * d01
+    e01 = s * d10 + c * d01
+
+    e20 = c * c * d20 - 2.0 * c * s * d11 + s * s * d02
+    e02 = s * s * d20 + 2.0 * c * s * d11 + c * c * d02
+    e11 = (c * c - s * s) * d11 + c * s * (d20 - d02)
+
+    es = np.array((e00, e10, e01, e11, e20, e02))
+
+    return es
+
+def waferts_add_diffbeam(waferts, point_matrix, beam_orientation,
+                         intensity_derivatives, diffbeam_kernels,
+                         pairlist, spins='012'):
+    """
+    Modify timestreams by injecting T->P leakage from beam mismatch.
+    Note that timestreams are modified on-the-fly.
+
+    Parameters
+    ----------
+    waferts : ndarray
+        Array containing timestreams
+    point_matrix : ndarray
+        Array containing pointing information
+    beam_orientation : ndarray
+        Array containing intrinsic orientation of the pixels
+    intensity_derivatives : ndarray
+        Containing map of the intensity and its derivatives (6 maps)
+    diffbeam_kernels : 1d array of 6 elements
+        Array containing beam kernel coefficients
+        (one for each T derivative) for all pairs.
+    pairlist : list of list
+        List containing the indices of bolometers grouped by pair
+        [[0, 1], [2, 3], ...].
+    spins : string
+        Which type of derivatives you want to use for you leakage.
+        Example: beam ellipticity would use 0 and 2, while differential
+        pointing would use just 1.
+
+
+    Examples
+    ----------
+    >>> from s4cmb.tod import load_fake_instrument
+    >>> from s4cmb.tod import TimeOrderedDataPairDiff
+    >>> inst, scan, sky_in = load_fake_instrument(compute_derivatives=True)
+
+    Make beam ellipticity
+    >>> sig_1, sig_2, ellip_ang = inject_beam_ellipticity(
+    ...     inst.beam_model.sig_1[0], 50, 10,
+    ...     inst.focal_plane.nbolometer, do_diffbeamellipticity=True)
+    >>> inst.beam_model.sig_1 = sig_1
+    >>> inst.beam_model.sig_2 = sig_2
+    >>> inst.beam_model.ellip_ang = ellip_ang
+
+    Get TOD
+    >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in, CESnumber=0)
+    >>> d = np.array([tod.map2tod(det) for det in range(2 * tod.npair)])
+
+    Get beam kernels
+    >>> pairlist = np.reshape(
+    ...     inst.focal_plane.bolo_index_in_fp, (inst.focal_plane.npair, 2))
+    >>> K = get_kernel_coefficients(
+    ...     inst.beam_model, pairlist, nx=128, pix_size=None)
+
+    Get intensity derivatives and orientation of pixels
+    >>> intensity_derivatives = np.array(
+    ...     [sky_in.I, sky_in.dIdt, sky_in.dIdp,
+    ...      sky_in.d2Idpdt, sky_in.d2Id2t, sky_in.d2Id2p])
+    >>> beam_orientation = np.array(
+    ...     [tod.pol_angs[ch] - (
+    ...         90.0 - tod.intrinsic_polangle[2*ch]) * np.pi / 180. -
+    ...      2*tod.hwpangle for ch in range(inst.focal_plane.npair)])
+
+    Inject spurious signal
+    >>> waferts_add_diffbeam(
+    ...     d, tod.point_matrix, beam_orientation,
+    ...     intensity_derivatives, K,
+    ...     pairlist, spins='012')
+
+    """
+    ## Just to preserve it
+    K = diffbeam_kernels + 0.
+
+    ## Set temperature to 0 and flip the sign of dtheta terms.
+    K[:, 0] = 0.0
+    K[:, 1] *= -1
+    K[:, 3] *= -1
+
+    for i in range(len(K)):
+        K[i] = fixspin(K[i], spins)
+
+    diffbeamleak = np.zeros((int(waferts.shape[0]/2), waferts.shape[1]))
+    diffbeam_map2tod(
+        diffbeamleak,
+        intensity_derivatives,
+        point_matrix,
+        beam_orientation,
+        K)
+
+    waferts[::2] += diffbeamleak
+    waferts[1::2] -= diffbeamleak
+
+def diffbeam_map2tod(out, intensity_derivatives,
+                     point_matrix, beam_orientation, diffbeam_kernels):
+    """
+    Scan the leakage maps to generate polarisation timestream for channel ch,
+    using the differential beam model kernel.
+
+
+    Note for future:
+     * check flat sky!
+
+    Parameters
+    ----------
+    out : ndarray
+        Will contain the spurious signal (npair, nsamples)
+    intensity_derivatives : ndarray
+        Containing map of the intensity and its derivatives (6 maps)
+    point_matrix : ndarray
+        Array containing pointing information
+    beam_orientation : ndarray
+        Array containing intrinsic orientation of the pixels
+    diffbeam_kernels : 1d array of 6 elements
+        Array containing beam kernel coefficients
+        (one for each T derivative) for all pairs.
+    """
+    npix, nt = out.shape
+    assert point_matrix.shape == out.shape
+    assert diffbeam_kernels.shape[0] == npix
+    assert len(intensity_derivatives) == diffbeam_kernels.shape[1]
+    assert beam_orientation.shape == (npix, nt)
+
+    for ipix in range(npix):
+        i1d = point_matrix[ipix, :]
+        okpointing = i1d != -1
+        io = i1d[okpointing]
+        k = rotate_deriv(
+            diffbeam_kernels[ipix],
+            -beam_orientation[ipix, okpointing])
+
+        ## Add the leakage on-the-fly
+        for coeff in range(len(k)):
+            out[ipix, okpointing] += intensity_derivatives[coeff, io]*k[coeff]
 
 
 if __name__ == "__main__":

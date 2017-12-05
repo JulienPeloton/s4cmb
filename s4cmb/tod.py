@@ -473,6 +473,34 @@ class TimeOrderedDataPairDiff():
 
         return pol_ang
 
+    def return_parallactic_angle(self, ch):
+        """
+        Return the parallactic angles (orientations of the pixel on sky)
+        for one specific channel (full timestream).
+
+        Parameters
+        ----------
+        ch : int
+            Index of the bolometer (within the focal plane).
+
+        Returns
+        ----------
+        pa : 1d array
+            Parallactic angles (timestream) for detector ch.
+        """
+        if self.mapping_perpair is True:
+            ang_pix = (90.0 - self.intrinsic_polangle[ch]) * d2r
+            if not hasattr(self, 'dm'):
+                return self.pol_angs - ang_pix - 2*self.hwpangle
+            else:
+                return self.pol_angs + ang_pix
+        else:
+            ang_pix = (90.0 - self.intrinsic_polangle[2*ch]) * d2r
+            if not hasattr(self, 'dm'):
+                return self.pol_angs[ch] - ang_pix - 2*self.hwpangle
+            else:
+                return self.pol_angs[ch] + ang_pix
+
     def map2tod(self, ch):
         """
         Scan the input sky maps to generate timestream for channel ch.
@@ -2344,7 +2372,8 @@ def build_pointing_matrix(ra, dec, nside_in, nside_out=None,
 
     return index_global, index_local
 
-def load_fake_instrument(nside=16, nsquid_per_mux=1):
+def load_fake_instrument(nside=16, nsquid_per_mux=1,
+                         compute_derivatives=False):
     """
     For test purposes.
     Create instances of HealpixFitsMap, hardware, and
@@ -2372,14 +2401,16 @@ def load_fake_instrument(nside=16, nsquid_per_mux=1):
     sky_in = HealpixFitsMap('s4cmb/data/test_data_set_lensedCls.dat',
                             do_pol=True, fwhm_in=0.0,
                             nside_in=nside, map_seed=48584937,
+                            compute_derivatives=compute_derivatives,
                             verbose=False, no_ileak=False, no_quleak=False)
 
     ## Instrument
     inst = Hardware(ncrate=1, ndfmux_per_crate=1,
                     nsquid_per_mux=nsquid_per_mux, npair_per_squid=4,
                     fp_size=60., fwhm=3.5,
-                    beam_seed=58347, projected_fp_size=3., pm_name='5params',
-                    type_hwp='CRHWP', freq_hwp=0.2, angle_hwp=0., verbose=False)
+                    beam_seed=58347, projected_fp_size=3.,
+                    pm_name='5params', type_hwp='CRHWP',
+                    freq_hwp=0.2, angle_hwp=0., verbose=False)
 
     ## Scanning strategy
     scan = ScanningStrategy(nces=2, start_date='2013/1/1 00:00:00',

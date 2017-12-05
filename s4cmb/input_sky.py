@@ -23,7 +23,7 @@ class HealpixFitsMap():
     def __init__(self, input_filename,
                  do_pol=True, verbose=False, fwhm_in=0.0, nside_in=16,
                  lmax=None, map_seed=53543, no_ileak=False, no_quleak=False,
-                 ext_map_gal=False):
+                 compute_derivatives=False, ext_map_gal=False):
         """
 
         Parameters
@@ -62,6 +62,12 @@ class HealpixFitsMap():
         ext_map_gal : bool, optional
             Set it to True if you are reading a map in Galactic coordinate.
             (Planck maps for example).
+        compute_derivatives : bool, optional
+            If True, return derivatives of the input temperature map
+            1st and 2nd order derivatives (t=theta, p=phi):
+            dI/dt, dI/dp, d2I/d2t, d2I/d2p, d2I/dtdp.
+            Note that dI/dp is already divided by sin(theta).
+            Be sure that you have enough memory!
 
         """
         self.input_filename = input_filename
@@ -77,15 +83,18 @@ class HealpixFitsMap():
         else:
             self.lmax = lmax
         self.map_seed = map_seed
+        self.compute_derivatives = compute_derivatives
 
         self.I = None
         self.Q = None
         self.U = None
 
+        fromalms = False
         if type(self.input_filename) == list:
             if self.verbose:
                 print("Reading sky maps from alms file...")
             self.load_healpix_fits_map_from_alms()
+            fromalms = True
         elif self.input_filename[-4:] == '.dat':
             if self.verbose:
                 print("Creating sky maps from cl file...")
@@ -103,6 +112,9 @@ class HealpixFitsMap():
                           "(maps will be created on-the-fly).")
 
         self.set_leakage_to_zero()
+
+        if self.compute_derivatives:
+            self.compute_intensity_derivatives(fromalm=fromalms)
 
     def load_healpix_fits_map(self, force=False):
         """
@@ -273,6 +285,48 @@ class HealpixFitsMap():
                 self.Q[:] = 0.0
             if self.U is not None:
                 self.U[:] = 0.0
+
+    def compute_intensity_derivatives(self, fromalm=False):
+        """
+        Compute derivatives of the input temperature map (healpix).
+        Unfortunately, healpy does not allow to have derivatives
+        higher than 1 (see healpix for better treatment),
+        so we use only an approximation.
+
+        Parameters
+        ----------
+        fromalm : bool, optional
+            If True, loads alm file from disk instead of fourier
+            transform the input map. Automatically turns True if you input
+            alm files. False otherwise.
+
+        Examples
+        ----------
+        >>> filename = 's4cmb/data/test_data_set_lensedCls.dat'
+        >>> hpmap = HealpixFitsMap(input_filename=filename, fwhm_in=3.5,
+        ...     nside_in=16, compute_derivatives=True, map_seed=489237)
+        >>> hasattr(hpmap, 'dIdp')
+        True
+
+        """
+        if fromalm:
+            alm = hp.read_alm(self.input_filename[0])
+        else:
+            alm = hp.map2alm(self.I, self.lmax)
+
+        ## Compute 1st order derivatives
+        junk, self.dIdt, self.dIdp = hp.alm2map_der1(
+            alm, self.nside_in, self.lmax)
+
+        alm_der1_theta = hp.map2alm(self.dIdt, self.lmax)
+        alm_der1_phi = hp.map2alm(self.dIdp, self.lmax)
+
+        ## Compute 2nd order derivatives
+        junk, self.d2Id2t, der2map_theta_phi = hp.alm2map_der1(
+            alm_der1_theta, self.nside_in, self.lmax)
+        junk, self.d2Idpdt, self.d2Id2p = hp.alm2map_der1(
+            alm_der1_phi, self.nside_in, self.lmax)
+
 
 def add_hierarch(lis):
     """
