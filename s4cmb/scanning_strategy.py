@@ -446,6 +446,10 @@ class ScanningStrategy():
         pb_dec_array = np.zeros(num_pts)
         pb_el_array = np.ones(num_pts) * el
 
+        ## Subscan boundaries
+        pb_subscans = []
+        pb_subscans.append(0)
+
         ## Loop over time samples
         # begin_lst = str(self.telescope_location.sidereal_time())
         # Pad scans 10 seconds on either side
@@ -475,8 +479,10 @@ class ScanningStrategy():
                 ## Case to change the direction of the scan
                 if(running_az > upper_az):
                     pb_az_dir = -1.
+                    pb_subscans.append(t)
                 elif(running_az < lower_az):
                     pb_az_dir = 1.
+                    pb_subscans.append(t)
 
                 running_az += az_speed * pb_az_dir / sampling_freq
 
@@ -512,6 +518,9 @@ class ScanningStrategy():
         scan_file['Dec'] = pb_dec_array
 
         scan_file['nts'] = len(pb_mjd_array)
+
+        scan_file['subscans'] = zip(
+            pb_subscans[:-1], np.array(pb_subscans[1:]) - 1)
 
         if self.verbose:
             print('+-----------------------------------+')
