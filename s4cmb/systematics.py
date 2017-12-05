@@ -1039,9 +1039,45 @@ def waferts_add_diffbeam(waferts, point_matrix, beam_orientation,
 
     Examples
     ----------
-    >>>
+    >>> from s4cmb.tod import load_fake_instrument
+    >>> from s4cmb.tod import TimeOrderedDataPairDiff
+    >>> inst, scan, sky_in = load_fake_instrument(compute_derivatives=True)
+
+    Make beam ellipticity
+    >>> sig_1, sig_2, ellip_ang = inject_beam_ellipticity(
+    ...     inst.beam_model.sig_1[0], 50, 10,
+    ...     inst.focal_plane.nbolometer, do_diffbeamellipticity=True)
+    >>> inst.beam_model.sig_1 = sig_1
+    >>> inst.beam_model.sig_2 = sig_2
+    >>> inst.beam_model.ellip_ang = ellip_ang
+
+    Get TOD
+    >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in, CESnumber=0)
+    >>> d = np.array([tod.map2tod(det) for det in range(2 * tod.npair)])
+
+    Get beam kernels
+    >>> pairlist = np.reshape(
+    ...     inst.focal_plane.bolo_index_in_fp, (inst.focal_plane.npair, 2))
+    >>> K = get_kernel_coefficients(
+    ...     inst.beam_model, pairlist, nx=128, pix_size=None)
+
+    Get intensity derivatives and orientation of pixels
+    >>> intensity_derivatives = np.array(
+    ...     [sky_in.I, sky_in.dIdt, sky_in.dIdp,
+    ...      sky_in.d2Idpdt, sky_in.d2Id2t, sky_in.d2Id2p])
+    >>> beam_orientation = np.array(
+    ...     [tod.pol_angs[ch] - (
+    ...         90.0 - tod.intrinsic_polangle[2*ch]) * np.pi / 180. -
+    ...      2*tod.hwpangle for ch in range(inst.focal_plane.npair)])
+
+    Inject spurious signal
+    >>> waferts_add_diffbeam(
+    ...     d, tod.point_matrix, beam_orientation,
+    ...     intensity_derivatives, K,
+    ...     pairlist, spins='012')
 
     """
+    ## Set temperature to 0 and flip the sign of dtheta terms.
     diffbeam_kernels[:, 0] = 0.0
     diffbeam_kernels[:, 1] *= -1
     diffbeam_kernels[:, 3] *= -1
@@ -1050,7 +1086,7 @@ def waferts_add_diffbeam(waferts, point_matrix, beam_orientation,
         diffbeam_kernels[i] = fixspin(diffbeam_kernels[i], spins)
 
     diffbeamleak = np.zeros((int(waferts.shape[0]/2), waferts.shape[1]))
-    diffbeam_map2ts(
+    diffbeam_map2tod(
         diffbeamleak,
         intensity_derivatives,
         point_matrix,
@@ -1060,18 +1096,35 @@ def waferts_add_diffbeam(waferts, point_matrix, beam_orientation,
     waferts[::2] += diffbeamleak
     waferts[1::2] -= diffbeamleak
 
-def diffbeam_map2ts(out, intensity_derivatives,
-                    point_matrix, beam_orientation, diffbeam_kernels):
-    '''
-    Add the leakage from the I map into the differential beam
-    timestream using the differential beam model kernel
-    '''
+def diffbeam_map2tod(out, intensity_derivatives,
+                     point_matrix, beam_orientation, diffbeam_kernels):
+    """
+    Scan the leakage maps to generate polarisation timestream for channel ch,
+    using the differential beam model kernel.
+
+
+    Note for future:
+     * check flat sky!
+
+    Parameters
+    ----------
+    out : ndarray
+        Will contain the spurious signal (npair, nsamples)
+    intensity_derivatives : ndarray
+        Containing map of the intensity and its derivatives (6 maps)
+    point_matrix : ndarray
+        Array containing pointing information
+    beam_orientation : ndarray
+        Array containing intrinsic orientation of the pixels
+    diffbeam_kernels : 1d array of 6 elements
+        Array containing beam kernel coefficients
+        (one for each T derivative) for all pairs.
+    """
     npix, nt = out.shape
     assert point_matrix.shape == out.shape
-
-    assert npix == diffbeam_kernels.shape[0]
+    assert diffbeam_kernels.shape[0] == npix
     assert len(intensity_derivatives) == diffbeam_kernels.shape[1]
-    assert (npix, nt) == beam_orientation.shape
+    assert beam_orientation.shape == (npix, nt)
 
     for ipix in range(npix):
         i1d = point_matrix[ipix, :]
@@ -1081,6 +1134,7 @@ def diffbeam_map2ts(out, intensity_derivatives,
             diffbeam_kernels[ipix],
             -beam_orientation[ipix, okpointing])
 
+        ## Add the leakage on-the-fly
         for coeff in range(len(k)):
             out[ipix, okpointing] += intensity_derivatives[coeff, io]*k[coeff]
 

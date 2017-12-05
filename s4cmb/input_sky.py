@@ -288,22 +288,40 @@ class HealpixFitsMap():
 
     def compute_intensity_derivatives(self, fromalm=False):
         """
+        Compute derivatives of the input temperature map (healpix).
+        Unfortunately, healpy does not allow to have derivatives
+        higher than 1 (see healpix for better treatment),
+        so we use only an approximation.
+
+        Parameters
+        ----------
+        fromalm : bool, optional
+            If True, loads alm file from disk instead of fourier
+            transform the input map. Automatically turns True if you input
+            alm files. False otherwise.
+
+        Examples
+        ----------
+        >>> filename = 's4cmb/data/test_data_set_lensedCls.dat'
+        >>> hpmap = HealpixFitsMap(input_filename=filename, fwhm_in=3.5,
+        ...     nside_in=16, compute_derivatives=True, map_seed=489237)
+        >>> hasattr(hpmap, 'dIdp')
+        True
+
         """
         if fromalm:
-            # print('Load alm')
             alm = hp.read_alm(self.input_filename[0])
         else:
-            # print('Generate alm from map')
             alm = hp.map2alm(self.I, self.lmax)
 
-        # print('Compute 1st derivatives')
+        ## Compute 1st order derivatives
         junk, self.dIdt, self.dIdp = hp.alm2map_der1(
             alm, self.nside_in, self.lmax)
 
         alm_der1_theta = hp.map2alm(self.dIdt, self.lmax)
         alm_der1_phi = hp.map2alm(self.dIdp, self.lmax)
 
-        # print('Compute 2nd derivatives')
+        ## Compute 2nd order derivatives
         junk, self.d2Id2t, der2map_theta_phi = hp.alm2map_der1(
             alm_der1_theta, self.nside_in, self.lmax)
         junk, self.d2Idpdt, self.d2Id2p = hp.alm2map_der1(
