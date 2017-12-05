@@ -473,6 +473,34 @@ class TimeOrderedDataPairDiff():
 
         return pol_ang
 
+    def return_parallactic_angle(self, ch):
+        """
+        Return the parallactic angles (orientations of the pixel on sky)
+        for one specific channel (full timestream).
+
+        Parameters
+        ----------
+        ch : int
+            Index of the bolometer (within the focal plane).
+
+        Returns
+        ----------
+        pa : 1d array
+            Parallactic angles (timestream) for detector ch.
+        """
+        if self.mapping_perpair is True:
+            ang_pix = (90.0 - self.intrinsic_polangle[ch]) * d2r
+            if not hasattr(self, 'dm'):
+                return self.pol_angs - ang_pix - 2*self.hwpangle
+            else:
+                return self.pol_angs + ang_pix
+        else:
+            ang_pix = (90.0 - self.intrinsic_polangle[2*ch]) * d2r
+            if not hasattr(self, 'dm'):
+                return self.pol_angs[ch] - ang_pix - 2*self.hwpangle
+            else:
+                return self.pol_angs[ch] + ang_pix
+
     def map2tod(self, ch):
         """
         Scan the input sky maps to generate timestream for channel ch.

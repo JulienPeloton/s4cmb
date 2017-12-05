@@ -670,7 +670,7 @@ def linear_function_gen(nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
 
         yield gains
 
-def get_kernel_coefficients(beamprm, pairlist, nx, pix_size=None):
+def get_kernel_coefficients(beamprm, pairlist, nx=128, pix_size=None):
     """ Generate beam expansion coefficients.
 
     Here we compute the coefficients of the operator K to go from the observed
@@ -696,8 +696,13 @@ def get_kernel_coefficients(beamprm, pairlist, nx, pix_size=None):
     pairlist : list of list
         List containing the indices of bolometers grouped by pair
         [[0, 1], [2, 3], ...]
-    nx : int
+    nx : int, optional
         Number of pixels per row/column (in pixel) to construct the beam maps.
+        You want nx * pix_size to be a large number compared to the beam size
+        to make sure to incorporate all beam features.
+    pix_size : float, optional
+        Pixel size in radian. If None, set automatically to be 1/7th of the
+        beam size.
 
     Returns
     ----------
@@ -1077,13 +1082,16 @@ def waferts_add_diffbeam(waferts, point_matrix, beam_orientation,
     ...     pairlist, spins='012')
 
     """
-    ## Set temperature to 0 and flip the sign of dtheta terms.
-    diffbeam_kernels[:, 0] = 0.0
-    diffbeam_kernels[:, 1] *= -1
-    diffbeam_kernels[:, 3] *= -1
+    ## Just to preserve it
+    K = diffbeam_kernels + 0.
 
-    for i in range(len(diffbeam_kernels)):
-        diffbeam_kernels[i] = fixspin(diffbeam_kernels[i], spins)
+    ## Set temperature to 0 and flip the sign of dtheta terms.
+    K[:, 0] = 0.0
+    K[:, 1] *= -1
+    K[:, 3] *= -1
+
+    for i in range(len(K)):
+        K[i] = fixspin(K[i], spins)
 
     diffbeamleak = np.zeros((int(waferts.shape[0]/2), waferts.shape[1]))
     diffbeam_map2tod(
@@ -1091,7 +1099,7 @@ def waferts_add_diffbeam(waferts, point_matrix, beam_orientation,
         intensity_derivatives,
         point_matrix,
         beam_orientation,
-        diffbeam_kernels)
+        K)
 
     waferts[::2] += diffbeamleak
     waferts[1::2] -= diffbeamleak
