@@ -146,6 +146,9 @@ class TimeOrderedDataPairDiff():
         ## Initialise the mask for timestreams
         self.wafermask_pixel = self.get_timestream_masks()
 
+        ## Boundaries for subscans (t_beg, t_end)
+        self.subscans = self.scan['subscans']
+
         ## Get observed pixels in the input map
         if nside_out is None:
             self.nside_out = self.HealpixFitsMap.nside
