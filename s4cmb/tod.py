@@ -554,7 +554,21 @@ class TimeOrderedDataPairDiff():
         Returns
         ----------
         pa : 1d array
-            Parallactic angles (timestream) for detector ch.
+            Parallactic angles (timestream) for detector ch. [radian]
+
+        Examples
+        ----------
+        Simple TES bolometers
+        >>> inst, scan, sky_in = load_fake_instrument()
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in, CESnumber=1)
+        >>> pa = tod.return_parallactic_angle(0)
+
+        Dichroic detectors
+        >>> inst, scan, sky_in = load_fake_instrument(fwhm_in2=1.8)
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in,
+        ...     mode='dichroic', CESnumber=1)
+        >>> pa1 = tod.return_parallactic_angle(0, frequency_channel=1)
+        >>> pa2 = tod.return_parallactic_angle(0, frequency_channel=2)
         """
         if frequency_channel == 1:
             pa = self.pol_angs
