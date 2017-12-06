@@ -481,7 +481,8 @@ class Hardware():
 
         self.half_wave_plate = HalfWavePlate(type_hwp, freq_hwp, angle_hwp)
 
-    def make_dichroic(self, fwhm=1.8, beam_seed=58347, projected_fp_size=3.):
+    def make_dichroic(self, fwhm=1.8, beam_seed=58347, projected_fp_size=3.,
+                      shift_angle=45):
         """
         Add a layer of detectors on top of the existing ones
         to have dichroic detectors. The new detectors will sit on top of the
@@ -501,6 +502,9 @@ class Hardware():
             Size of the focal plane on the sky (in degree). This has to
             do with the size of the mirror and the beam size.
             Default = 3 degrees.
+        shift_angle : int, optional
+            Shift the polarisation angle with respect to the ones from the
+            first frequency channel.
 
         Examples
         ----------
@@ -511,8 +515,13 @@ class Hardware():
         """
         self.focal_plane2 = copy.copy(self.focal_plane)
 
-        self.beam_model2 = BeamModel(self.focal_plane2, fwhm, beam_seed,
-                                     projected_fp_size)
+        ## Shift the polarisation angles (and clip it btw 0 and 360 deg)
+        self.focal_plane2.bolo_polangle = (
+            np.array(self.focal_plane2.bolo_polangle) + shift_angle) % 360
+
+        self.beam_model2 = BeamModel(
+            self.focal_plane2, fwhm, beam_seed,
+            projected_fp_size)
 
 class FocalPlane():
     """ Class to handle the focal plane of the instrument. """
