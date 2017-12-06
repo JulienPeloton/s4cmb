@@ -39,7 +39,7 @@ class TimeOrderedDataPairDiff():
                  nside_out=None, pixel_size=None, width=140.,
                  cut_pixels_outside=True,
                  array_noise_level=None, array_noise_seed=487587,
-                 mapping_perpair=False, verbose=False):
+                 mapping_perpair=False, mode='standard', verbose=False):
         """
         C'est parti!
 
@@ -94,6 +94,11 @@ class TimeOrderedDataPairDiff():
             If True, assume that you want to process pairs of bolometers
             one-by-one, that is pairs are uncorrelated. Default is False (and
             should be False unless you know what you are doing).
+        mode : string, optional
+            Choose between `standard` (1 frequency band) and `dichroic`
+            (2 frequency bands). If `dichroic` is chosen, make sure your
+            hardware can handle it (see instrument.py) and HealpixFitsMap
+            should contain the inputs maps at different frequency.
         """
         ## Initialise args
         self.verbose = verbose
@@ -504,7 +509,7 @@ class TimeOrderedDataPairDiff():
             else:
                 return self.pol_angs[ch] + ang_pix
 
-    def map2tod(self, ch):
+    def map2tod(self, ch, frequency_channels=1):
         """
         Scan the input sky maps to generate timestream for channel ch.
         /!\ this is currently the bottleneck in computation. Need to speed
@@ -514,12 +519,17 @@ class TimeOrderedDataPairDiff():
         ----------
         ch : int
             Channel index in the focal plane.
+        frequency_channels : int, optional
+            If frequency_channels=2, the routine will interpret that you
+            are processing dichroic detectors, and will return 2 timestreams -
+            one for each frequency channel. Default is 1.
 
         Returns
         ----------
-        ts : 1d array
+        ts : 1d array or array of 1d array
             The timestream for detector ch. If `self.HealpixFitsMap.do_pol` is
             True it returns intensity+polarisation, otherwise just intensity.
+            If frequency_channels=2, ts = np.array([ts_freq1, ts_freq2]).
 
         Examples
         ----------
@@ -529,6 +539,9 @@ class TimeOrderedDataPairDiff():
         >>> print(round(d[0], 3)) #doctest: +NORMALIZE_WHITESPACE
         -42.874
         """
+        msg = "Only simple TES or dichroic implemented. " + \
+            "frequency_channels must be 1 or 2."
+        assert frequency_channels in [1, 2], msg
         ## Use bolometer beam offsets.
         azd, eld = self.xpos[ch], self.ypos[ch]
 
@@ -602,12 +615,30 @@ class TimeOrderedDataPairDiff():
             elif ch % 2 == 0 and self.mapping_perpair:
                 self.pol_angs[0] = pol_ang_out
 
-            return (self.HealpixFitsMap.I[index_global] +
-                    self.HealpixFitsMap.Q[index_global] * np.cos(2 * pol_ang) +
-                    sign * self.HealpixFitsMap.U[index_global] *
+            ts1 = (
+                self.HealpixFitsMap.I[index_global] +
+                self.HealpixFitsMap.Q[index_global] * np.cos(2 * pol_ang) +
+                sign * self.HealpixFitsMap.U[index_global] *
+                np.sin(2 * pol_ang) + noise) * norm
+
+            if frequency_channels == 1:
+                return ts1
+
+            elif frequency_channels == 2:
+                ts2 = (
+                    self.HealpixFitsMap.I2[index_global] +
+                    self.HealpixFitsMap.Q2[index_global] * np.cos(2*pol_ang) +
+                    sign * self.HealpixFitsMap.U2[index_global] *
                     np.sin(2 * pol_ang) + noise) * norm
+                return np.array([ts1, ts2])
+
         else:
-            return norm * (self.HealpixFitsMap.I[index_global] + noise)
+            ts1 = norm * (self.HealpixFitsMap.I[index_global] + noise)
+            if frequency_channels == 1:
+                return ts1
+            elif frequency_channels == 2:
+                ts2 = norm * (self.HealpixFitsMap.I2[index_global] + noise)
+                return np.array([ts1, ts2])
 
     def tod2map(self, waferts, output_maps, gdeprojection=False):
         """

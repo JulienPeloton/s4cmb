@@ -449,12 +449,22 @@ class Hardware():
             Default is 58347.
         projected_fp_size : float, optional
             Size of the focal plane on the sky (in degree). This has to
-            do with the size of the mirror. Default = 3 degrees.
+            do with the size of the mirror and the beam size.
+            Default = 3 degrees.
         pm_name : string, optional
             The pointing model to load. Currently, only the five-parameter
             pointing model (Mangum 2001) is implemented (pm_name = 5params).
         verbose : boolean, optional
             If True, print out a number of useful comments for verboseging.
+        type_hwp : string, optional
+            Choose between CRWHP or stepped.
+        freq_hwp : float, optional
+            If type_hwp=CRHWP, then freq_hwp sets the spin frequency of the
+            HWP [Hz].
+        angle_hwp : float, optional
+            If type_hwp=CRHWP, angle_hwp corresponds to the starting position.
+            If type_hwp=stepped, angle_hwp corresponds to the step size
+            which is updated after each scan (CES). [deg]
 
         Examples
         ----------
@@ -470,6 +480,39 @@ class Hardware():
         self.pointing_model = PointingModel(pm_name)
 
         self.half_wave_plate = HalfWavePlate(type_hwp, freq_hwp, angle_hwp)
+
+    def make_dichroic(self, fwhm=1.8, beam_seed=58347, projected_fp_size=3.):
+        """
+        Add a layer of detectors on top of the existing ones
+        to have dichroic detectors. The new detectors will sit on top of the
+        existing ones (that is same number and same location on the focal
+        plane). The only difference is the beam size for the moment (and the
+        projected size of the fp on sky).
+
+        Parameters
+        ----------
+        fwhm : float, optional
+            Full Width Half Maximum of the beam (in arcmin).
+            Default = 3.5 arcmin.
+        beam_seed : int
+            Seed used to generate angle of rotation of beam axes.
+            Default is 58347.
+        projected_fp_size : float, optional
+            Size of the focal plane on the sky (in degree). This has to
+            do with the size of the mirror and the beam size.
+            Default = 3 degrees.
+
+        Examples
+        ----------
+        >>> instrument = Hardware()
+        >>> instrument.make_dichroic()
+        >>> hasattr(instrument, 'focal_plane2')
+        True
+        """
+        self.focal_plane2 = copy.copy(self.focal_plane)
+
+        self.beam_model2 = BeamModel(self.focal_plane2, fwhm, beam_seed,
+                                     projected_fp_size)
 
 class FocalPlane():
     """ Class to handle the focal plane of the instrument. """
