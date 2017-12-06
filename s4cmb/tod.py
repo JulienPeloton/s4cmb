@@ -360,7 +360,7 @@ class TimeOrderedDataPairDiff():
         else:
             return np.ones((2, 1), dtype=int)
 
-    def set_detector_gains(self, new_gains=None):
+    def set_detector_gains(self, new_gains=None, new_gains2=None):
         """
         Set the gains of the detectors (unitless).
         Default is 1., that is perfectly calibrated.
@@ -369,7 +369,10 @@ class TimeOrderedDataPairDiff():
         ----------
         new_gains : 1d array
             Array containing the gain value for all detectors
-            (1 number per detector).
+            (1 number per detector) for the 1st frequency channel.
+        new_gains2 : 1d array
+            Array containing the gain value for all detectors
+            (1 number per detector) for the 2nd frequency channel.
 
         Examples
         ----------
@@ -383,6 +386,17 @@ class TimeOrderedDataPairDiff():
         >>> tod.set_detector_gains(new_gains=new_gains)
         >>> print(tod.gain[0])
         2.0
+
+        For dichroic
+        >>> inst, scan, sky_in = load_fake_instrument(fwhm_in2=1.8)
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in,
+        ...     mode='dichroic', CESnumber=1)
+        >>> assert tod.gain2 is not None
+
+        Change the value of gains for both frequency channels
+        >>> new_gains = np.ones(2 * tod.npair) * 2.
+        >>> new_gains2 = np.ones(2 * tod.npair) * 4.
+        >>> tod.set_detector_gains(new_gains=new_gains, new_gains2=new_gains2)
         """
         if new_gains is not None:
             assert len(new_gains) == 2 * self.npair, \
@@ -392,7 +406,18 @@ class TimeOrderedDataPairDiff():
         else:
             self.gain = np.ones(2 * self.npair)
 
-    def set_detector_gains_perpair(self, new_gains=None):
+        self.gain2 = None
+        if self.mode == 'dichroic':
+            if new_gains2 is not None:
+                assert len(new_gains2) == 2 * self.npair, \
+                    ValueError(
+                        "You have to provide {} new gain values!".format(
+                            2 * self.npair))
+                self.gain2 = new_gains2
+            else:
+                self.gain2 = np.ones(2 * self.npair)
+
+    def set_detector_gains_perpair(self, new_gains=None, new_gains2=None):
         """
         Set the gains of all 2 pair detectors for each timestep (unitless).
         This is particularly useful to introduce drifts for example.
@@ -402,7 +427,10 @@ class TimeOrderedDataPairDiff():
         ----------
         new_gains : 2d array of size (2, nsamples)
             Array containing the gain value for all detectors
-            (nsamples number per detector).
+            (nsamples number per detector) for the 1st frequency channel.
+        new_gains2 : 2d array of size (2, nsamples)
+            Array containing the gain value for all detectors
+            (nsamples number per detector) for the 2nd frequency channel.
 
         Examples
         ----------
@@ -417,6 +445,19 @@ class TimeOrderedDataPairDiff():
         >>> tod.set_detector_gains_perpair(new_gains=new_gains)
         >>> print(tod.gain[0][0:4])
         [ 2.  1.  2.  1.]
+
+        Dichroic
+        >>> inst, scan, sky_in = load_fake_instrument(fwhm_in2=1.8)
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in,
+        ...     mode='dichroic', CESnumber=1)
+
+        Change the value of gains every other sample.
+        >>> new_gains = np.ones((2, tod.nsamples))
+        >>> new_gains[:, ::2] = 2.
+        >>> new_gains2 = np.ones((2, tod.nsamples))
+        >>> new_gains2[:, ::2] = 4.
+        >>> tod.set_detector_gains_perpair(
+        ...     new_gains=new_gains, new_gains2=new_gains2)
         """
         if new_gains is not None:
             msg = "You have to provide ({}, {}) new gain values!"
@@ -425,6 +466,16 @@ class TimeOrderedDataPairDiff():
             self.gain = new_gains
         else:
             self.gain = np.ones((2, self.nsamples))
+
+        self.gain2 = None
+        if self.mode == 'dichroic':
+            if new_gains2 is not None:
+                msg = "You have to provide ({}, {}) new gain values!"
+                assert new_gains2.shape == (2, self.nsamples), \
+                    ValueError(msg.format(2, self.nsamples))
+                self.gain2 = new_gains2
+            else:
+                self.gain2 = np.ones((2, self.nsamples))
 
     def get_boresightpointing(self):
         """
@@ -823,6 +874,31 @@ class TimeOrderedDataPairDiff():
         >>> m = OutputSkyMap(projection=tod.projection,
         ...     npixsky=tod.npixsky, pixel_size=tod.pixel_size)
         >>> tod.tod2map(d, m)
+
+        HEALPIX + Dichroic
+        >>> inst, scan, sky_in = load_fake_instrument(fwhm_in2=1.8)
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in, mode='dichroic',
+        ...     CESnumber=0, projection='healpix', mapping_perpair=True)
+        >>> m1 = OutputSkyMap(projection=tod.projection,
+        ...     nside=tod.nside_out, obspix=tod.obspix)
+        >>> m2 = OutputSkyMap(projection=tod.projection,
+        ...     nside=tod.nside_out, obspix=tod.obspix)
+        >>> for pair in tod.pair_list:
+        ...   d = np.array([tod.map2tod(det) for det in pair])
+        ...   d1 = d[:, 0] ## first frequency channel
+        ...   d2 = d[:, 1] ## second frequency channel
+        ...   tod.tod2map(d1, m1)
+        ...   tod.tod2map(d2, m2)
+
+        HEALPIX + deprojection
+        >>> inst, scan, sky_in = load_fake_instrument()
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in,
+        ...     CESnumber=0, projection='healpix', mapping_perpair=True)
+        >>> m = OutputSkyMapIGQU(projection=tod.projection,
+        ...     nside=tod.nside_out, obspix=tod.obspix)
+        >>> for pair in tod.pair_list:
+        ...   d = np.array([tod.map2tod(det) for det in pair])
+        ...   tod.tod2map(d, m, gdeprojection=True)
 
         """
         if frequency_channel == 1:
