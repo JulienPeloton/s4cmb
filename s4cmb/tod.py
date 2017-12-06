@@ -39,6 +39,7 @@ class TimeOrderedDataPairDiff():
                  nside_out=None, pixel_size=None, width=140.,
                  cut_pixels_outside=True,
                  array_noise_level=None, array_noise_seed=487587,
+                 array_noise_level2=None, array_noise_seed2=56736,
                  mapping_perpair=False, mode='standard', verbose=False):
         """
         C'est parti!
@@ -202,6 +203,17 @@ class TimeOrderedDataPairDiff():
                 array_noise_seed=self.array_noise_seed)
         else:
             self.noise_generator = None
+
+        self.array_noise_level2 = array_noise_level2
+        self.array_noise_seed2 = array_noise_seed2
+        if self.array_noise_level2 is not None:
+            self.noise_generator2 = WhiteNoiseGenerator(
+                array_noise_level=self.array_noise_level2,
+                ndetectors=2*self.npair,
+                ntimesamples=self.nsamples,
+                array_noise_seed=self.array_noise_seed2)
+        else:
+            self.noise_generator2 = None
 
     def get_angles(self):
         """
@@ -603,6 +615,14 @@ class TimeOrderedDataPairDiff():
         >>> d = tod.map2tod(0)
         >>> print(d.shape)
         (2, 115200)
+
+        Dichroic detectors with different noise levels
+        >>> inst, scan, sky_in = load_fake_instrument(fwhm_in2=1.8)
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in,
+        ...     array_noise_level=2.5, array_noise_seed=487587,
+        ...     array_noise_level2=25., array_noise_seed2=56736,
+        ...     mode='dichroic', CESnumber=1)
+        >>> d = tod.map2tod(0)
         """
         ## Use bolometer beam offsets.
         azd, eld = self.xpos[ch], self.ypos[ch]
@@ -661,6 +681,11 @@ class TimeOrderedDataPairDiff():
         else:
             noise = 0.0
 
+        if self.noise_generator2 is not None:
+            noise2 = self.noise_generator2.simulate_noise_one_detector(ch)
+        else:
+            noise2 = 0.0
+
         if self.HealpixFitsMap.do_pol:
             ## pol_ang2 is None if mode == 'standard'
             pol_ang, pol_ang2 = self.compute_simpolangle(
@@ -706,7 +731,7 @@ class TimeOrderedDataPairDiff():
                     self.HealpixFitsMap.I2[index_global] +
                     self.HealpixFitsMap.Q2[index_global] * np.cos(2*pol_ang2) +
                     sign * self.HealpixFitsMap.U2[index_global] *
-                    np.sin(2 * pol_ang2) + noise) * norm
+                    np.sin(2 * pol_ang2) + noise2) * norm
                 return np.array([ts1, ts2])
 
         else:
@@ -714,7 +739,7 @@ class TimeOrderedDataPairDiff():
             if self.mode == 'standard':
                 return ts1
             elif self.mode == 'dichroic':
-                ts2 = norm * (self.HealpixFitsMap.I2[index_global] + noise)
+                ts2 = norm * (self.HealpixFitsMap.I2[index_global] + noise2)
                 return np.array([ts1, ts2])
 
     def tod2map(self, waferts, output_maps,
@@ -857,6 +882,7 @@ class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
                  nside_out=None, pixel_size=None, width=140.,
                  cut_pixels_outside=True,
                  array_noise_level=None, array_noise_seed=487587,
+                 array_noise_level2=None, array_noise_seed2=56736,
                  mapping_perpair=False, mode='standard', verbose=False):
         """
         C'est parti!
@@ -941,6 +967,8 @@ class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
             cut_pixels_outside=cut_pixels_outside,
             array_noise_level=array_noise_level,
             array_noise_seed=array_noise_seed,
+            array_noise_level2=array_noise_level2,
+            array_noise_seed2=array_noise_seed2,
             mapping_perpair=mapping_perpair,
             mode=mode,
             verbose=verbose)
