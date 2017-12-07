@@ -2209,14 +2209,14 @@ class OutputSkyMapIGQU(OutputSkyMap):
         >>> m1.set_goodpix()
         """
         ## We have 4 components: I, Q, U and G.
-        inonzero = [pix for pix in range(self.npixsky) if self.nhit[pix] > 4]
+        inonzero = [pix for pix in range(self.npixsky) if self.nhit[pix] > 10]
         self.goodpix = np.zeros((self.npixsky))
         self.goodpix[inonzero] = 1
 
         for ipix in inonzero:
             M = self.buildP(ipix)
             det = np.linalg.det(M)
-            if det == 0 or np.linalg.cond(M) > 1e8:
+            if det == 0 or np.linalg.cond(M) > 1e2:
                 self.goodpix[ipix] = 0
 
     def get_QU(self):
