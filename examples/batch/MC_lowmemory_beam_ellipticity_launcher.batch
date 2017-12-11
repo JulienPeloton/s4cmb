@@ -51,8 +51,8 @@ for i in `seq -f "%03g" 0 $(( $NSIMS - 1 ))`
 		-nside_in ${NSIDE_IN} \
 		-fwhm_in ${FWHM_IN} \
 		-type_hwp CRHWP -freq_hwp 2.0 -angle_hwp 0.0 \
-		-mu_beamellipticity ${GAIN} \
-		-sigma_beamellipticity ${DGAIN} \
+		-mu_beamellipticity ${ELLIP} \
+		-sigma_beamellipticity ${DELLIP} \
         -do_diffbeamellipticity \
 		-beam_seed ${SEED})
         echo ${EXTRA_ARGS}
