@@ -1,0 +1,67 @@
+#!/bin/bash -l
+#SBATCH -p debug
+#SBATCH -N 10
+#SBATCH -t 00:30:00
+#SBATCH -J s4cmb_MC_gaindrifts
+#SBATCH -C haswell
+## Author: j.peloton@sussex.ac.uk
+
+source $HOME/.bashrc.ext
+cd $SLURM_SUBMIT_DIR
+
+TAG=beam_ellipticity_10pc_5pc
+
+## Update the path!
+path_to_scripts=$PWD
+
+## Number of the sims
+NSIMS=10
+
+## Projection. Leave empty for curve sky, use flat_ otherwise.
+PROJ=
+
+## Basename for input files
+FILENAMEBASE=/project/projectdirs/sobs/instrument_systematics/input_alms/sim_0
+NSIDE_IN=2048
+FWHM_IN=1.8
+ELLIP=10.0
+DELLIP=5.0
+SEED=584375
+
+## Where to store data
+OUTPUTFOLDER=out/${TAG}
+mkdir -p ${OUTPUTFOLDER}
+
+## Save args into file for run comparison
+OUTFILE=${OUTPUTFOLDER}/extra_args_${TAG}.txt
+
+## Initialise random numbers (fix the seed).
+RANDOM=1
+
+## Launch the jobs based on args
+echo '############' >> $OUTFILE
+echo $(date) >> $OUTFILE
+for i in `seq -f "%03g" 0 $(( $NSIMS - 1 ))`
+        do
+        R=$RANDOM
+        EXTRA_ARGS=$(echo -sim_number $i \
+		-array_noise_seed $R \
+		-input_filename ${FILENAMEBASE}${i}_tlm.fits ${FILENAMEBASE}${i}_elm.fits  ${FILENAMEBASE}${i}_blm.fits \
+		-folder_out $OUTPUTFOLDER \
+		-nside_in ${NSIDE_IN} \
+		-fwhm_in ${FWHM_IN} \
+		-type_hwp CRHWP -freq_hwp 2.0 -angle_hwp 0.0 \
+		-mu_beamellipticity ${GAIN} \
+		-sigma_beamellipticity ${DGAIN} \
+        -do_diffbeamellipticity \
+		-beam_seed ${SEED})
+        echo ${EXTRA_ARGS}
+        echo ${EXTRA_ARGS} >> $OUTFILE
+
+        time srun -N 1 -n 12 --cpu_bind=cores \
+                python-mpi ${path_to_scripts}/so_MC_beam_ellipticity.py \
+                -inifile ${path_to_scripts}/so_${PROJ}parameters.py \
+                -tag ${TAG} ${EXTRA_ARGS} &
+done
+
+wait

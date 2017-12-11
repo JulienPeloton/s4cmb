@@ -1,0 +1,69 @@
+#!/bin/bash -l
+#SBATCH -p debug
+#SBATCH -N 10
+#SBATCH -t 00:30:00
+#SBATCH -J s4cmb_MC_gaindrifts
+#SBATCH -C haswell
+## Author: j.peloton@sussex.ac.uk
+
+source $HOME/.bashrc.ext
+cd $SLURM_SUBMIT_DIR
+
+TAG=gain_drift_0p5pc_5pc
+
+## Update the path!
+path_to_scripts=$PWD
+
+## Number of the sims
+NSIMS=10
+
+## Projection. Leave empty for curve sky, use flat_ otherwise.
+PROJ=
+
+## Basename for input files
+FILENAMEBASE=/project/projectdirs/sobs/instrument_systematics/input_alms/sim_0
+NSIDE_IN=2048
+FWHM_IN=1.8
+GAIN=1.005
+DGAIN=0.05
+RETUNING=4
+DRIFT_MODEL=linear
+
+## Where to store data
+OUTPUTFOLDER=out/${TAG}
+mkdir -p ${OUTPUTFOLDER}
+
+## Save args into file for run comparison
+OUTFILE=${OUTPUTFOLDER}/extra_args_${TAG}.txt
+
+## Initialise random numbers (fix the seed).
+RANDOM=1
+
+## Launch the jobs based on args
+echo '############' >> $OUTFILE
+echo $(date) >> $OUTFILE
+for i in `seq -f "%03g" 0 $(( $NSIMS - 1 ))`
+        do
+        R=$RANDOM
+        EXTRA_ARGS=$(echo -sim_number $i \
+		-array_noise_seed $R \
+		-input_filename ${FILENAMEBASE}${i}_tlm.fits ${FILENAMEBASE}${i}_elm.fits  ${FILENAMEBASE}${i}_blm.fits \
+		-folder_out $OUTPUTFOLDER \
+		-nside_in ${NSIDE_IN} \
+		-fwhm_in ${FWHM_IN} \
+		-type_hwp CRHWP -freq_hwp 2.0 -angle_hwp 0.0 \
+		-gain_mean ${GAIN} \
+		-gain_variation ${DGAIN} \
+		-nretuning_time ${RETUNING} \
+		-drift_model ${DRIFT_MODEL} \
+		-seed ${R})
+        echo ${EXTRA_ARGS}
+        echo ${EXTRA_ARGS} >> $OUTFILE
+
+        time srun -N 1 -n 12 -c 4 --cpu_bind=cores \
+                python-mpi ${path_to_scripts}/so_MC_gain_drift.py \
+                -inifile ${path_to_scripts}/so_${PROJ}parameters.py \
+                -tag ${TAG} ${EXTRA_ARGS} &
+done
+
+wait

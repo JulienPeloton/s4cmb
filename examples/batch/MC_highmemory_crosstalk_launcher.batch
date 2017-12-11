@@ -1,0 +1,66 @@
+#!/bin/bash -l
+#SBATCH -p debug
+#SBATCH -N 60
+#SBATCH -t 00:30:00
+#SBATCH -J s4cmb_MC_crosstalk
+#SBATCH -C haswell
+## Author: j.peloton@sussex.ac.uk
+
+source $HOME/.bashrc.ext
+cd $SLURM_SUBMIT_DIR
+
+TAG=crosstalk_1pc_0p5pc
+
+## Update the path!
+path_to_scripts=$PWD
+
+## Number of the sims
+NSIMS=5
+
+## Projection. Leave empty for curve sky, use flat_ otherwise.
+PROJ=
+
+## Basename for input files.
+FILENAMEBASE=/project/projectdirs/sobs/instrument_systematics/input_alms/sim_0
+NSIDE_IN=2048
+FWHM_IN=1.8
+RADIUS=56
+MU=-1.0
+SIGMA=0.5
+BETA=2
+
+## Where to store data
+OUTPUTFOLDER=out/${TAG}
+mkdir -p ${OUTPUTFOLDER}
+
+## Save args into file for run comparison
+OUTFILE=${OUTPUTFOLDER}/extra_args_${TAG}.txt
+
+## Initialise random numbers (fix the seed).
+RANDOM=1
+
+## Launch the jobs based on args
+echo '############' >> $OUTFILE
+echo $(date) >> $OUTFILE
+for i in `seq -f "%03g" 0 $(( $NSIMS - 1 ))`
+        do
+        R=$RANDOM
+        EXTRA_ARGS=$(echo -sim_number $i \
+		-array_noise_seed $R \
+		-input_filename ${FILENAMEBASE}${i}_tlm.fits ${FILENAMEBASE}${i}_elm.fits  ${FILENAMEBASE}${i}_blm.fits \
+		-folder_out $OUTPUTFOLDER \
+		-nside_in ${NSIDE_IN} \
+		-fwhm_in ${FWHM_IN} \
+		-type_hwp CRHWP -freq_hwp 2.0 -angle_hwp 0.0 \
+		-radius=${RADIUS} -mu=${MU} -sigma=${SIGMA} -beta=${BETA} \
+		-seed ${R})
+        echo ${EXTRA_ARGS}
+        echo ${EXTRA_ARGS} >> $OUTFILE
+
+        time srun -N 12 -n 12 --cpu_bind=cores \
+                python-mpi ${path_to_scripts}/so_MC_crosstalk.py \
+                -inifile ${path_to_scripts}/so_${PROJ}parameters.py \
+                -tag ${TAG} ${EXTRA_ARGS} &
+done
+
+wait
