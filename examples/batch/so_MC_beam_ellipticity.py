@@ -296,7 +296,7 @@ if __name__ == "__main__":
             write_weights_a_la_xpure(
                 sky_out_tot,
                 name_out=name_out,
-                output_path='xpure/masks,
+                output_path='xpure/masks',
                 epsilon=0.08, HWP=False)
 
             if args.inifile_xpure is not None:
