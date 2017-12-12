@@ -27,6 +27,7 @@ from s4cmb.systematics import inject_beam_ellipticity
 
 from s4cmb.config_s4cmb import import_string_as_module
 
+from s4cmb.xpure import create_batch
 from s4cmb.xpure import write_maps_a_la_xpure
 from s4cmb.xpure import write_weights_a_la_xpure
 
@@ -35,6 +36,7 @@ import os
 import healpy as hp
 import numpy as np
 import argparse
+import commands
 
 def addargs(parser):
     """ Parse command line arguments for s4cmb """
@@ -290,11 +292,25 @@ if __name__ == "__main__":
             write_maps_a_la_xpure(
                 sky_out_tot,
                 name_out=name_out,
-                output_path='{}/maps'.format(args.folder_out))
+                output_path='xpure/maps')
             write_weights_a_la_xpure(
                 sky_out_tot,
                 name_out=name_out,
-                output_path='{}/masks'.format(args.folder_out),
+                output_path='xpure/masks,
                 epsilon=0.08, HWP=False)
+
+            if args.inifile_xpure is not None:
+                ## Import parameters from the user parameter file
+                params_xpure = import_string_as_module(args.inifile_xpure)
+
+                batch_file = 'sim{:03d}_{}_{}_{}.batch'.format(
+                    args.sim_number,
+                    params.tag,
+                    params.name_instrument,
+                    params.name_strategy)
+                create_batch(batch_file, name_out, params, params_xpure)
+
+                qsub = commands.getoutput('sbatch ' + batch_file)
+                print(qsub)
 
     MPI.COMM_WORLD.barrier()
