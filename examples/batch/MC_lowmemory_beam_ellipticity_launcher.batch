@@ -50,10 +50,10 @@ for i in `seq -f "%03g" 0 $(( $NSIMS - 1 ))`
 		-folder_out $OUTPUTFOLDER \
 		-nside_in ${NSIDE_IN} \
 		-fwhm_in ${FWHM_IN} \
-		-type_hwp CRHWP -freq_hwp 2.0 -angle_hwp 0.0 \
+		-type_hwp stepped -freq_hwp 0.0 -angle_hwp 0.0 \
 		-mu_beamellipticity ${ELLIP} \
 		-sigma_beamellipticity ${DELLIP} \
-	        -do_diffbeamellipticity \
+        -do_diffbeamellipticity \
 		-beam_seed ${SEED})
         echo ${EXTRA_ARGS}
         echo ${EXTRA_ARGS} >> $OUTFILE
@@ -61,6 +61,7 @@ for i in `seq -f "%03g" 0 $(( $NSIMS - 1 ))`
         time srun -N 1 -n 12 --cpu_bind=cores \
                 python-mpi ${path_to_scripts}/so_MC_beam_ellipticity.py \
                 -inifile ${path_to_scripts}/inifiles/so_${PROJ}parameters.py \
+                -inifile_xpure ${path_to_scripts}/inifiles/xpure_parameters.py \
                 -tag ${TAG} ${EXTRA_ARGS} &
 done
 
