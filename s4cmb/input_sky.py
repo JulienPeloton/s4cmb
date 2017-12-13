@@ -21,9 +21,10 @@ from s4cmb.config_s4cmb import compare_version_number
 class HealpixFitsMap():
     """ Class to handle fits file containing healpix maps """
     def __init__(self, input_filename,
-                 do_pol=True, verbose=False, fwhm_in=0.0, nside_in=16,
-                 lmax=None, map_seed=53543, no_ileak=False, no_quleak=False,
-                 compute_derivatives=False, ext_map_gal=False):
+                 do_pol=True, verbose=False, fwhm_in=0.0, fwhm_in2=None,
+                 nside_in=16, lmax=None, map_seed=53543, no_ileak=False,
+                 no_quleak=False, compute_derivatives=False,
+                 ext_map_gal=False):
         """
 
         Parameters
@@ -42,6 +43,10 @@ class HealpixFitsMap():
         fwhm_in : float, optional
             If input_filename is a CAMB lensed cl file, the generated maps will
             be convolved with a beam having this fwhm_in. In arcmin.
+            No effect if you provide maps directly.
+        fwhm_in2 : float, optional
+            If provided, will generate another set of I, Q, U with this
+            resolution (useful for dichroic detectors). Default is None.
             No effect if you provide maps directly.
         nside_in : int, optional
             If input_filename is a CAMB lensed cl file, the maps will be
@@ -77,6 +82,7 @@ class HealpixFitsMap():
         self.no_quleak = no_quleak
         self.ext_map_gal = ext_map_gal
         self.fwhm_in = fwhm_in
+        self.fwhm_in2 = fwhm_in2
         self.nside_in = nside_in
         if lmax is None:
             self.lmax = 2 * self.nside_in
@@ -88,6 +94,10 @@ class HealpixFitsMap():
         self.I = None
         self.Q = None
         self.U = None
+
+        self.I2 = None
+        self.Q2 = None
+        self.U2 = None
 
         fromalms = False
         if type(self.input_filename) == list:
@@ -119,6 +129,8 @@ class HealpixFitsMap():
     def load_healpix_fits_map(self, force=False):
         """
         Load from disk into memory a sky map.
+
+        Not updated for dichroic for the moment.
 
         Parameters
         ----------
@@ -187,6 +199,13 @@ class HealpixFitsMap():
 
         But you can force it
         >>> hpmap.load_healpix_fits_map_from_alms(force=True)
+
+        You can also generate 2 sets of maps with different resolution which
+        is useful for dichroic detectors
+        >>> hpmap = HealpixFitsMap(input_filename=filenames, fwhm_in=3.5,
+        ...     fwhm_in2=1.8, nside_in=16,)
+        >>> hasattr(hpmap, 'Q2')
+        True
         """
         if self.I is None or force:
             if self.do_pol:
@@ -199,16 +218,35 @@ class HealpixFitsMap():
                     nside=self.nside_in,
                     pixwin=False,
                     fwhm=self.fwhm_in / 60. * np.pi / 180.,
-                    sigma=None, pol=True, inplace=False, verbose=self.verbose)
+                    sigma=None, pol=True, inplace=False,
+                    verbose=self.verbose)
+                if self.fwhm_in2 is not None:
+                    self.I2, self.Q2, self.U2 = hp.alm2map(
+                        [tlm, elm, blm],
+                        nside=self.nside_in,
+                        pixwin=False,
+                        fwhm=self.fwhm_in2 / 60. * np.pi / 180.,
+                        sigma=None, pol=True, inplace=False,
+                        verbose=self.verbose)
             else:
-                self.I = hp.read_alm(self.input_filename[0])
+                tlm = hp.read_alm(self.input_filename[0])
 
                 self.I = hp.alm2map(
                     tlm,
                     nside=self.nside_in,
                     pixwin=False,
                     fwhm=self.fwhm_in / 60. * np.pi / 180.,
-                    sigma=None, pol=False, inplace=False, verbose=self.verbose)
+                    sigma=None, pol=False, inplace=False,
+                    verbose=self.verbose)
+                if self.fwhm_in2 is not None:
+                    self.I2 = hp.alm2map(
+                        tlm,
+                        nside=self.nside_in,
+                        pixwin=False,
+                        fwhm=self.fwhm_in2 / 60. * np.pi / 180.,
+                        sigma=None, pol=False, inplace=False,
+                        verbose=self.verbose)
+
             self.nside = hp.npix2nside(len(self.I))
         else:
             print("External data already present in memory")
@@ -221,8 +259,8 @@ class HealpixFitsMap():
         Parameters
         ----------
         force : bool
-            If true, force to recreate the maps in memory even if it is already
-            loaded. Default is False.
+            If true, force to recreate the maps in memory even
+            if it is already loaded. Default is False.
 
         Examples
         ----------
@@ -239,20 +277,44 @@ class HealpixFitsMap():
 
         But you can force it
         >>> hpmap.create_healpix_fits_map(force=True)
+
+        You can also load 2 sets of maps with different resolution, which
+        is useful for dichroic detectors
+        >>> filename = 's4cmb/data/test_data_set_lensedCls.dat'
+        >>> hpmap = HealpixFitsMap(input_filename=filename, fwhm_in=3.5,
+        ...     fwhm_in2=1.8, nside_in=16, map_seed=489237)
+        >>> hasattr(hpmap, 'I2')
+        True
         """
         if self.I is None or force:
             if self.do_pol:
-                self.I, self.Q, self.U = create_sky_map(self.input_filename,
-                                                        nside=self.nside_in,
-                                                        FWHM=self.fwhm_in,
-                                                        seed=self.map_seed,
-                                                        lmax=self.lmax)
+                self.I, self.Q, self.U = create_sky_map(
+                    self.input_filename,
+                    nside=self.nside_in,
+                    FWHM=self.fwhm_in,
+                    seed=self.map_seed,
+                    lmax=self.lmax)
+                if self.fwhm_in2 is not None:
+                    self.I2, self.Q2, self.U2 = create_sky_map(
+                        self.input_filename,
+                        nside=self.nside_in,
+                        FWHM=self.fwhm_in2,
+                        seed=self.map_seed,
+                        lmax=self.lmax)
             else:
-                self.I = create_sky_map(self.input_filename,
-                                        nside=self.nside_in,
-                                        FWHM=self.fwhm_in,
-                                        seed=self.map_seed,
-                                        lmax=self.lmax)
+                self.I = create_sky_map(
+                    self.input_filename,
+                    nside=self.nside_in,
+                    FWHM=self.fwhm_in,
+                    seed=self.map_seed,
+                    lmax=self.lmax)
+                if self.fwhm_in2 is not None:
+                    self.I2 = create_sky_map(
+                        self.input_filename,
+                        nside=self.nside_in,
+                        FWHM=self.fwhm_in2,
+                        seed=self.map_seed,
+                        lmax=self.lmax)
             self.nside = hp.npix2nside(len(self.I))
         else:
             print("External data already present in memory")
@@ -274,10 +336,20 @@ class HealpixFitsMap():
         >>> hpmap = HealpixFitsMap('myfits_to_test_.fits', no_quleak=True)
         >>> print(hpmap.Q, hpmap.U)
         [ 0.  0.  0. ...,  0.  0.  0.] [ 0.  0.  0. ...,  0.  0.  0.]
+
+        If you have two sets of maps, it will remove leakages from the two sets
+        >>> filename = 's4cmb/data/test_data_set_lensedCls.dat'
+        >>> hpmap = HealpixFitsMap(input_filename=filename, fwhm_in=3.5,
+        ...     fwhm_in2=1.8, nside_in=16, map_seed=489237,
+        ...     no_ileak=True, no_quleak=True)
+        >>> print(hpmap.I, hpmap.I2)
+        [ 0.  0.  0. ...,  0.  0.  0.] [ 0.  0.  0. ...,  0.  0.  0.]
         """
         ## Set temperature to zero to avoid I->QU leakage
         if self.no_ileak:
             self.I[:] = 0.0
+            if self.I2 is not None:
+                self.I2[:] = 0.0
 
         ## Set polarisation to zero to avoid QU leakage
         if self.no_quleak:
@@ -286,12 +358,19 @@ class HealpixFitsMap():
             if self.U is not None:
                 self.U[:] = 0.0
 
+            if self.Q2 is not None:
+                self.Q2[:] = 0.0
+            if self.U2 is not None:
+                self.U2[:] = 0.0
+
     def compute_intensity_derivatives(self, fromalm=False):
         """
         Compute derivatives of the input temperature map (healpix).
         Unfortunately, healpy does not allow to have derivatives
         higher than 1 (see healpix for better treatment),
         so we use only an approximation.
+
+        Not updated for dichroic for the moment.
 
         Parameters
         ----------
@@ -453,11 +532,12 @@ def create_sky_map(cl_fn, nside=16, FWHM=0.0, seed=548397, lmax=None):
     FWHM_rad = FWHM / 60. * np.pi / 180.
 
     np.random.seed(seed)
-    I, Q, U = hp.synfast([TT / llp, EE / llp, BB / llp, TE / llp], nside,
-                         lmax=lmax, mmax=None, alm=False,
-                         pol=True, pixwin=False,
-                         fwhm=FWHM_rad, sigma=None, new=True,
-                         verbose=False)
+    I, Q, U = hp.synfast(
+        [TT / llp, EE / llp, BB / llp, TE / llp], nside,
+        lmax=lmax, mmax=None, alm=False,
+        pol=True, pixwin=False,
+        fwhm=FWHM_rad, sigma=None, new=True,
+        verbose=False)
     return I, Q, U
 
 def write_healpix_cmbmap(output_filename, data, fits_IDL=False,
@@ -504,13 +584,15 @@ def write_healpix_cmbmap(output_filename, data, fits_IDL=False,
     ## Need to introduce this workaround because the last
     ## version of healpy introduced non-backward compatibility...
     try:
-        hp.write_map(output_filename, data, fits_IDL=fits_IDL,
-                     coord=coord, column_names=None, partial=partial,
-                     extra_header=extra_header, overwrite=True)
+        hp.write_map(
+            output_filename, data, fits_IDL=fits_IDL,
+            coord=coord, column_names=None, partial=partial,
+            extra_header=extra_header, overwrite=True)
     except:
-        hp.write_map(output_filename, data, fits_IDL=fits_IDL,
-                     coord=coord, column_names=None, partial=partial,
-                     extra_header=extra_header)
+        hp.write_map(
+            output_filename, data, fits_IDL=fits_IDL,
+            coord=coord, column_names=None, partial=partial,
+            extra_header=extra_header)
 
 def write_dummy_map(filename='myfits_to_test_.fits', nside=16):
     """

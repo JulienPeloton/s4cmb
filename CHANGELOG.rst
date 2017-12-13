@@ -1,6 +1,9 @@
 v0.x.x
 =============
 * Current version.
+* Add dichroic detector (dichroic branch)
+* Add subscans information
+* Add beam ellipticity systematics
 
 v0.6.1
 =============
