@@ -239,12 +239,24 @@ class TimeOrderedDataPairDiff():
 
         self.array_noise_level2 = array_noise_level2
         self.array_noise_seed2 = array_noise_seed2
-        if self.array_noise_level2 is not None:
+        if self.array_noise_level2 is not None and self.alpha is None:
             self.noise_generator2 = WhiteNoiseGenerator(
                 array_noise_level=self.array_noise_level2,
                 ndetectors=2*self.npair,
                 ntimesamples=self.nsamples,
                 array_noise_seed=self.array_noise_seed2)
+        elif self.array_noise_level2 is not None and self.alpha is not None:
+            self.noise_generator2 = CorrNoiseGenerator(
+                array_noise_level=self.array_noise_level2,
+                ndetectors=2*self.npair,
+                ntimesamples=self.nsamples,
+                array_noise_seed=self.array_noise_seed2,
+                nclouds=self.nclouds,
+                f0=self.f0,
+                amp_atm=self.amp_atm,
+                corrlength=self.corrlength,
+                alpha=self.alpha,
+                sampling_freq=self.scanning_strategy.sampling_freq)
         else:
             self.noise_generator2 = None
 
