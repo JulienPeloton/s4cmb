@@ -1359,12 +1359,12 @@ class CorrNoiseGenerator(WhiteNoiseGenerator):
         Examples
         ----------
         >>> cn = CorrNoiseGenerator(3000., 2, 17000,
-        ...     array_noise_seed=493875, f0=0.1, amp_atm=1e2,
+        ...     array_noise_seed=493875, nclouds=1, f0=0.5, amp_atm=1.,
         ...     corrlength=300, alpha=-4, sampling_freq=8.)
         >>> ts = cn.simulate_noise_one_detector(0)
         >>> print(ts) #doctest: +NORMALIZE_WHITESPACE
-        [-1965.48984891  5478.44601492 -5063.8165725  ...,
-         -5459.97704923 -3104.99013165 -5108.82546294]
+        [ -7536.5882971    -224.58319073 -10795.19644268 ...,
+          -5528.66256308  -3161.93996673  -5174.84161989]
         """
         ## White noise part
         state = np.random.RandomState(self.noise_seeds[ch])
