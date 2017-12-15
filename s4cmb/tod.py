@@ -39,9 +39,10 @@ class TimeOrderedDataPairDiff():
                  nside_out=None, pixel_size=None, width=140.,
                  cut_pixels_outside=True,
                  array_noise_level=None, array_noise_seed=487587,
+                 array_noise_level2=None, array_noise_seed2=56736,
                  nclouds=None, corrlength=None, alpha=None,
                  f0=None, amp_atm=None,
-                 mapping_perpair=False, verbose=False):
+                 mapping_perpair=False, mode='standard', verbose=False):
         """
         C'est parti!
 
@@ -110,6 +111,11 @@ class TimeOrderedDataPairDiff():
             If True, assume that you want to process pairs of bolometers
             one-by-one, that is pairs are uncorrelated. Default is False (and
             should be False unless you know what you are doing).
+        mode : string, optional
+            Choose between `standard` (1 frequency band) and `dichroic`
+            (2 frequency bands). If `dichroic` is chosen, make sure your
+            hardware can handle it (see instrument.py) and HealpixFitsMap
+            should contain the inputs maps at different frequency.
         """
         ## Initialise args
         self.verbose = verbose
@@ -117,14 +123,30 @@ class TimeOrderedDataPairDiff():
         self.scanning_strategy = scanning_strategy
         self.HealpixFitsMap = HealpixFitsMap
         self.mapping_perpair = mapping_perpair
+
+        ## Check if you can run dichroic detectors
+        self.mode = mode
+        if self.mode == 'dichroic' and (
+                not hasattr(self.HealpixFitsMap, 'I2')):
+            raise IOError("You need two sets of maps for dichroic detectors!")
+        if self.mode == 'dichroic' and (
+                not hasattr(self.hardware, 'focal_plane2')):
+            raise IOError("You need two sets of det for dichroic detectors!")
+        if self.mode == 'dichroic' and (
+                not hasattr(self.hardware, 'beam_model2')):
+            raise IOError("You need two sets of det for dichroic detectors!")
+
         self.width = width
         self.cut_pixels_outside = cut_pixels_outside
+
+        ## Check the projection
         self.projection = projection
         assert self.projection in ['healpix', 'flat'], \
             ValueError("Projection <{}> for ".format(self.projection) +
                        "the output map not understood! " +
                        "Choose among ['healpix', 'flat'].")
 
+        ## Check if the number of CES is consistent with the scanning strategy
         self.CESnumber = CESnumber
         assert self.CESnumber < self.scanning_strategy.nces, \
             ValueError("The scan index must be between 0 and {}.".format(
@@ -215,6 +237,17 @@ class TimeOrderedDataPairDiff():
         else:
             self.noise_generator = None
 
+        self.array_noise_level2 = array_noise_level2
+        self.array_noise_seed2 = array_noise_seed2
+        if self.array_noise_level2 is not None:
+            self.noise_generator2 = WhiteNoiseGenerator(
+                array_noise_level=self.array_noise_level2,
+                ndetectors=2*self.npair,
+                ntimesamples=self.nsamples,
+                array_noise_seed=self.array_noise_seed2)
+        else:
+            self.noise_generator2 = None
+
     def get_angles(self):
         """
         Retrieve polarisation angles: intrinsic (focal plane) and HWP angles,
@@ -225,13 +258,22 @@ class TimeOrderedDataPairDiff():
             size=self.nsamples)
 
         self.intrinsic_polangle = self.hardware.focal_plane.bolo_polangle
+        self.intrinsic_polangle2 = None
+        if self.mode == 'dichroic':
+            self.intrinsic_polangle2 = self.hardware.focal_plane2.bolo_polangle
 
         ## Will contain the total polarisation angles for all bolometers
         ## That is PA + intrinsic + 2 * HWP
         if not self.mapping_perpair:
             self.pol_angs = np.zeros((self.npair, self.nsamples))
+            self.pol_angs2 = None
+            if self.mode == 'dichroic':
+                self.pol_angs2 = np.zeros((self.npair, self.nsamples))
         else:
             self.pol_angs = np.zeros((1, self.nsamples))
+            self.pol_angs2 = None
+            if self.mode == 'dichroic':
+                self.pol_angs2 = np.zeros((1, self.nsamples))
 
     def get_timestream_masks(self):
         """
@@ -351,7 +393,7 @@ class TimeOrderedDataPairDiff():
         else:
             return np.ones((2, 1), dtype=int)
 
-    def set_detector_gains(self, new_gains=None):
+    def set_detector_gains(self, new_gains=None, new_gains2=None):
         """
         Set the gains of the detectors (unitless).
         Default is 1., that is perfectly calibrated.
@@ -360,7 +402,10 @@ class TimeOrderedDataPairDiff():
         ----------
         new_gains : 1d array
             Array containing the gain value for all detectors
-            (1 number per detector).
+            (1 number per detector) for the 1st frequency channel.
+        new_gains2 : 1d array
+            Array containing the gain value for all detectors
+            (1 number per detector) for the 2nd frequency channel.
 
         Examples
         ----------
@@ -374,6 +419,17 @@ class TimeOrderedDataPairDiff():
         >>> tod.set_detector_gains(new_gains=new_gains)
         >>> print(tod.gain[0])
         2.0
+
+        For dichroic
+        >>> inst, scan, sky_in = load_fake_instrument(fwhm_in2=1.8)
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in,
+        ...     mode='dichroic', CESnumber=1)
+        >>> assert tod.gain2 is not None
+
+        Change the value of gains for both frequency channels
+        >>> new_gains = np.ones(2 * tod.npair) * 2.
+        >>> new_gains2 = np.ones(2 * tod.npair) * 4.
+        >>> tod.set_detector_gains(new_gains=new_gains, new_gains2=new_gains2)
         """
         if new_gains is not None:
             assert len(new_gains) == 2 * self.npair, \
@@ -383,7 +439,18 @@ class TimeOrderedDataPairDiff():
         else:
             self.gain = np.ones(2 * self.npair)
 
-    def set_detector_gains_perpair(self, new_gains=None):
+        self.gain2 = None
+        if self.mode == 'dichroic':
+            if new_gains2 is not None:
+                assert len(new_gains2) == 2 * self.npair, \
+                    ValueError(
+                        "You have to provide {} new gain values!".format(
+                            2 * self.npair))
+                self.gain2 = new_gains2
+            else:
+                self.gain2 = np.ones(2 * self.npair)
+
+    def set_detector_gains_perpair(self, new_gains=None, new_gains2=None):
         """
         Set the gains of all 2 pair detectors for each timestep (unitless).
         This is particularly useful to introduce drifts for example.
@@ -393,7 +460,10 @@ class TimeOrderedDataPairDiff():
         ----------
         new_gains : 2d array of size (2, nsamples)
             Array containing the gain value for all detectors
-            (nsamples number per detector).
+            (nsamples number per detector) for the 1st frequency channel.
+        new_gains2 : 2d array of size (2, nsamples)
+            Array containing the gain value for all detectors
+            (nsamples number per detector) for the 2nd frequency channel.
 
         Examples
         ----------
@@ -408,6 +478,19 @@ class TimeOrderedDataPairDiff():
         >>> tod.set_detector_gains_perpair(new_gains=new_gains)
         >>> print(tod.gain[0][0:4])
         [ 2.  1.  2.  1.]
+
+        Dichroic
+        >>> inst, scan, sky_in = load_fake_instrument(fwhm_in2=1.8)
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in,
+        ...     mode='dichroic', CESnumber=1)
+
+        Change the value of gains every other sample.
+        >>> new_gains = np.ones((2, tod.nsamples))
+        >>> new_gains[:, ::2] = 2.
+        >>> new_gains2 = np.ones((2, tod.nsamples))
+        >>> new_gains2[:, ::2] = 4.
+        >>> tod.set_detector_gains_perpair(
+        ...     new_gains=new_gains, new_gains2=new_gains2)
         """
         if new_gains is not None:
             msg = "You have to provide ({}, {}) new gain values!"
@@ -416,6 +499,16 @@ class TimeOrderedDataPairDiff():
             self.gain = new_gains
         else:
             self.gain = np.ones((2, self.nsamples))
+
+        self.gain2 = None
+        if self.mode == 'dichroic':
+            if new_gains2 is not None:
+                msg = "You have to provide ({}, {}) new gain values!"
+                assert new_gains2.shape == (2, self.nsamples), \
+                    ValueError(msg.format(2, self.nsamples))
+                self.gain2 = new_gains2
+            else:
+                self.gain2 = np.ones((2, self.nsamples))
 
     def get_boresightpointing(self):
         """
@@ -488,10 +581,20 @@ class TimeOrderedDataPairDiff():
         ----------
         >>> inst, scan, sky_in = load_fake_instrument()
         >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in, CESnumber=0)
-        >>> angles = tod.compute_simpolangle(ch=0,
+        >>> angles, angles2 = tod.compute_simpolangle(ch=0,
         ...     parallactic_angle=np.array([np.pi] * tod.nsamples))
         >>> print(angles[:4])
         [ 0.          0.31415927  0.62831853  0.9424778 ]
+        >>> assert angles2 is None
+
+        If you have dichroic detectors, the routine will return angles for
+        the two frequency channels
+        >>> inst, scan, sky_in = load_fake_instrument(fwhm_in2=1.8)
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in,
+        ...     mode='dichroic', CESnumber=0)
+        >>> angles, angles2 = tod.compute_simpolangle(ch=0,
+        ...     parallactic_angle=np.array([np.pi] * tod.nsamples))
+        >>> assert angles2 is not None
         """
         if not polangle_err:
             ang_pix = (90.0 - self.intrinsic_polangle[ch]) * d2r
@@ -502,14 +605,25 @@ class TimeOrderedDataPairDiff():
                 pol_ang = parallactic_angle + ang_pix + 2.0 * self.hwpangle
             else:
                 pol_ang = parallactic_angle - ang_pix - 2.0 * self.hwpangle
+
+            pol_ang2 = None
+            if self.mode == 'dichroic':
+                ang_pix2 = (90.0 - self.intrinsic_polangle2[ch]) * d2r
+
+                ## Demodulation or pair diff use different convention
+                ## for the definition of the angle.
+                if not hasattr(self, 'dm'):
+                    pol_ang2 = parallactic_angle + ang_pix2 + 2.0*self.hwpangle
+                else:
+                    pol_ang2 = parallactic_angle - ang_pix2 - 2.0*self.hwpangle
         else:
             print("This is where you call the systematic module!")
             sys.exit()
             pass
 
-        return pol_ang
+        return pol_ang, pol_ang2
 
-    def return_parallactic_angle(self, ch):
+    def return_parallactic_angle(self, ch, frequency_channel=1):
         """
         Return the parallactic angles (orientations of the pixel on sky)
         for one specific channel (full timestream).
@@ -518,24 +632,52 @@ class TimeOrderedDataPairDiff():
         ----------
         ch : int
             Index of the bolometer (within the focal plane).
+        frequency_channel : int, optional
+            When using dichroic detectors, you need to specify the channel.
 
         Returns
         ----------
         pa : 1d array
-            Parallactic angles (timestream) for detector ch.
+            Parallactic angles (timestream) for detector ch. [radian]
+
+        Examples
+        ----------
+        Simple TES bolometers
+        >>> inst, scan, sky_in = load_fake_instrument()
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in, CESnumber=1)
+        >>> pa = tod.return_parallactic_angle(0)
+
+        Dichroic detectors
+        >>> inst, scan, sky_in = load_fake_instrument(fwhm_in2=1.8)
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in,
+        ...     mode='dichroic', CESnumber=1)
+        >>> pa1 = tod.return_parallactic_angle(0, frequency_channel=1)
+        >>> pa2 = tod.return_parallactic_angle(0, frequency_channel=2)
         """
+        if frequency_channel == 1:
+            pa = self.pol_angs
+        elif frequency_channel == 2:
+            pa = self.pol_angs2
+
         if self.mapping_perpair is True:
-            ang_pix = (90.0 - self.intrinsic_polangle[ch]) * d2r
+            if frequency_channel == 1:
+                ang_pix = (90.0 - self.intrinsic_polangle[ch]) * d2r
+            elif frequency_channel == 2:
+                ang_pix = (90.0 - self.intrinsic_polangle2[ch]) * d2r
+
             if not hasattr(self, 'dm'):
-                return self.pol_angs - ang_pix - 2*self.hwpangle
+                return pa - ang_pix - 2*self.hwpangle
             else:
-                return self.pol_angs + ang_pix
+                return pa + ang_pix
         else:
-            ang_pix = (90.0 - self.intrinsic_polangle[2*ch]) * d2r
+            if frequency_channel == 1:
+                ang_pix = (90.0 - self.intrinsic_polangle[2*ch]) * d2r
+            elif frequency_channel == 2:
+                ang_pix = (90.0 - self.intrinsic_polangle2[2*ch]) * d2r
             if not hasattr(self, 'dm'):
-                return self.pol_angs[ch] - ang_pix - 2*self.hwpangle
+                return pa[ch] - ang_pix - 2*self.hwpangle
             else:
-                return self.pol_angs[ch] + ang_pix
+                return pa[ch] + ang_pix
 
     def map2tod(self, ch):
         """
@@ -550,17 +692,35 @@ class TimeOrderedDataPairDiff():
 
         Returns
         ----------
-        ts : 1d array
+        ts : 1d array or array of 1d array
             The timestream for detector ch. If `self.HealpixFitsMap.do_pol` is
             True it returns intensity+polarisation, otherwise just intensity.
+            If dichroic, ts = np.array([ts_freq1, ts_freq2]).
 
         Examples
         ----------
+        Simple TES bolometers
         >>> inst, scan, sky_in = load_fake_instrument()
         >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in, CESnumber=1)
         >>> d = tod.map2tod(0)
-        >>> print(round(d[0], 3)) #doctest: +NORMALIZE_WHITESPACE
-        -42.874
+        >>> print(d.shape)
+        (115200,)
+
+        Dichroic detectors
+        >>> inst, scan, sky_in = load_fake_instrument(fwhm_in2=1.8)
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in,
+        ...     mode='dichroic', CESnumber=1)
+        >>> d = tod.map2tod(0)
+        >>> print(d.shape)
+        (2, 115200)
+
+        Dichroic detectors with different noise levels
+        >>> inst, scan, sky_in = load_fake_instrument(fwhm_in2=1.8)
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in,
+        ...     array_noise_level=2.5, array_noise_seed=487587,
+        ...     array_noise_level2=25., array_noise_seed2=56736,
+        ...     mode='dichroic', CESnumber=1)
+        >>> d = tod.map2tod(0)
         """
         ## Use bolometer beam offsets.
         azd, eld = self.xpos[ch], self.ypos[ch]
@@ -619,8 +779,15 @@ class TimeOrderedDataPairDiff():
         else:
             noise = 0.0
 
+        if self.noise_generator2 is not None:
+            noise2 = self.noise_generator2.simulate_noise_one_detector(ch)
+        else:
+            noise2 = 0.0
+
         if self.HealpixFitsMap.do_pol:
-            pol_ang = self.compute_simpolangle(ch, pa, polangle_err=False)
+            ## pol_ang2 is None if mode == 'standard'
+            pol_ang, pol_ang2 = self.compute_simpolangle(
+                ch, pa, polangle_err=False)
 
             ## For demodulation, HWP angles are not included at the level
             ## of the pointing matrix (convention).
@@ -635,14 +802,47 @@ class TimeOrderedDataPairDiff():
             elif ch % 2 == 0 and self.mapping_perpair:
                 self.pol_angs[0] = pol_ang_out
 
-            return (self.HealpixFitsMap.I[index_global] +
-                    self.HealpixFitsMap.Q[index_global] * np.cos(2 * pol_ang) +
-                    sign * self.HealpixFitsMap.U[index_global] *
-                    np.sin(2 * pol_ang) + noise) * norm
-        else:
-            return norm * (self.HealpixFitsMap.I[index_global] + noise)
+            ts1 = (
+                self.HealpixFitsMap.I[index_global] +
+                self.HealpixFitsMap.Q[index_global] * np.cos(2 * pol_ang) +
+                sign * self.HealpixFitsMap.U[index_global] *
+                np.sin(2 * pol_ang) + noise) * norm
 
-    def tod2map(self, waferts, output_maps, gdeprojection=False):
+            if self.mode == 'standard':
+                return ts1
+
+            elif self.mode == 'dichroic':
+                # For demodulation, HWP angles are not included at the level
+                ## of the pointing matrix (convention).
+                if hasattr(self, 'dm'):
+                    pol_ang_out2 = pol_ang2 + 2.0 * self.hwpangle
+                else:
+                    pol_ang_out2 = pol_ang2
+
+                ## Store list polangle only for top bolometers
+                if ch % 2 == 0 and not self.mapping_perpair:
+                    self.pol_angs2[int(ch/2)] = pol_ang_out2
+                elif ch % 2 == 0 and self.mapping_perpair:
+                    self.pol_angs2[0] = pol_ang_out2
+
+                ts2 = (
+                    self.HealpixFitsMap.I2[index_global] +
+                    self.HealpixFitsMap.Q2[index_global] * np.cos(2*pol_ang2) +
+                    sign * self.HealpixFitsMap.U2[index_global] *
+                    np.sin(2 * pol_ang2) + noise2) * norm
+                return np.array([ts1, ts2])
+
+        else:
+            ts1 = norm * (self.HealpixFitsMap.I[index_global] + noise)
+            if self.mode == 'standard':
+                return ts1
+            elif self.mode == 'dichroic':
+                ts2 = norm * (self.HealpixFitsMap.I2[index_global] + noise2)
+                return np.array([ts1, ts2])
+
+    def tod2map(self, waferts, output_maps,
+                gdeprojection=False,
+                frequency_channel=1):
         """
         Project time-ordered data into sky maps for the whole array.
         Maps are updated on-the-fly. Massive speed-up thanks to the
@@ -659,6 +859,9 @@ class TimeOrderedDataPairDiff():
             If True, perform a deprojection of a constant contribution in the
             polarisation timestream: d^{-} = G + Qcos(2*theta) + U*sin(2theta).
             Work only for pair difference.
+        frequency_channel : int, optional
+            If you are processing dichroic pixels, you need to specify the
+            index of the frequency channel (1 or 2). Default is 1.
 
         Examples
         ----------
@@ -705,7 +908,37 @@ class TimeOrderedDataPairDiff():
         ...     npixsky=tod.npixsky, pixel_size=tod.pixel_size)
         >>> tod.tod2map(d, m)
 
+        HEALPIX + Dichroic
+        >>> inst, scan, sky_in = load_fake_instrument(fwhm_in2=1.8)
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in, mode='dichroic',
+        ...     CESnumber=0, projection='healpix', mapping_perpair=True)
+        >>> m1 = OutputSkyMap(projection=tod.projection,
+        ...     nside=tod.nside_out, obspix=tod.obspix)
+        >>> m2 = OutputSkyMap(projection=tod.projection,
+        ...     nside=tod.nside_out, obspix=tod.obspix)
+        >>> for pair in tod.pair_list:
+        ...   d = np.array([tod.map2tod(det) for det in pair])
+        ...   d1 = d[:, 0] ## first frequency channel
+        ...   d2 = d[:, 1] ## second frequency channel
+        ...   tod.tod2map(d1, m1)
+        ...   tod.tod2map(d2, m2)
+
+        HEALPIX + deprojection
+        >>> inst, scan, sky_in = load_fake_instrument()
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in,
+        ...     CESnumber=0, projection='healpix', mapping_perpair=True)
+        >>> m = OutputSkyMapIGQU(projection=tod.projection,
+        ...     nside=tod.nside_out, obspix=tod.obspix)
+        >>> for pair in tod.pair_list:
+        ...   d = np.array([tod.map2tod(det) for det in pair])
+        ...   tod.tod2map(d, m, gdeprojection=True)
+
         """
+        if frequency_channel == 1:
+            pol_angs = self.pol_angs
+        elif frequency_channel == 2:
+            pol_angs = self.pol_angs2
+
         nbolofp = waferts.shape[0]
         npixfp = nbolofp / 2
         nt = int(waferts.shape[-1])
@@ -724,14 +957,14 @@ class TimeOrderedDataPairDiff():
         assert npixfp == self.point_matrix.shape[0], msg
         assert nt == self.point_matrix.shape[1], msg
 
-        assert npixfp == self.pol_angs.shape[0], msg
-        assert nt == self.pol_angs.shape[1], msg
+        assert npixfp == pol_angs.shape[0], msg
+        assert nt == pol_angs.shape[1], msg
 
         assert npixfp == self.diff_weight.shape[0], msg
         assert npixfp == self.sum_weight.shape[0], msg
 
         point_matrix = self.point_matrix.flatten()
-        pol_angs = self.pol_angs.flatten()
+        pol_angs = pol_angs.flatten()
         waferts = waferts.flatten()
         diff_weight = self.diff_weight.flatten()
         sum_weight = self.sum_weight.flatten()
@@ -772,7 +1005,8 @@ class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
                  nside_out=None, pixel_size=None, width=140.,
                  cut_pixels_outside=True,
                  array_noise_level=None, array_noise_seed=487587,
-                 mapping_perpair=False, verbose=False):
+                 array_noise_level2=None, array_noise_seed2=56736,
+                 mapping_perpair=False, mode='standard', verbose=False):
         """
         C'est parti!
 
@@ -815,6 +1049,11 @@ class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
             If True, assume that you want to process pairs of bolometers
             one-by-one, that is pairs are uncorrelated. Default is False (and
             should be False unless you know what you are doing).
+        mode : string, optional
+            Choose between `standard` (1 frequency band) and `dichroic`
+            (2 frequency bands). If `dichroic` is chosen, make sure your
+            hardware can handle it (see instrument.py) and HealpixFitsMap
+            should contain the inputs maps at different frequency.
 
         Examples
         ----------
@@ -827,6 +1066,22 @@ class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
         >>> m = OutputSkyMap(projection=tod.projection,
         ...     nside=tod.nside_out, obspix=tod.obspix, demodulation=True)
         >>> tod.tod2map(d, m)
+
+        Same with dichroic detectors
+        >>> inst, scan, sky_in = load_fake_instrument(fwhm_in2=1.8)
+        >>> tod = TimeOrderedDataDemod(inst, scan, sky_in, mode='dichroic',
+        ...     CESnumber=0, projection='healpix', mapping_perpair=True)
+        >>> d = np.array([tod.map2tod(det) for det in range(2)])
+        >>> d1 = d[:, 0]
+        >>> d2 = d[:, 1]
+        >>> d1 = tod.demodulate_timestreams(d1)
+        >>> d2 = tod.demodulate_timestreams(d2)
+        >>> m1 = OutputSkyMap(projection=tod.projection,
+        ...     nside=tod.nside_out, obspix=tod.obspix, demodulation=True)
+        >>> m2 = OutputSkyMap(projection=tod.projection,
+        ...     nside=tod.nside_out, obspix=tod.obspix, demodulation=True)
+        >>> tod.tod2map(d1, m1, frequency_channel=1)
+        >>> tod.tod2map(d2, m2, frequency_channel=2)
         """
         TimeOrderedDataPairDiff.__init__(
             self, hardware, scanning_strategy, HealpixFitsMap,
@@ -835,7 +1090,10 @@ class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
             cut_pixels_outside=cut_pixels_outside,
             array_noise_level=array_noise_level,
             array_noise_seed=array_noise_seed,
+            array_noise_level2=array_noise_level2,
+            array_noise_seed2=array_noise_seed2,
             mapping_perpair=mapping_perpair,
+            mode=mode,
             verbose=verbose)
 
         ## Prepare the demodulation of timestreams
@@ -2178,14 +2436,14 @@ class OutputSkyMapIGQU(OutputSkyMap):
         >>> m1.set_goodpix()
         """
         ## We have 4 components: I, Q, U and G.
-        inonzero = [pix for pix in range(self.npixsky) if self.nhit[pix] > 4]
+        inonzero = [pix for pix in range(self.npixsky) if self.nhit[pix] > 10]
         self.goodpix = np.zeros((self.npixsky))
         self.goodpix[inonzero] = 1
 
         for ipix in inonzero:
             M = self.buildP(ipix)
             det = np.linalg.det(M)
-            if det == 0 or np.linalg.cond(M) > 1e8:
+            if det == 0 or np.linalg.cond(M) > 1e2:
                 self.goodpix[ipix] = 0
 
     def get_QU(self):
@@ -2602,7 +2860,7 @@ def build_pointing_matrix(ra, dec, nside_in, nside_out=None,
 
     return index_global, index_local
 
-def load_fake_instrument(nside=16, nsquid_per_mux=1,
+def load_fake_instrument(nside=16, nsquid_per_mux=1, fwhm_in2=None,
                          compute_derivatives=False):
     """
     For test purposes.
@@ -2629,7 +2887,7 @@ def load_fake_instrument(nside=16, nsquid_per_mux=1,
 
     ## Sky
     sky_in = HealpixFitsMap('s4cmb/data/test_data_set_lensedCls.dat',
-                            do_pol=True, fwhm_in=0.0,
+                            do_pol=True, fwhm_in=0.0, fwhm_in2=fwhm_in2,
                             nside_in=nside, map_seed=48584937,
                             compute_derivatives=compute_derivatives,
                             verbose=False, no_ileak=False, no_quleak=False)
@@ -2641,6 +2899,8 @@ def load_fake_instrument(nside=16, nsquid_per_mux=1,
                     beam_seed=58347, projected_fp_size=3.,
                     pm_name='5params', type_hwp='CRHWP',
                     freq_hwp=0.2, angle_hwp=0., verbose=False)
+    if fwhm_in2 is not None:
+        inst.make_dichroic(fwhm=fwhm_in2)
 
     ## Scanning strategy
     scan = ScanningStrategy(nces=2, start_date='2013/1/1 00:00:00',

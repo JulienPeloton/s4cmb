@@ -424,7 +424,8 @@ def modify_pointing_parameters(values, errors):
     values_mod = [p + err for p, err in zip(values, errors)]
     return values_mod
 
-def step_function(nbolos, nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
+def step_function(nbolos, nsamples, mean=1, std=0.05,
+                  nbreaks=1, sign='same', seed=0):
     """
     Generate step functions for each bolometer from 1 to a values
     drawn from N(mean, std). The full timestream is broken into nbreaks
@@ -445,6 +446,10 @@ def step_function(nbolos, nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
         Default is 0.05 (that is \pm 5% with respect to a mean=1).
     nbreaks : int
         Number of break (number of retuning).
+    sign : string
+        If same, both detectors in the pair will have the same gain.
+        If opposite, detectors will have gains with opposite sign
+        (differential gain).
 
     Returns
     ----------
@@ -458,6 +463,9 @@ def step_function(nbolos, nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
     >>> gains = step_function(nbolos, nsamples, nbreaks=1)
     >>> print(gains[0])
     [ 1.          1.          1.08820262  1.08820262]
+
+    >>> gains = step_function(nbolos, nsamples, nbreaks=1, sign='opposite')
+    >>> assert gains[0][0] == 2 - gains[1][0]
     """
     ## Fix the seed
     state = np.random.RandomState(seed)
@@ -483,9 +491,13 @@ def step_function(nbolos, nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
         else:
             continue
 
+        if sign == 'opposite':
+            gains[1] = 2 - gains[1]
+
     return gains
 
-def step_function_gen(nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
+def step_function_gen(nsamples, mean=1, std=0.05,
+                      nbreaks=1, sign='same', seed=0):
     """
     Generator of step functions for each bolometer from 1 to a values
     drawn from N(mean, std). The full timestream is broken into nbreaks
@@ -506,6 +518,10 @@ def step_function_gen(nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
         Default is 0.05 (that is \pm 5% with respect to a mean=1).
     nbreaks : int
         Number of break (number of retuning).
+    sign : string
+        If same, both detectors in the pair will have the same gain.
+        If opposite, detectors will have gains with opposite sign
+        (differential gain).
 
     Returns
     ----------
@@ -518,6 +534,10 @@ def step_function_gen(nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
     >>> gains_gen = step_function_gen(nsamples, nbreaks=1)
     >>> print(next(gains_gen)[0])
     [ 1.          1.          1.08820262  1.08820262]
+
+    >>> gains_gen = step_function_gen(nsamples, nbreaks=1, sign='opposite')
+    >>> g = next(gains_gen)
+    >>> assert g[0][0] == 2 - g[1][0]
     """
     ## Fix the seed
     state = np.random.RandomState(seed)
@@ -544,9 +564,13 @@ def step_function_gen(nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
             else:
                 continue
 
+        if sign == 'opposite':
+            gains[1] = 2 - gains[1]
+
         yield gains
 
-def linear_function(nbolos, nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
+def linear_function(nbolos, nsamples, mean=1, std=0.05,
+                    nbreaks=1, sign='same', seed=0):
     """
     Generate linear functions for each bolometer from 1 to a values
     drawn from N(mean, std). The full timestream is broken into nbreaks
@@ -567,6 +591,10 @@ def linear_function(nbolos, nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
         Default is 0.05 (that is \pm 5% with respect to a mean=1).
     nbreaks : int
         Number of break (number of retuning).
+    sign : string
+        If same, both detectors in the pair will have the same gain.
+        If opposite, detectors will have gains with opposite sign
+        (differential gain).
 
     Returns
     ----------
@@ -580,6 +608,9 @@ def linear_function(nbolos, nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
     >>> gains = linear_function(nbolos, nsamples, nbreaks=1)
     >>> print(gains[0])
     [ 1.          1.02940087  1.05880174  1.08820262]
+
+    >>> gains = linear_function(nbolos, nsamples, nbreaks=1, sign='opposite')
+    >>> assert gains[0][0] == 2 - gains[1][0]
     """
     ## Fix the seed
     state = np.random.RandomState(seed)
@@ -606,9 +637,13 @@ def linear_function(nbolos, nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
         else:
             continue
 
+    if sign == 'opposite':
+        gains[1] = 2 - gains[1]
+
     return gains
 
-def linear_function_gen(nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
+def linear_function_gen(nsamples, mean=1, std=0.05,
+                        nbreaks=1, sign='same', seed=0):
     """
     Generator returning linear functions for each bolometer from 1 to a values
     drawn from N(mean, std). The full timestream is broken into nbreaks
@@ -629,6 +664,10 @@ def linear_function_gen(nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
         Default is 0.05 (that is \pm 5% with respect to a mean=1).
     nbreaks : int
         Number of break (number of retuning).
+    sign : string
+        If same, both detectors in the pair will have the same gain.
+        If opposite, detectors will have gains with opposite sign
+        (differential gain).
 
     Returns
     ----------
@@ -641,6 +680,11 @@ def linear_function_gen(nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
     >>> gains_gen = linear_function_gen(nsamples, nbreaks=1)
     >>> print(next(gains_gen)[0])
     [ 1.          1.02940087  1.05880174  1.08820262]
+
+    >>> gains_gen = linear_function_gen(nsamples, nbreaks=1, sign='opposite')
+    >>> g = next(gains_gen)
+    >>> assert g[0][0] == 2 - g[1][0]
+
     """
     ## Fix the seed
     state = np.random.RandomState(seed)
@@ -667,6 +711,9 @@ def linear_function_gen(nsamples, mean=1, std=0.05, nbreaks=1, seed=0):
                     [1, end]) for end in end_points])
             else:
                 continue
+
+        if sign == 'opposite':
+            gains[1] = 2 - gains[1]
 
         yield gains
 
