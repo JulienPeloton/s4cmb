@@ -39,7 +39,7 @@ class TimeOrderedDataPairDiff():
                  nside_out=None, pixel_size=None, width=140.,
                  cut_pixels_outside=True,
                  array_noise_level=None, array_noise_seed=487587,
-                 corrlength=None, alpha=None,
+                 nclouds=None, corrlength=None, alpha=None,
                  f0=None, amp_atm=None,
                  mapping_perpair=False, verbose=False):
         """
@@ -92,6 +92,20 @@ class TimeOrderedDataPairDiff():
             From this single seed, we generate a list of seeds
             for all detectors. Has an effect only if array_noise_level is
             provided.
+        nclouds : int, optional
+            Number of clouds, that is number of correlated regions
+            in the focal plane.
+        corrlength : int, optional
+            Correlation length in time over which atmosphere signal
+            is supposed to be constant. Few minutes is typical.
+            Units are seconds.
+        alpha : int or float, optional
+            Value of the 1/f slope for correlated noise simulation.
+        f0 : float, optional
+            Knee frequency in Hz for correlated noise simulation.
+        amp_atm : float, optional
+            Typical value of atmospheric fluctuations in [u]K^2.s.
+            WARNING: units has to be same as the input map!
         mapping_perpair : bool, optional
             If True, assume that you want to process pairs of bolometers
             one-by-one, that is pairs are uncorrelated. Default is False (and
@@ -175,6 +189,7 @@ class TimeOrderedDataPairDiff():
         ## Prepare noise simulator if needed
         self.array_noise_level = array_noise_level
         self.array_noise_seed = array_noise_seed
+        self.nclouds = nclouds
         self.corrlength = corrlength
         self.alpha = alpha
         self.f0 = f0
@@ -191,6 +206,7 @@ class TimeOrderedDataPairDiff():
                 ndetectors=2*self.npair,
                 ntimesamples=self.nsamples,
                 array_noise_seed=self.array_noise_seed,
+                nclouds=self.nclouds,
                 f0=self.f0,
                 amp_atm=self.amp_atm,
                 corrlength=self.corrlength,
@@ -1245,8 +1261,8 @@ class WhiteNoiseGenerator():
 class CorrNoiseGenerator(WhiteNoiseGenerator):
     """ """
     def __init__(self, array_noise_level, ndetectors, ntimesamples,
-                 array_noise_seed, f0=0.1, alpha=-4, amp_atm=1e2,
-                 corrlength=300, sampling_freq=8, NFFT=4096):
+                 array_noise_seed, nclouds=10, f0=0.1, alpha=-4, amp_atm=1e2,
+                 corrlength=300, sampling_freq=8):
         """
         This class is used to simulate time-domain correlated noise.
         Usually, it is used in combination with map2tod to insert noise
@@ -1294,6 +1310,9 @@ class CorrNoiseGenerator(WhiteNoiseGenerator):
         array_noise_seed : int
             Seed used to generate random numbers. From this single seed,
             we generate a list of seeds for all detectors.
+        nclouds : int, optional
+            Number of clouds, that is number of correlated regions
+            in the focal plane.
         f0 : float, optional
             Knee frequency in Hz.
         alpha : int or float, optional
@@ -1307,17 +1326,15 @@ class CorrNoiseGenerator(WhiteNoiseGenerator):
             Units are seconds.
         sampling_freq : float, optional
             Sampling frequency of the detectors in Hz.
-        NFFT : int, optional
-            Window length for FFTs (to compute the PSD).
 
         """
         WhiteNoiseGenerator.__init__(
             self, array_noise_level, ndetectors,
             ntimesamples, array_noise_seed)
+        self.nclouds = nclouds
         self.alpha = alpha
         self.sampling_freq = sampling_freq
         self.corrlength = int(corrlength * self.sampling_freq)
-        self.NFFT = NFFT
         self.f0 = f0
         self.amp_atm = amp_atm
 
@@ -1356,7 +1373,12 @@ class CorrNoiseGenerator(WhiteNoiseGenerator):
 
         ## Correlated part
         state = np.random.RandomState(self.pixel_noise_seeds[ch])
-        amps = 2 * (-0.5 + state.uniform(size=1))
+        # amps = 2 * (-0.5 + state.uniform(size=1))
+        amps = state.uniform(size=1)
+
+        corrdet = int(self.ndetectors / self.nclouds)
+        state = np.random.RandomState(
+            self.array_noise_seed + ch // corrdet)
         phases = 2 * np.pi * state.rand(self.ntimesamples)
 
         ts_corr = np.zeros(self.ntimesamples)
