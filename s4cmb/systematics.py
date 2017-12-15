@@ -767,34 +767,26 @@ def get_kernel_coefficients(beamprm, pairlist, nx=128, pix_size=None):
     If the beams are identical, the coefficients will be zeros
     >>> bm = BeamModel(fp, verbose=False)
     >>> coeffs = get_kernel_coefficients(bm, pairlist, nx=32)
-    >>> print(coeffs[0]) #doctest: +NORMALIZE_WHITESPACE
-    [ -4.07957247e-18   6.98047346e-37  -4.98058334e-37
-       1.57466587e-25   1.66338983e-26   4.29908155e-26]
+    >>> np.allclose(coeffs[0], np.zeros_like(coeffs[0]))
+    True
 
-    Let's perturb the beam now by adding beam ellipticity
+    Let's perturb the beam now by adding beam ellipticity.
+    Beam ellipticity involves T and its second derivatives,
+    but not the first derivatives (2nd and 3rd coefficients are zeros).
     >>> bm = BeamModel(fp, verbose=False)
     >>> bm.sig_1, bm.sig_2, bm.ellip_ang = inject_beam_ellipticity(
     ...     bm.sig_1[0], 10, 5, fp.nbolometer, do_diffbeamellipticity=True)
     >>> coeffs = get_kernel_coefficients(bm, pairlist, nx=32)
-    >>> print(coeffs[0]) #doctest: +NORMALIZE_WHITESPACE
-    [ -1.31867240e-03  -3.25190225e-22   8.50186573e-22
-      -5.45597911e-10   2.49079346e-11  -2.84095891e-11]
 
-    You can see that beam ellipticity involves T and its second derivatives,
-    but not the first derivatives (2nd and 3rd coefficients are zeros).
-
-    Let's perturb the beam now by adding differential pointing
+    Let's perturb the beam now by adding differential pointing.
+    Differential pointing only first derivatives of T,
+    but not the teperature itself and its second derivatives
+    (0th, 4th, 5th, and 6th coefficients are zeros).
     >>> bm = BeamModel(fp, verbose=False)
     >>> bm.xpos, bm.ypos = modify_beam_offsets(bm.xpos, bm.ypos,
     ...     mu_diffpointing=600., sigma_diffpointing=300., seed=5847)
     >>> coeffs = get_kernel_coefficients(bm, pairlist, nx=32)
-    >>> print(coeffs[0]) #doctest: +NORMALIZE_WHITESPACE
-    [ -2.85331622e-14   1.65793103e-06   1.63405900e-06
-      -4.31916726e-24   6.11529697e-23   1.58477077e-22]
 
-    You can see that differential pointing only first derivatives of T,
-    but not the teperature itself and its second derivatives
-    (0th, 4th, 5th, and 6th coefficients are zeros)
     """
     if pix_size is None:
         ## Go from sigma to FWHM
