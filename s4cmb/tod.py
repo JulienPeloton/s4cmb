@@ -39,6 +39,8 @@ class TimeOrderedDataPairDiff():
                  nside_out=None, pixel_size=None, width=140.,
                  cut_pixels_outside=True,
                  array_noise_level=None, array_noise_seed=487587,
+                 corrlength=None, alpha=None,
+                 f0=None, amp_atm=None,
                  mapping_perpair=False, verbose=False):
         """
         C'est parti!
@@ -173,12 +175,27 @@ class TimeOrderedDataPairDiff():
         ## Prepare noise simulator if needed
         self.array_noise_level = array_noise_level
         self.array_noise_seed = array_noise_seed
-        if self.array_noise_level is not None:
+        self.corrlength = corrlength
+        self.alpha = alpha
+        self.f0 = f0
+        self.amp_atm = amp_atm
+        if self.array_noise_level is not None and self.alpha is None:
             self.noise_generator = WhiteNoiseGenerator(
                 array_noise_level=self.array_noise_level,
                 ndetectors=2*self.npair,
                 ntimesamples=self.nsamples,
                 array_noise_seed=self.array_noise_seed)
+        elif self.array_noise_level is not None and self.alpha is not None:
+            self.noise_generator = CorrNoiseGenerator(
+                array_noise_level=self.array_noise_level,
+                ndetectors=2*self.npair,
+                ntimesamples=self.nsamples,
+                array_noise_seed=self.array_noise_seed,
+                f0=self.f0,
+                amp_atm=self.amp_atm,
+                corrlength=self.corrlength,
+                alpha=self.alpha,
+                sampling_freq=self.scanning_strategy.sampling_freq)
         else:
             self.noise_generator = None
 
@@ -1200,7 +1217,7 @@ class WhiteNoiseGenerator():
 
     def simulate_noise_one_detector(self, ch):
         """
-        Simulate noise on-the-fly for one detector.
+        Simulate white noise on-the-fly for one detector.
 
         Parameters
         ----------
@@ -1225,6 +1242,194 @@ class WhiteNoiseGenerator():
 
         return self.detector_noise_level * vec
 
+class CorrNoiseGenerator(WhiteNoiseGenerator):
+    """ """
+    def __init__(self, array_noise_level, ndetectors, ntimesamples,
+                 array_noise_seed, f0=0.1, alpha=-4, amp_atm=1e2,
+                 corrlength=300, sampling_freq=8, NFFT=4096):
+        """
+        This class is used to simulate time-domain correlated noise.
+        Usually, it is used in combination with map2tod to insert noise
+        on-the-fly while scanning an input CMB map.
+
+        We start first by simulating white noise at the level of detector
+        timestream, and then we add the correlated part:
+
+        $$\begin{equation}
+        n = n^{w} + n^{corr}.
+        \end{equation}$$
+
+        The correlated part is based on an empirical model in
+        frequency domain (power spectrum density of the timestream):
+
+        $$\begin{equation}
+        PSD = A \Big[ 1 + \Big( \dfrac{f}{f_0} \Big)^{\alpha} \Big].
+        \end{equation}$$
+
+        where $A$ is a typical amplitude for the fluctuation,
+        $f_0$ is the knee frequency at which correlated noise stops
+        being significant, and $\alpha$ is the value of the slope
+        (typically negative). The correlated part of the timestream is
+        then obtained by taking the inverse Fourier transform of this PSD
+        (its square root to be precise).
+
+        To take into account the fact that atmosphere is evolving over time,
+        we assume a correlation length in time (typically 5min) over which
+        the atmosphere signal is constant. Each detector will see the same
+        signal, but with a different amplitude. We assume atmosphere is
+        unpolarised, so bolometers from the same pair will see exactly the
+        same signal. We compute the PSD over this period of time, and
+        generate 1/f noise. At the end of this period, we re-generate new
+        phases and we draw a new realisation of atmosphere, and so on.
+
+        Parameters
+        ----------
+        array_noise_level : float
+            White noise level for a detector in [u]K.sqrt(s).
+            WARNING: units has to be same as the input map!
+        ndetectors : int
+            Total number of detectors in the focal plane.
+        ntimesamples : float
+            Number of time samples per timestream (length of the observation).
+        array_noise_seed : int
+            Seed used to generate random numbers. From this single seed,
+            we generate a list of seeds for all detectors.
+        f0 : float, optional
+            Knee frequency in Hz.
+        alpha : int or float, optional
+            Value of the 1/f slope.
+        amp_atm : float, optional
+            Typical value of atmospheric fluctuations in [u]K^2.s.
+            WARNING: units has to be same as the input map!
+        corrlength : int, optional
+            Correlation length in time over which atmosphere signal
+            is supposed to be constant. Few minutes is typical.
+            Units are seconds.
+        sampling_freq : float, optional
+            Sampling frequency of the detectors in Hz.
+        NFFT : int, optional
+            Window length for FFTs (to compute the PSD).
+
+        """
+        WhiteNoiseGenerator.__init__(
+            self, array_noise_level, ndetectors,
+            ntimesamples, array_noise_seed)
+        self.alpha = alpha
+        self.sampling_freq = sampling_freq
+        self.corrlength = int(corrlength * self.sampling_freq)
+        self.NFFT = NFFT
+        self.f0 = f0
+        self.amp_atm = amp_atm
+
+        ## Bolometers in a pair get the same seed for correlated noise
+        self.pixel_noise_seeds = np.repeat(self.noise_seeds[::2], 2)
+
+    def simulate_noise_one_detector(self, ch):
+        """
+        Simulate correlated noise on-the-fly for one detector.
+
+        Parameters
+        ----------
+        ch : int
+            Index of the detector in the array.
+
+        Returns
+        ----------
+        vec : 1d array
+            Vector of noise of size ntimesamples.
+            The level of noise is given by detector_noise_level in uK.sqrt(s).
+
+        Examples
+        ----------
+        >>> cn = CorrNoiseGenerator(3000., 2, 17000,
+        ...     array_noise_seed=493875, f0=0.1, amp_atm=1e2,
+        ...     corrlength=300, alpha=-4, sampling_freq=8.)
+        >>> ts = cn.simulate_noise_one_detector(0)
+        >>> print(ts) #doctest: +NORMALIZE_WHITESPACE
+        [-1965.48984891  5478.44601492 -5063.8165725  ...,
+         -5459.97704923 -3104.99013165 -5108.82546294]
+        """
+        ## White noise part
+        state = np.random.RandomState(self.noise_seeds[ch])
+        vec = state.normal(size=self.ntimesamples)
+        wnoise = self.detector_noise_level * vec
+
+        ## Correlated part
+        state = np.random.RandomState(self.pixel_noise_seeds[ch])
+        amps = 2 * (-0.5 + state.uniform(size=1))
+        phases = 2 * np.pi * state.rand(self.ntimesamples)
+
+        ts_corr = np.zeros(self.ntimesamples)
+        for i in range(0, self.ntimesamples, self.corrlength):
+            ## Check that you have enough samples
+            if self.ntimesamples - i < self.corrlength:
+                step = self.ntimesamples - i
+            else:
+                step = self.corrlength
+
+            ## Get the PSD and the frequency range
+            fs = fftfreq(step, 1. / self.sampling_freq)
+            psd = np.zeros_like(fs)
+
+            ## Avoid zero frequency
+            psd[1:] = self.amp_atm * (1 + (fs[1:]/self.f0)**self.alpha)
+
+            ## Get the TOD from the PSD
+            ts_corr[i: i+step] = corr_ts(
+                PSD=psd,
+                N=step,
+                amp=amps,
+                phase=phases[i: i+step])
+
+        ## remove PSD normalisation and add white noise!
+        return ts_corr / np.sqrt(self.sampling_freq) + wnoise
+
+
+def corr_ts(PSD, N, amp, phase):
+    """
+    Generate a timestream based on its Power Spectrum Density.
+
+    Parameters
+    ----------
+    PSD : 1d array
+        Power Spectrum Density.
+    N : int
+        Length of the output timestream.
+    amp : float
+        Scaling factor (between 0 and 1).
+    phase : 1d array
+        Phase for the IFFT. Must have the same length as the PSD.
+
+    Returns
+    ----------
+    ts : 1d array
+        Timestream based the PSD. Length N, and units sqrt(PSD).
+        WARNING: if your PSD is in uk^2.s, you need to normalise
+        your timestream by the sampling rate of the detectors:
+        ts <- ts/sqrt(sampling_freq).
+
+    Examples
+    ----------
+    Assuming sampling at 2 Hz.
+    >>> sampling = 2.
+    >>> state = np.random.RandomState(0)
+    >>> PSD = state.rand(10)
+    >>> phase = 2 * np.pi * state.rand(10)
+    >>> ts = corr_ts(PSD, N=10, amp=1., phase=phase)
+    >>> print(ts / np.sqrt(sampling)) #doctest: +NORMALIZE_WHITESPACE
+    [ 1.49579944 -2.75993169  0.19454693  0.96278942  0.20053976
+      -0.49232085 0.07355544  0.68893301  0.46171998 -0.82563144]
+    """
+    Nf = len(PSD)
+    PSD[0] = 0.
+
+    A = amp * N * np.sqrt(PSD)
+
+    FFT = A * np.exp(1j*phase[: Nf])
+
+    ts = np.fft.ifft(FFT, n=N)
+
+    return np.real(ts)
 
 def psdts(ts, sample_rate, NFFT=4096):
     '''
