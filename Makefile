@@ -10,7 +10,7 @@ else ifeq (${NERSC_HOST}, cori)
 	OPT = --opt=-O3
 else ifeq (${USER}, julien)
 	FF = gfortran
-	FPY = f2py-2.7
+	FPY = f2py
 	OPT = --opt=-ffixed-line-length-none --opt=-O3
 else
 	FF = gfortran
