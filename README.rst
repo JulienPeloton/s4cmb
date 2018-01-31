@@ -8,6 +8,7 @@ s4cmb (public version)
 .. image:: https://coveralls.io/repos/github/JulienPeloton/s4cmb/badge.svg
     :target: https://coveralls.io/github/JulienPeloton/s4cmb
 
+since 02/2018
 .. image:: http://hits.dwyl.io/JulienPeloton/s4cmb.svg
     :target: http://hits.dwyl.io/JulienPeloton/s4cmb
 
