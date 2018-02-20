@@ -644,4 +644,5 @@ def create_batch(batch_file, name_out, params_s4cmb, params_xpure):
 
 if __name__ == "__main__":
     import doctest
+    np.set_printoptions(legacy="1.13")
     doctest.testmod()

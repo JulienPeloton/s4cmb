@@ -854,7 +854,7 @@ def split_deriv(sumbeam, diffbeam, pix_size):
     A = ds.reshape((6, sumbeam.shape[0] * sumbeam.shape[1])).T
     b = diffbeam.reshape(diffbeam.shape[0] * diffbeam.shape[1])
 
-    x, residues, rank, s = np.linalg.lstsq(A, b)
+    x, residues, rank, s = np.linalg.lstsq(A, b, rcond=-1)
 
     return x
 
@@ -1188,4 +1188,5 @@ def diffbeam_map2tod(out, intensity_derivatives,
 
 if __name__ == "__main__":
     import doctest
+    np.set_printoptions(legacy="1.13")
     doctest.testmod()

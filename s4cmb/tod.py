@@ -1521,7 +1521,7 @@ class WhiteNoiseGenerator():
         >>> wn = WhiteNoiseGenerator(3000., 2, 4, array_noise_seed=493875)
         >>> ts = wn.simulate_noise_one_detector(0)
         >>> print(ts) #doctest: +NORMALIZE_WHITESPACE
-        [ -2185.65609023   5137.21044598  -5407.22292574  11020.59471471]
+        [-2185.65609023  5137.21044598 -5407.22292574 11020.59471471]
         """
         state = np.random.RandomState(self.noise_seeds[ch])
         vec = state.normal(size=self.ntimesamples)
@@ -2965,4 +2965,5 @@ def noise_ukam(array_noise_level, fsky, nside, tobs):
 
 if __name__ == "__main__":
     import doctest
+    np.set_printoptions(legacy="1.13")
     doctest.testmod()

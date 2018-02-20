@@ -1015,4 +1015,5 @@ class HalfWavePlate():
 
 if __name__ == "__main__":
     import doctest
+    np.set_printoptions(legacy="1.13")
     doctest.testmod()

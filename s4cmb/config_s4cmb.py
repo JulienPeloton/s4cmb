@@ -9,6 +9,7 @@ Author: Julien Peloton, j.peloton@sussex.ac.uk
 import os
 import sys
 import importlib
+import numpy as np
 
 def compare_version_number(version, threshold):
     """
@@ -85,4 +86,5 @@ def import_string_as_module(fn_full):
 
 if __name__ == "__main__":
     import doctest
+    np.set_printoptions(legacy="1.13")
     doctest.testmod()
