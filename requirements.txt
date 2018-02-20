@@ -1,4 +1,4 @@
-numpy>=1.12.1
+numpy>=1.14
 matplotlib>=2.0.0
 scipy>=0.19.1
 astropy>=1.2
