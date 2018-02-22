@@ -860,5 +860,6 @@ def load_fake_pointing():
 
 if __name__ == "__main__":
     import doctest
-    np.set_printoptions(legacy="1.13")
+    if np.__version__ >= "1.14.0":
+        np.set_printoptions(legacy="1.13")
     doctest.testmod()
