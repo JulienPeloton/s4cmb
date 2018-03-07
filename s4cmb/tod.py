@@ -854,7 +854,8 @@ class TimeOrderedDataPairDiff():
 
     def tod2map(self, waferts, output_maps,
                 gdeprojection=False,
-                frequency_channel=1):
+                frequency_channel=1,
+                mapthisbolopair=None):
         """
         Project time-ordered data into sky maps for the whole array.
         Maps are updated on-the-fly. Massive speed-up thanks to the
@@ -874,6 +875,10 @@ class TimeOrderedDataPairDiff():
         frequency_channel : int, optional
             If you are processing dichroic pixels, you need to specify the
             index of the frequency channel (1 or 2). Default is 1.
+        mapthisbolopair : None or list of Int
+            If not None, this means that you have a full TS array, and you want
+            to map only one pair. mapthisbolopair should be a list with indices
+            [index_top, index_bottom]. None by default.
 
         Examples
         ----------
@@ -945,6 +950,15 @@ class TimeOrderedDataPairDiff():
         ...   d = np.array([tod.map2tod(det) for det in pair])
         ...   tod.tod2map(d, m, gdeprojection=True)
 
+        HEALPIX + mapping of one pair [0, 1] from the full array of TS
+        >>> inst, scan, sky_in = load_fake_instrument()
+        >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in,
+        ...     CESnumber=0, projection='healpix', mapping_perpair=False)
+        >>> d = np.array([tod.map2tod(det) for det in range(2 * tod.npair)])
+        >>> m = OutputSkyMap(projection=tod.projection,
+        ...     nside=tod.nside_out, obspix=tod.obspix)
+        >>> tod.tod2map(d, m, mapthisbolopair=[0, 1])
+
         """
         if frequency_channel == 1:
             pol_angs = self.pol_angs
@@ -975,12 +989,22 @@ class TimeOrderedDataPairDiff():
         assert npixfp == self.diff_weight.shape[0], msg
         assert npixfp == self.sum_weight.shape[0], msg
 
-        point_matrix = self.point_matrix.flatten()
-        pol_angs = pol_angs.flatten()
-        waferts = waferts.flatten()
-        diff_weight = self.diff_weight.flatten()
-        sum_weight = self.sum_weight.flatten()
-        wafermask_pixel = self.wafermask_pixel.flatten()
+        if mapthisbolopair is None:
+            point_matrix = self.point_matrix.flatten()
+            pol_angs = pol_angs.flatten()
+            waferts = waferts.flatten()
+            diff_weight = self.diff_weight.flatten()
+            sum_weight = self.sum_weight.flatten()
+            wafermask_pixel = self.wafermask_pixel.flatten()
+        else:
+            pixind = [int(mapthisbolopair[0]/2)]
+            point_matrix = self.point_matrix[pixind].flatten()
+            pol_angs = pol_angs[pixind].flatten()
+            waferts = waferts[mapthisbolopair].flatten()
+            diff_weight = self.diff_weight[pixind].flatten()
+            sum_weight = self.sum_weight[pixind].flatten()
+            wafermask_pixel = self.wafermask_pixel[pixind].flatten()
+            npixfp = 1
 
         if hasattr(self, 'dm'):
             tod_f.tod2map_hwp_f(
@@ -1521,7 +1545,7 @@ class WhiteNoiseGenerator():
         >>> wn = WhiteNoiseGenerator(3000., 2, 4, array_noise_seed=493875)
         >>> ts = wn.simulate_noise_one_detector(0)
         >>> print(ts) #doctest: +NORMALIZE_WHITESPACE
-        [-2185.65609023  5137.21044598 -5407.22292574 11020.59471471]
+        [ -2185.65609023   5137.21044598  -5407.22292574  11020.59471471]
         """
         state = np.random.RandomState(self.noise_seeds[ch])
         vec = state.normal(size=self.ntimesamples)
