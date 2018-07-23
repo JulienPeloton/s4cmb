@@ -315,10 +315,10 @@ def inject_beam_ellipticity(sigma_gaussian, mu_beamellipticity,
     """
     Inject differential beam ellipticity (and beam ellipticity)
     Starting from the definition of the beam ellipticity:
-        * eps = (sig1 - sig2)/(sig1 + sig2)
+        * eps = (sig1^2 - sig2^2)/(sig1^2 + sig2^2)
         * Assume ellipticity follows normal distribution
           centered on X% with Y% width
-        * Assume sig2 = sig1 + d, where d is a small deviation
+        * Assume sig1 = sig2 + d, where d is a small deviation
         * relate d and eps
     Furthermore, we assume the angle of the ellipses are taken
     from an uniform distribution btw -90 and 90 degrees.
