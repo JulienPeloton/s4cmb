@@ -982,14 +982,14 @@ class TimeOrderedDataPairDiff():
         sum_weight = self.sum_weight.flatten()
         wafermask_pixel = self.wafermask_pixel.flatten()
 
-        if hasattr(self, 'dm'):
+        if (hasattr(self, 'dm') and (gdeprojection is False)):
             tod_f.tod2map_hwp_f(
                 output_maps.d0, output_maps.d4r, output_maps.d4i,
                 output_maps.w0, output_maps.w4, output_maps.nhit,
                 point_matrix, pol_angs, waferts,
                 diff_weight, sum_weight, nt,
                 wafermask_pixel, npixfp, self.npixsky)
-        elif gdeprojection:
+        elif (hasattr(self, 'dm') and gdeprojection):
             tod_f.tod2map_pair_gdeprojection_f(
                 output_maps.d, output_maps.w,
                 output_maps.dm, output_maps.dc, output_maps.ds,
