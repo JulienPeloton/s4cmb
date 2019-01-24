@@ -84,9 +84,8 @@ contains
         ! LOCAL
         integer(I4B)             :: t
 
-        ! Loop. Start at one since the initialisation
-        ! of the scan is done outside.
-        do t=1, num_pts - 1
+        ! Loop.
+        do t=0, num_pts - 1
             ! Set the Azimuth and time
             pb_az_array(t) = running_az
 
@@ -100,7 +99,9 @@ contains
             running_az = running_az + az_speed * pb_az_dir / sampling_freq
 
             ! Increment the time by one second / sampling rate
-            pb_mjd_array(t) = pb_mjd_array(t - 1) + second / sampling_freq
+            if (t .gt. 0) then
+              pb_mjd_array(t) = pb_mjd_array(t - 1) + second / sampling_freq
+            endif
         end do
 
     end subroutine

@@ -467,7 +467,7 @@ class ScanningStrategy():
         self.telescope_location.date += ephem.second / sampling_freq
 
         if self.language == 'python':
-            for t in range(1, num_pts):
+            for t in range(0, num_pts):
                 ## Set the Azimuth and time
                 pb_az_array[t] = running_az
 
@@ -487,8 +487,9 @@ class ScanningStrategy():
                 running_az += az_speed * pb_az_dir / sampling_freq
 
                 ## Increment the time by one second / sampling rate
-                pb_mjd_array[t] = pb_mjd_array[t-1] + \
-                    ephem.second / sampling_freq
+                if t > 0:
+                    pb_mjd_array[t] = pb_mjd_array[t-1] + \
+                        ephem.second / sampling_freq
 
                 ## Increment the time by one second / sampling rate
                 self.telescope_location.date += ephem.second / sampling_freq
