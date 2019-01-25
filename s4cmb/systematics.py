@@ -193,7 +193,7 @@ def inject_crosstalk_SQUID_to_SQUID(bolo_data, squid_ids, bolo_ids,
     >>> inject_crosstalk_SQUID_to_SQUID(d, squid_ids, bolo_ids,
     ...     squid_attenuation=100.)
     >>> print(round(d[0][0], 3))
-    40.694
+    40.716
 
     One can also keep the original timestreams, and return a new array
     containing modified timestreams.
@@ -203,7 +203,7 @@ def inject_crosstalk_SQUID_to_SQUID(bolo_data, squid_ids, bolo_ids,
     ...     squid_attenuation=100., new_array=d_new)
     >>> print(round(d[0][0], 3), round(d_new[0][0], 3))
     ... #doctest: +NORMALIZE_WHITESPACE
-    40.948 40.694
+    40.948 40.716
 
     """
     ## Make mu and sigma unitless (user provides percentage)
