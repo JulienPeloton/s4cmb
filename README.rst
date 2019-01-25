@@ -162,6 +162,16 @@ Thanks to
 * @ngoecknerwald: original author for a large part of the scanning strategy module.
 * @giuspugl, @dpole, @joydidier, and all `contributors <https://github.com/JulienPeloton/s4cmb/graphs/contributors>`_ for all valuable comments, tests, and feedbacks!
 
+In the literature
+===============
+
+s4cmb has been used in several research projects:
+
+* Development of Calibration Strategies for the Simons Observatory (`1810.04633 <https://arxiv.org/abs/1810.04633>`_)
+* Studies of Systematic Uncertainties for Simons Observatory: Detector Array Effects (`1808.10491 <https://arxiv.org/abs/1808.10491>`_)
+* Studies of Systematic Uncertainties for Simons Observatory: Polarization Modulator Related Effects (`1808.07442 <https://arxiv.org/abs/1808.07442>`_)
+* Iterative map-making with two-level preconditioning for polarized Cosmic Microwave Background data sets (`1801.08937 <https://arxiv.org/abs/1801.08937>`_)
+
 Support
 ===============
 
