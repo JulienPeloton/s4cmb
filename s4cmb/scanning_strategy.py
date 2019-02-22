@@ -597,9 +597,9 @@ class ScanningStrategy():
             self.run_one_scan(
                 getattr(self, 'scan{}'.format(CES_position)), CES_position)
 
-    def visualize_my_scan(self, nside, reso=6.9, xsize=900, rot=[0, -57.5],
+    def visualize_my_scan(self, nside, reso=6.9, rot=[0, -57.5],
                           nfid_bolometer=6000, fp_size=180., boost=1.,
-                          fullsky=False):
+                          fullsky=False,nest=False):
         """
         Simple map-making: project time ordered data into sky maps for
         visualisation. It works only in pure python (i.e. if you set
@@ -627,7 +627,7 @@ class ScanningStrategy():
 
         Outputs
         ----------
-            * nhit_loc: 1D array, sky map with cumulative hit counts
+            * nhit: 1D array, sky map with cumulative hit counts
 
         Examples
         ----------
@@ -673,21 +673,35 @@ class ScanningStrategy():
                 round(len(nhit[nhit > 0])/len(nhit) * 100, 2),
                 int(np.max(nhit))))
 
-        nhit[nhit == 0] = hp.UNSEEN
         if not fullsky:
-            hp.gnomview(nhit, rot=rot, reso=reso, xsize=xsize,
-                        cmap=pl.cm.viridis,
-                        title='nbolos = {}, '.format(nfid_bolometer) +
-                        'fp size = {} arcmin, '.format(fp_size) +
-                        'nhit boost = {}'.format(boost))
+            # projecting full sky with the given resolution onto a squared array.
+            A_sky_deg2 = 360.**2/np.pi
+            N_pix = 60./reso * np.sqrt(A_sky_deg2) # number of pixels on a side
+            N_pix = np.ceil(N_pix) # rounding up, integer number required
+            ##################
+            # for full sky:
+            lonra = [-180,180]
+            latra = [-90,90]
+            ##################
+            hpcp = hp.projector.CartesianProj(xsize=N_pix,ysize=N_pix, lonra=lonra, latra=latra)
+            f = lambda x,y,z: hp.pixelfunc.vec2pix(nside,x,y,z,nest=nest)
+            flat_hits = np.flipud(hpcp.projmap(nhit, f)) # flipping array just for aesthetics 
+            # plot
+            pl.imshow(flat_hits,cmap=pl.cm.viridis)
+            pl.colorbar()
+            pl.title('npix = {}, '.format(N_pix) + 'nbolos = {}, '.format(nfid_bolometer) + 'fp size = {} arcmin, '.format(fp_size) + 'nhit boost = {}'.format(boost))
+            pl.show()
         else:
+            nhit[nhit == 0] = hp.UNSEEN
             hp.mollview(nhit, rot=rot, cmap=pl.cm.viridis,
                         title='nbolos = {}, '.format(nfid_bolometer) +
                         'fp size = {} arcmin, '.format(fp_size) +
                         'nhit boost = {}'.format(boost))
-        hp.graticule(verbose=self.verbose)
+            hp.graticule(verbose=self.verbose)
 
         pl.show()
+        
+        return nhit
 
     def _update(self, name, value):
         """
