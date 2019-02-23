@@ -597,9 +597,9 @@ class ScanningStrategy():
             self.run_one_scan(
                 getattr(self, 'scan{}'.format(CES_position)), CES_position)
 
-    def visualize_my_scan(self, nside, reso=6.9, rot=[0, -57.5],
+    def visualize_my_scan(self, nside, reso=6.9, xsize=900, rot=[0, -57.5],
                           nfid_bolometer=6000, fp_size=180., boost=1.,
-                          fullsky=False,nest=False):
+                          fullsky=False,flatsky=False,nest=False):
         """
         Simple map-making: project time ordered data into sky maps for
         visualisation. It works only in pure python (i.e. if you set
@@ -622,8 +622,14 @@ class ScanningStrategy():
         fp_size : float
             Size of the focal plane on the sky, in arcmin.
         boost : int
-            boost factor to artificially increase the number of hits.
+            Boost factor to artificially increase the number of hits.
             It doesn't change the shape of the survey (just the amplitude).
+        fullsky : boolean
+            If True, visualising full sky. If False, visualising area defined by reso and my xsize.
+        flatsky : boolean
+            If True, visualising projection in a square array with the specified resolution. If False, visualising using healpy functions.
+        nest : boolean
+            If flatsky projection, using the defined nesting in projection.
 
         Outputs
         ----------
@@ -672,8 +678,8 @@ class ScanningStrategy():
                 len(nhit),
                 round(len(nhit[nhit > 0])/len(nhit) * 100, 2),
                 int(np.max(nhit))))
-
-        if not fullsky:
+            
+        if flatsky and fullsky:
             # projecting full sky with the given resolution onto a squared array.
             A_sky_deg2 = 360.**2/np.pi
             N_pix = 60./reso * np.sqrt(A_sky_deg2) # number of pixels on a side
@@ -689,16 +695,22 @@ class ScanningStrategy():
             # plot
             pl.imshow(flat_hits,cmap=pl.cm.viridis)
             pl.colorbar()
-            pl.title('npix = {}, '.format(N_pix) + 'nbolos = {}, '.format(nfid_bolometer) + 'fp size = {} arcmin, '.format(fp_size) + 'nhit boost = {}'.format(boost))
-            pl.show()
-        else:
+            pl.title('npix = {}, '.format(int(N_pix)) + 'nbolos = {}, '.format(nfid_bolometer) + 'fp size = {} arcmin, '.format(fp_size) + 'nhit boost = {}'.format(boost))
+        elif fullsky:
             nhit[nhit == 0] = hp.UNSEEN
             hp.mollview(nhit, rot=rot, cmap=pl.cm.viridis,
                         title='nbolos = {}, '.format(nfid_bolometer) +
                         'fp size = {} arcmin, '.format(fp_size) +
                         'nhit boost = {}'.format(boost))
             hp.graticule(verbose=self.verbose)
-
+        else:
+            nhit[nhit == 0] = hp.UNSEEN
+            hp.gnomview(nhit, rot=rot, reso=reso, xsize=xsize,
+                    cmap=pl.cm.viridis,
+                    title='nbolos = {}, '.format(nfid_bolometer) +
+                    'fp size = {} arcmin, '.format(fp_size) +
+                    'nhit boost = {}'.format(boost))
+            hp.graticule(verbose=self.verbose)
         pl.show()
         
         return nhit
