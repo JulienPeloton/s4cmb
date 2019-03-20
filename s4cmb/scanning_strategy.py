@@ -633,7 +633,7 @@ class ScanningStrategy():
 
         Outputs
         ----------
-            * nhit: 1D array, sky map with cumulative hit counts
+            * nhit: Sky map with cumulative hit counts. If flatsky is True, a square numpy array of size xsize x xsize is returned. Else, a 1D healpy array is returned.
 
         Examples
         ----------
@@ -679,38 +679,50 @@ class ScanningStrategy():
                 round(len(nhit[nhit > 0])/len(nhit) * 100, 2),
                 int(np.max(nhit))))
             
-        if flatsky and fullsky:
-            # projecting full sky with the given resolution onto a squared array.
-            A_sky_deg2 = 360.**2/np.pi
-            N_pix = 60./reso * np.sqrt(A_sky_deg2) # number of pixels on a side
-            N_pix = np.ceil(N_pix) # rounding up, integer number required
-            ##################
-            # for full sky:
-            lonra = [-180,180]
-            latra = [-90,90]
-            ##################
-            hpcp = hp.projector.CartesianProj(xsize=N_pix,ysize=N_pix, lonra=lonra, latra=latra)
-            f = lambda x,y,z: hp.pixelfunc.vec2pix(nside,x,y,z,nest=nest)
-            flat_hits = np.flipud(hpcp.projmap(nhit, f)) # flipping array just for aesthetics 
-            # plot
-            pl.imshow(flat_hits,cmap=pl.cm.viridis)
-            pl.colorbar()
-            pl.title('npix = {}, '.format(int(N_pix)) + 'nbolos = {}, '.format(nfid_bolometer) + 'fp size = {} arcmin, '.format(fp_size) + 'nhit boost = {}'.format(boost))
-        elif fullsky:
-            nhit[nhit == 0] = hp.UNSEEN
-            hp.mollview(nhit, rot=rot, cmap=pl.cm.viridis,
+        if flatsky:
+            if fullsky:
+                # projecting full sky with the given resolution onto a squared array.
+                A_sky_deg2 = 360.**2/np.pi
+                N_pix = 60./reso * np.sqrt(A_sky_deg2) # number of pixels on a side
+                N_pix = np.ceil(N_pix) # rounding up, integer number required
+                ##################
+                # for full sky:
+                lonra = [-180,180]
+                latra = [-90,90]
+                ##################
+                hpcp = hp.projector.CartesianProj(xsize=N_pix,ysize=N_pix, lonra=lonra, latra=latra)
+                f = lambda x,y,z: hp.pixelfunc.vec2pix(nside,x,y,z,nest=nest)
+                flat_hits = np.flipud(hpcp.projmap(nhit, f)) # flipping array just for aesthetics 
+                # plot
+                pl.imshow(flat_hits,cmap=pl.cm.viridis)
+                pl.colorbar()
+                pl.title('npix = {}, '.format(int(N_pix)) + 'nbolos = {}, '.format(nfid_bolometer) + 'fp size = {} arcmin, '.format(fp_size) + 'nhit boost = {}'.format(boost))
+                nhit = flat_hits # will return a flat hits map
+            else:
+                nhit[nhit == 0] = hp.UNSEEN
+                nhit = hp.gnomview(nhit, rot=rot, reso=reso, xsize=xsize,
+                        cmap=pl.cm.viridis,
+                        title='nbolos = {}, '.format(nfid_bolometer) +
+                        'fp size = {} arcmin, '.format(fp_size) +
+                        'nhit boost = {}'.format(boost), return_projected_map = True) # will return a flat hits map
+                hp.graticule(verbose=self.verbose)
+        else:
+            if fullsky:
+                nhit[nhit == 0] = hp.UNSEEN
+                hp.mollview(nhit, rot=rot, cmap=pl.cm.viridis,
+                            title='nbolos = {}, '.format(nfid_bolometer) +
+                            'fp size = {} arcmin, '.format(fp_size) +
+                            'nhit boost = {}'.format(boost))
+                hp.graticule(verbose=self.verbose)
+            else:
+                nhit[nhit == 0] = hp.UNSEEN
+                hp.gnomview(nhit, rot=rot, reso=reso, xsize=xsize,
+                        cmap=pl.cm.viridis,
                         title='nbolos = {}, '.format(nfid_bolometer) +
                         'fp size = {} arcmin, '.format(fp_size) +
                         'nhit boost = {}'.format(boost))
-            hp.graticule(verbose=self.verbose)
-        else:
-            nhit[nhit == 0] = hp.UNSEEN
-            hp.gnomview(nhit, rot=rot, reso=reso, xsize=xsize,
-                    cmap=pl.cm.viridis,
-                    title='nbolos = {}, '.format(nfid_bolometer) +
-                    'fp size = {} arcmin, '.format(fp_size) +
-                    'nhit boost = {}'.format(boost))
-            hp.graticule(verbose=self.verbose)
+                hp.graticule(verbose=self.verbose)
+        
         pl.show()
         
         return nhit
