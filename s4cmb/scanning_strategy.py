@@ -641,7 +641,7 @@ class ScanningStrategy():
         >>> matplotlib.use("Agg") ## remove this if you want to display
         >>> scan = ScanningStrategy(sampling_freq=1., nces=1)
         >>> scan.run()
-        >>> scan.visualize_my_scan(512)
+        >>> nhit = scan.visualize_my_scan(512)
 
         """
         import pylab as pl
@@ -678,7 +678,7 @@ class ScanningStrategy():
                 len(nhit),
                 round(len(nhit[nhit > 0])/len(nhit) * 100, 2),
                 int(np.max(nhit))))
-            
+
         if flatsky:
             if fullsky:
                 # projecting full sky with the given resolution onto a squared array.
@@ -692,7 +692,7 @@ class ScanningStrategy():
                 ##################
                 hpcp = hp.projector.CartesianProj(xsize=N_pix,ysize=N_pix, lonra=lonra, latra=latra)
                 f = lambda x,y,z: hp.pixelfunc.vec2pix(nside,x,y,z,nest=nest)
-                flat_hits = np.flipud(hpcp.projmap(nhit, f)) # flipping array just for aesthetics 
+                flat_hits = np.flipud(hpcp.projmap(nhit, f)) # flipping array just for aesthetics
                 # plot
                 pl.imshow(flat_hits,cmap=pl.cm.viridis)
                 pl.colorbar()
@@ -722,9 +722,9 @@ class ScanningStrategy():
                         'fp size = {} arcmin, '.format(fp_size) +
                         'nhit boost = {}'.format(boost))
                 hp.graticule(verbose=self.verbose)
-        
+
         pl.show()
-        
+
         return nhit
 
     def _update(self, name, value):
