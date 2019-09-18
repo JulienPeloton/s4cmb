@@ -633,7 +633,7 @@ def linear_function(nbolos, nsamples, mean=1, std=0.05,
             gains[:, shift:shift + length] = np.array([np.interp(
                 range(shift, shift + length),
                 [shift, shift + length - 1],
-                [1, end]) for end in end_points])
+                [1, end[0]]) for end in end_points])
         else:
             continue
 
@@ -708,7 +708,7 @@ def linear_function_gen(nsamples, mean=1, std=0.05,
                 gains[:, shift:shift + length] = np.array([np.interp(
                     range(shift, shift + length),
                     [shift, shift + length - 1],
-                    [1, end]) for end in end_points])
+                    [1, end[0]]) for end in end_points])
             else:
                 continue
 
