@@ -691,6 +691,31 @@ class TimeOrderedDataPairDiff():
             else:
                 return pa[ch] + ang_pix
 
+    def get_pixel_indices(self,ra,dec):
+        ## Retrieve corresponding pixels on the sky, and their index locally.
+        if self.projection == 'flat':
+            ## ??
+            xmin = - self.width/2.*np.pi/180.
+            ymin = - self.width/2.*np.pi/180.
+            index_global, index_local = build_pointing_matrix(
+                ra, dec, nside_in=self.HealpixFitsMap.nside,
+                nside_out=self.nside_out,
+                xmin=xmin,
+                ymin=ymin,
+                pixel_size=self.pixel_size,
+                npix_per_row=int(np.sqrt(self.npixsky)),
+                projection=self.projection,
+                cut_pixels_outside=self.cut_pixels_outside)
+        elif self.projection == 'healpix':
+            index_global, index_local = build_pointing_matrix(
+                ra, dec, nside_in=self.HealpixFitsMap.nside,
+                nside_out=self.nside_out,
+                obspix=self.obspix,
+                ext_map_gal=self.HealpixFitsMap.ext_map_gal,
+                projection=self.projection,
+                cut_pixels_outside=self.cut_pixels_outside)
+        return index_global,index_local
+
     def map2tod(self, ch):
         """
         Scan the input sky maps to generate timestream for channel ch.
@@ -740,33 +765,23 @@ class TimeOrderedDataPairDiff():
         ## Compute pointing for detector ch
         ra, dec, pa = self.pointing.offset_detector(azd, eld)
 
-        ## Retrieve corresponding pixels on the sky, and their index locally.
-        if self.projection == 'flat':
-            ## ??
-            xmin = - self.width/2.*np.pi/180.
-            ymin = - self.width/2.*np.pi/180.
-            index_global, index_local = build_pointing_matrix(
-                ra, dec, nside_in=self.HealpixFitsMap.nside,
-                nside_out=self.nside_out,
-                xmin=xmin,
-                ymin=ymin,
-                pixel_size=self.pixel_size,
-                npix_per_row=int(np.sqrt(self.npixsky)),
-                projection=self.projection,
-                cut_pixels_outside=self.cut_pixels_outside)
-            ## For flat projection, one needs to flip the sign of U
-            ## (angle convention)
-            sign = -1.
-        elif self.projection == 'healpix':
-            index_global, index_local = build_pointing_matrix(
-                ra, dec, nside_in=self.HealpixFitsMap.nside,
-                nside_out=self.nside_out,
-                obspix=self.obspix,
-                ext_map_gal=self.HealpixFitsMap.ext_map_gal,
-                projection=self.projection,
-                cut_pixels_outside=self.cut_pixels_outside)
-            sign = 1.
+        ## Compute pointing matrix ids
+        index_global, index_local = self.get_pixel_indices(ra,dec)
 
+        if self.projection == 'flat':
+            ## For flat projection, one needs to flip the sign of U
+            ## w.r.t to the full-sky basis (IAU angle convention)
+            sign=-1
+        elif self.projection == 'healpix': sign=1
+
+        ## Compute pointing and pointing matrix for the pair center
+        ## instead of top bolometer only if beam offsets for top and
+        ## bottom detector do not coincide.
+        if (ch % 2 == 0) and (self.xpos[ch]!=self.xpos[ch+1]):
+            azd = 0.5*(self.xpos[ch]+self.xpos[ch+1])
+            eld = 0.5*(self.ypos[ch]+self.ypos[ch+1])
+            ra, dec, pa = self.pointing.offset_detector(azd, eld)
+            index_global_center, index_local = self.get_pixel_indices(ra,dec)
         ## Store list of hit pixels only for top bolometers
         if ch % 2 == 0 and not self.mapping_perpair:
             self.point_matrix[int(ch/2)] = index_local
