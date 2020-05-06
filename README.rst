@@ -155,7 +155,7 @@ TODO
 Main developers
 ===============
 * Julien Peloton (j.peloton at sussex.ac.uk)
-* Giulio Fabbian (gfabbian at ias.u-psud.fr)
+* Giulio Fabbian (g.fabbian at sussex.ac.uk)
 
 Thanks to
 ===============
