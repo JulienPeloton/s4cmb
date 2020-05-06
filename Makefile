@@ -29,3 +29,6 @@ cmb:
 
 clean:
 	-rm s4cmb/*.o s4cmb/*.so
+
+distclean: clean
+	-rm -rf *so.dSYM
