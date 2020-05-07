@@ -765,24 +765,25 @@ class TimeOrderedDataPairDiff():
         ## Compute pointing for detector ch
         ra, dec, pa = self.pointing.offset_detector(azd, eld)
 
-        ## Compute pointing matrix ids
+        ## Compute pointing matrix
         index_global, index_local = self.get_pixel_indices(ra,dec)
 
+        ## For flat projection, one needs to flip the sign of U
+        ## w.r.t to the full-sky basis (IAU angle convention)
         if self.projection == 'flat':
-            ## For flat projection, one needs to flip the sign of U
-            ## w.r.t to the full-sky basis (IAU angle convention)
             sign=-1
         elif self.projection == 'healpix': sign=1
+        self.Usign=sign
 
-        ## Compute pointing and pointing matrix for the pair center
-        ## instead of top bolometer only if beam offsets for top and
-        ## bottom detector do not coincide.
-        if (ch % 2 == 0) and (self.xpos[ch]!=self.xpos[ch+1]):
+        ## Store pointing matrix for tod2map operations
+        if ((ch % 2 == 0) and ((self.xpos[ch]!=self.xpos[ch+1]) or (self.ypos[ch]!=self.ypos[ch+1]))):
+            ## Compute pointing matrix for the pair center if beam
+            ## offsets for top and bottom detector do not coincide.
             azd = 0.5*(self.xpos[ch]+self.xpos[ch+1])
             eld = 0.5*(self.ypos[ch]+self.ypos[ch+1])
             ra, dec, pa = self.pointing.offset_detector(azd, eld)
             index_global_center, index_local = self.get_pixel_indices(ra,dec)
-        ## Store list of hit pixels only for top bolometers
+        ## Otherwise store list of pixels to be mapped only for top bolometers
         if ch % 2 == 0 and not self.mapping_perpair:
             self.point_matrix[int(ch/2)] = index_local
         elif ch % 2 == 0 and self.mapping_perpair:
