@@ -1199,8 +1199,7 @@ def waferts_add_diffbeam(waferts, point_matrix, beam_orientation,
         waferts[::2] += diffbeamleak
         waferts[1::2] += bottom_sign*diffbeamleak
 
-def diffbeam_map2tod(out, signal_derivatives,
-                     point_matrix, beam_orientation, diffbeam_kernels, pol_angle=None,Usign=1):
+def diffbeam_map2tod(out, signal_derivatives,point_matrix, beam_orientation, diffbeam_kernels, pol_angle=None,Usign=1):
     """
     Scan the leakage maps to generate polarisation timestream for channel ch,
     using the differential beam model kernel.
@@ -1261,6 +1260,104 @@ def diffbeam_map2tod(out, signal_derivatives,
                 # T derivatives
                 out[ipix, okpointing] += signal_derivatives[coeff, io]*k[coeff]
 
+def get_kernel_coefficients_sumdiff(beamprm, pairlist, fwhm, nx=128, pix_size=None):
+    """ Generate beam expansion coefficients.
+
+    Here we compute the coefficients of the operator K to go from the observed
+    temperature map to the T->P and P->T as well as T->T, P->P leakage. It is based on the sum and difference
+    beam maps:
+
+    diffbeam = K- conv circular_beam,
+    sumbeam  = K+ conv circular_beam,
+
+    with
+
+    K+/- = a.D,
+
+    where D is a vector containing temperature map and its derivatives:
+
+    D = (I, dI/dt, dI/dp, d2I/dpdt, d2I/dt2, d2I/d2p),
+
+    and a are coefficients.
+
+    Parameters
+    ----------
+    beamprm : beam_model instance
+        Instance of beam_model.
+    pairlist : list of list
+        List containing the indices of bolometers grouped by pair
+        [[0, 1], [2, 3], ...]
+    nx : int, optional
+        Number of pixels per row/column (in pixel) to construct the beam maps.
+        You want nx * pix_size to be a large number compared to the beam size
+        to make sure to incorporate all beam features.
+    pix_size : float, optional
+        Pixel size in radian. If None, set automatically to be 1/7th of the
+        beam size.
+
+    Returns
+    ----------
+    out : array of array
+        Array containing beam kernel coefficients
+        (one for each T derivative) for all pairs.
+
+    Examples
+    ----------
+    >>> from s4cmb.instrument import FocalPlane
+    >>> from s4cmb.instrument import BeamModel
+    >>> fp = FocalPlane(verbose=False)
+    >>> pairlist = np.reshape(fp.bolo_index_in_fp, (fp.npair, 2))
+
+    If the beams are identical, the coefficients will be zeros
+    >>> bm = BeamModel(fp, verbose=False)
+    >>> coeffs = get_kernel_coefficients(bm, pairlist, nx=32)
+    >>> np.allclose(coeffs[0], np.zeros_like(coeffs[0]))
+    True
+
+    Let's perturb the beam now by adding beam ellipticity.
+    Beam ellipticity involves T and its second derivatives,
+    but not the first derivatives (2nd and 3rd coefficients are zeros).
+    >>> bm = BeamModel(fp, verbose=False)
+    >>> bm.sig_1, bm.sig_2, bm.ellip_ang = inject_beam_ellipticity(
+    ...     bm.sig_1[0], 10, 5, fp.nbolometer, do_diffbeamellipticity=True)
+    >>> coeffs = get_kernel_coefficients(bm, pairlist, nx=32)
+
+    Let's perturb the beam now by adding differential pointing.
+    Differential pointing only first derivatives of T,
+    but not the teperature itself and its second derivatives
+    (0th, 4th, 5th, and 6th coefficients are zeros).
+    >>> bm = BeamModel(fp, verbose=False)
+    >>> bm.xpos, bm.ypos = modify_beam_offsets(bm.xpos, bm.ypos,
+    ...     mu_diffpointing=600., sigma_diffpointing=300., seed=5847)
+    >>> coeffs = get_kernel_coefficients(bm, pairlist, nx=32)
+
+    """
+    if pix_size is None:
+        ## Go from sigma to FWHM
+        mean_FWHM_x = np.mean(beamprm.sig_1) / np.sqrt(8*np.log(2))
+        mean_FWHM_y = np.mean(beamprm.sig_2) / np.sqrt(8*np.log(2))
+
+        ## 1/7th of the beam size.
+        pix_size = (mean_FWHM_x + mean_FWHM_y) / 2. / 7.
+
+    xy2f = coordinates_on_grid(pix_size=pix_size, nx=nx)
+    circ_beam = gauss2d(xy2f,0,0, beamprm.Amp[ct], np.sqrt(8*np.log(2))*fwhm, np.sqrt(8*np.log(2))*fwhm,0).reshape((nx, nx))
+
+    out = []
+    out_sum = []
+
+    for ct, cb in pairlist:
+        summap, diffmap = construct_beammap(beamprm, ct, cb, nx, pix_size)
+        if summap is not None and diffmap is not None:
+            kernel = split_deriv(circ_beam, diffmap, pix_size)
+            kernel_sum = split_deriv(circ_beam, summap, pix_size)
+        else:
+            kernel = None
+            kernel_sum = None
+        out.append(kernel)
+        out_sum.append(kernel_sum)
+
+    return np.array(out), np.array(out_sum)
 
 if __name__ == "__main__":
     import doctest
