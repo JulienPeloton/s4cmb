@@ -1067,7 +1067,7 @@ def fix_kernel_type(K,kernel_type='diffnomonopole'):
 
 def waferts_add_diffbeam(waferts, point_matrix, beam_orientation,
                          intensity_derivatives, diffbeam_kernels,
-                         pairlist, spins='012',kernel_type='diffnomonopole', pol_derivatives=None,pol_angle=None,spins_pol='012',Usign=1):
+                         pairlist, spins='012',kernel_type='diff_nomonopole', pol_derivatives=None,pol_angle=None,spins_pol='012',Usign=1):
     """
     Modify timestreams by injecting T->P leakage from beam mismatch.
     Note that timestreams are modified on-the-fly.
@@ -1231,7 +1231,7 @@ def diffbeam_map2tod(out, signal_derivatives,point_matrix, beam_orientation, dif
     npix, nt = out.shape
     assert point_matrix.shape == out.shape
     assert diffbeam_kernels.shape[0] == npix
-    if pol_ang is None:
+    if pol_angle is None:
         assert len(signal_derivatives) == diffbeam_kernels.shape[1]
     else:
         assert len(signal_derivatives) == 2
@@ -1245,15 +1245,17 @@ def diffbeam_map2tod(out, signal_derivatives,point_matrix, beam_orientation, dif
         k = rotate_deriv(
             diffbeam_kernels[ipix],
             -beam_orientation[ipix, okpointing])
-        if (pol_ang is not None):
+        if (pol_angle is not None):
             #compute cosine and sine polarization angles to save time
-            c2pol_ang = np.cos(2*pol_ang[ipix,:])
-            s2pol_ang = np.sin(2*pol_ang[ipix,:])
-            if pol_derivatives is not None:
-                # Q derivatives
-                out[ipix, okpointing] += (signal_derivatives[0][coeff, io]*k_pol[coeff])*np.cos(2*psi)
-                # U derivatives
-                out[ipix, okpointing] += (signal_derivatives[1][coeff, io]*k_pol[coeff])*np.sin(2*psi)*Usign
+            psi = pol_angle[ipix,:]
+            c2pol_ang = np.cos(2*psi[okpointing])
+            s2pol_ang = np.sin(2*psi[okpointing])
+            if signal_derivatives is not None:
+                for coeff in range(len(k)):
+                    # Q derivatives
+                    out[ipix, okpointing] += (signal_derivatives[0][coeff, io]*k[coeff])*c2pol_ang
+                    # U derivatives
+                    out[ipix, okpointing] += (signal_derivatives[1][coeff, io]*k[coeff])*s2pol_ang*Usign
         ## Add the leakage on-the-fly
         else:
             for coeff in range(len(k)):
