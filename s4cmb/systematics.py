@@ -10,7 +10,7 @@ import numpy as np
 from scipy import signal
 
 from s4cmb.systematics_f import systematics_f
-from s4cmb.instrument import construct_beammap
+from s4cmb.instrument import construct_beammap, coordinates_on_grid,gauss2d
 
 arcsecond2rad = np.pi / 180. / 3600.
 arcmin2rad = np.pi / 180. / 60.
@@ -1057,7 +1057,7 @@ def fix_kernel_type(K,kernel_type='diffnomonopole'):
         ## subtracts monopole part already included
         ## in the input timestream
         K[:, 0] -= 1
-    if 'nomonopole' in kernel_type
+    if 'nomonopole' in kernel_type:
         ## Force monopole to 0 when using leakage beam
         K[:, 0] = 0.0
     ## Flips the sign of dtheta terms.
@@ -1189,7 +1189,7 @@ def waferts_add_diffbeam(waferts, point_matrix, beam_orientation,
             K_pol[i] = fixspin(K_pol[i], spins)
         else: K_pol = K
         diffbeamleak[:,:] = 0.0
-        diffbeam_map2tod(0
+        diffbeam_map2tod(
             diffbeamleak,
             pol_derivatives,
             point_matrix,
@@ -1251,9 +1251,9 @@ def diffbeam_map2tod(out, signal_derivatives,point_matrix, beam_orientation, dif
             s2pol_ang = np.sin(2*pol_ang[ipix,:])
             if pol_derivatives is not None:
                 # Q derivatives
-                out[ipix, okpointing] += (signal_derivatives[0][coeff, io]*k_pol[coeff])*np.cos(2psi)
+                out[ipix, okpointing] += (signal_derivatives[0][coeff, io]*k_pol[coeff])*np.cos(2*psi)
                 # U derivatives
-                out[ipix, okpointing] += (signal_derivatives[1][coeff, io]*k_pol[coeff])*np.sin(2psi)*Usign
+                out[ipix, okpointing] += (signal_derivatives[1][coeff, io]*k_pol[coeff])*np.sin(2*psi)*Usign
         ## Add the leakage on-the-fly
         else:
             for coeff in range(len(k)):
@@ -1287,6 +1287,8 @@ def get_kernel_coefficients_sumdiff(beamprm, pairlist, fwhm, nx=128, pix_size=No
     pairlist : list of list
         List containing the indices of bolometers grouped by pair
         [[0, 1], [2, 3], ...]
+    fwhm : float
+        Circular beam FWHM in arcmin.
     nx : int, optional
         Number of pixels per row/column (in pixel) to construct the beam maps.
         You want nx * pix_size to be a large number compared to the beam size
@@ -1339,9 +1341,9 @@ def get_kernel_coefficients_sumdiff(beamprm, pairlist, fwhm, nx=128, pix_size=No
 
         ## 1/7th of the beam size.
         pix_size = (mean_FWHM_x + mean_FWHM_y) / 2. / 7.
-
+    fwhm=fwhm*np.pi/180/60
     xy2f = coordinates_on_grid(pix_size=pix_size, nx=nx)
-    circ_beam = gauss2d(xy2f,0,0, beamprm.Amp[ct], np.sqrt(8*np.log(2))*fwhm, np.sqrt(8*np.log(2))*fwhm,0).reshape((nx, nx))
+    circ_beam = gauss2d(xy2f,0,0, 1, fwhm/np.sqrt(8*np.log(2)), fwhm/np.sqrt(8*np.log(2)),0).reshape((nx, nx))
 
     out = []
     out_sum = []
