@@ -1081,7 +1081,9 @@ def waferts_add_diffbeam(waferts, point_matrix, beam_orientation,
     beam_orientation : ndarray
         Array containing intrinsic orientation of the pixels
     intensity_derivatives : ndarray
-        Containing map of the intensity and its derivatives (6 maps)
+        Containing map of the intensity and its derivatives (6 maps). They need to
+        include only the pixels in the field defined by the scan (see obspix field of
+        TOD class).
     diffbeam_kernels : 1d array of 6 elements
         Array containing beam kernel coefficients
         (one for each T derivative) for all pairs.
@@ -1186,7 +1188,7 @@ def waferts_add_diffbeam(waferts, point_matrix, beam_orientation,
             ## initialize a new copy of polarization kernels withot modifying the
             ## input
             K_pol = fix_kernel_type(diffbeam_kernels+0.,kernel_type)
-            K_pol[i] = fixspin(K_pol[i], spins)
+            K_pol[i] = fixspin(K_pol[i], spins_pol)
         else: K_pol = K
         diffbeamleak[:,:] = 0.0
         diffbeam_map2tod(
