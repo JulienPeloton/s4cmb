@@ -3,6 +3,7 @@
 Module to handle instrument systematics.
 
 Author: Julien Peloton, j.peloton@sussex.ac.uk
+        Giulio Fabbian, g.fabbian@sussex.ac.uk
 """
 from __future__ import division, absolute_import, print_function
 
