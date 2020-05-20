@@ -914,7 +914,7 @@ def update_ut1utc(fname='ut1utc_user.ephem',begin_date='2012-01-01',end_date=Non
         fname_path = './'
 
     np.savetxt(os.path.join(fname_path,fname),np.column_stack((y,m,d,mjd,ut1utc)),fmt="%d-%d-%d\t%.6f\t%.6f")
-
+    iers_table.close()
     return
 
 if __name__ == "__main__":
