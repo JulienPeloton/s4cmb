@@ -77,9 +77,7 @@ def get_ut1utc(ut1utc_fn, mjd):
         mjd_tmp = mjd
         warn_me = False
     if warn_me:
-        warnings.warn('MJD outside ut1utc file date range %.6f -- %.6f. \\
-        Default corrections applied. Consider updating the \\
-        ut1utc file.'%(umjds[0],umjds[-1]))
+        warnings.warn('MJD outside ut1utc file date range %.6f -- %.6f. Default corrections applied. Consider updating the ut1utc file.'%(umjds[0],umjds[-1]))
     uindex = np.searchsorted(umjds, mjd_tmp)
     ut1utc = ut1utcs[uindex]
     return ut1utc

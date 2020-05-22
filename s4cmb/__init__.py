@@ -6,3 +6,4 @@ from s4cmb import tod
 from s4cmb import systematics
 from s4cmb import config_s4cmb
 from s4cmb import xpure
+from s4cmb import tools
