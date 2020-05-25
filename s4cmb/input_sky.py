@@ -551,6 +551,12 @@ def SFL(ra, dec):
     and all paralles.'''
     return ra * np.cos(dec), dec
 
+def deSFL(x,y):
+    return x/np.cos(y),y
+
+def deLamCyl(x,y):
+    return x,np.arcsin(y)
+
 def create_sky_map(cl_fn, nside=16, FWHM=0.0, seed=548397, lmax=None):
     """
     Create full sky map from input cl.
