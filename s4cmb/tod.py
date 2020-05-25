@@ -42,7 +42,7 @@ class TimeOrderedDataPairDiff():
                  array_noise_level2=None, array_noise_seed2=56736,
                  nclouds=None, corrlength=None, alpha=None,
                  f0=None, amp_atm=None,
-                 mapping_perpair=False, mode='standard', verbose=False):
+                 mapping_perpair=False, mode='standard', store_pointing_matrix_input = False, verbose=False):
         """
         C'est parti!
 
@@ -116,6 +116,9 @@ class TimeOrderedDataPairDiff():
             (2 frequency bands). If `dichroic` is chosen, make sure your
             hardware can handle it (see instrument.py) and HealpixFitsMap
             should contain the inputs maps at different frequency.
+        store_pointing_matrix_input : bool, optional
+            Store pointing matrix used to scan the input map
+
         """
         ## Initialise args
         self.verbose = verbose
@@ -138,7 +141,7 @@ class TimeOrderedDataPairDiff():
 
         self.width = width
         self.cut_pixels_outside = cut_pixels_outside
-
+        self.store_pointing_matrix_input = store_pointing_matrix_input
         ## Check the projection
         self.projection = projection
         assert self.projection in ['healpix', 'flat'], \
@@ -180,6 +183,10 @@ class TimeOrderedDataPairDiff():
                 (self.npair, self.nsamples), dtype=np.int32)
         else:
             self.point_matrix = np.zeros((1, self.nsamples), dtype=np.int32)
+
+        # If set, stores the pointing matrix used to scan the map
+        if self.store_pointing_matrix_input:
+            self.point_matrix_input =  np.zeros(self.point_matrix.shape)
 
         ## Initialise the mask for timestreams
         self.wafermask_pixel = self.get_timestream_masks()
@@ -767,6 +774,9 @@ class TimeOrderedDataPairDiff():
 
         ## Compute pointing matrix
         index_global, index_local = self.get_pixel_indices(ra,dec)
+        if ((self.projection == 'healpix') & (index_local is None)) :
+            # Using a pointer not to increase memory usage
+            index_local = index_global
 
         ## For flat projection, one needs to flip the sign of U
         ## w.r.t to the full-sky basis (IAU angle convention)
@@ -783,11 +793,25 @@ class TimeOrderedDataPairDiff():
             eld = 0.5*(self.ypos[ch]+self.ypos[ch+1])
             ra, dec, pa = self.pointing.offset_detector(azd, eld)
             index_global_center, index_local = self.get_pixel_indices(ra,dec)
+            if index_local is None :
+                # Using a point not to increase memory usage if full sky is assumed (redundant?)
+                index_local = index_global_center
+        else:
+            # For consistency when storing input_map scanning when introducing differential beam systematics.
+            index_global_center = index_global
+
+
         ## Otherwise store list of pixels to be mapped only for top bolometers
         if ch % 2 == 0 and not self.mapping_perpair:
             self.point_matrix[int(ch/2)] = index_local
+            if self.store_pointing_matrix_input:
+                index_global_center[index_local==-1] = -1
+                self.point_matrix_input[int(ch/2)] = index_global_center
         elif ch % 2 == 0 and self.mapping_perpair:
             self.point_matrix[0] = index_local
+            if self.store_pointing_matrix_input:
+                index_global_center[index_local==-1] = -1
+                self.point_matrix_input[0] = index_global_center
 
         ## Default gain for a detector is 1.,
         ## but you can change it using set_detector_gains or
