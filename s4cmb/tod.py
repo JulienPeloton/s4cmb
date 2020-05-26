@@ -186,7 +186,7 @@ class TimeOrderedDataPairDiff():
 
         # If set, stores the pointing matrix used to scan the map
         if self.store_pointing_matrix_input:
-            self.point_matrix_input =  np.zeros(self.point_matrix.shape)
+            self.point_matrix_input =  np.zeros(self.point_matrix.shape, dtype=np.int32)
 
         ## Initialise the mask for timestreams
         self.wafermask_pixel = self.get_timestream_masks()
@@ -785,33 +785,36 @@ class TimeOrderedDataPairDiff():
         elif self.projection == 'healpix': sign=1
         self.Usign=sign
 
-        ## Store pointing matrix for tod2map operations
-        if ((ch % 2 == 0) and ((self.xpos[ch]!=self.xpos[ch+1]) or (self.ypos[ch]!=self.ypos[ch+1]))):
-            ## Compute pointing matrix for the pair center if beam
-            ## offsets for top and bottom detector do not coincide.
-            azd = 0.5*(self.xpos[ch]+self.xpos[ch+1])
-            eld = 0.5*(self.ypos[ch]+self.ypos[ch+1])
-            ra, dec, pa = self.pointing.offset_detector(azd, eld)
-            index_global_center, index_local = self.get_pixel_indices(ra,dec)
-            if index_local is None :
-                # Using a point not to increase memory usage if full sky is assumed (redundant?)
-                index_local = index_global_center
-        else:
-            # For consistency when storing input_map scanning when introducing differential beam systematics.
-            index_global_center = index_global
+        ## Store pointing matrix and parallactic angle for tod2map operations
+        if ch % 2 == 0:
+            if ((self.xpos[ch]!=self.xpos[ch+1]) or (self.ypos[ch]!=self.ypos[ch+1])):
+                ## Compute pointing matrix for the pair center if beam
+                ## offsets for top and bottom detector do not coincide.
+                azd = 0.5*(self.xpos[ch]+self.xpos[ch+1])
+                eld = 0.5*(self.ypos[ch]+self.ypos[ch+1])
+                ra, dec, pa_pair = self.pointing.offset_detector(azd, eld)
+                index_global_pair, index_local = self.get_pixel_indices(ra,dec)
+                #print("even",ch, self.xpos[ch],self.xpos[ch+1],self.ypos[ch],self.ypos[ch+1],pa,pa_pair)
+                if index_local is None :
+                    # Using a pointer not to increase memory usage
+                    index_local = index_global_pair
+            else:
+                # For consistency when storing input_map scanning after
+                # introducing differential beam systematics.
+                index_global_pair = index_global
 
-
-        ## Otherwise store list of pixels to be mapped only for top bolometers
-        if ch % 2 == 0 and not self.mapping_perpair:
-            self.point_matrix[int(ch/2)] = index_local
-            if self.store_pointing_matrix_input:
-                index_global_center[index_local==-1] = -1
-                self.point_matrix_input[int(ch/2)] = index_global_center
-        elif ch % 2 == 0 and self.mapping_perpair:
-            self.point_matrix[0] = index_local
-            if self.store_pointing_matrix_input:
-                index_global_center[index_local==-1] = -1
-                self.point_matrix_input[0] = index_global_center
+            ## Store list of pixels to be mapped only for top bolometers or pair
+            ## center in presence of differntial pointing
+            if ch % 2 == 0 and not self.mapping_perpair:
+                self.point_matrix[int(ch/2)] = index_local
+                if self.store_pointing_matrix_input:
+                    index_global_pair[index_local==-1] = -1
+                    self.point_matrix_input[int(ch/2)] = index_global_pair
+            elif ch % 2 == 0 and self.mapping_perpair:
+                self.point_matrix[0] = index_local
+                if self.store_pointing_matrix_input:
+                    index_global_pair[index_local==-1] = -1
+                    self.point_matrix_input[0] = index_global_pair
 
         ## Default gain for a detector is 1.,
         ## but you can change it using set_detector_gains or
@@ -841,14 +844,24 @@ class TimeOrderedDataPairDiff():
             pol_ang, pol_ang2 = self.compute_simpolangle(
                 ch, pa, polangle_err=False)
 
+            ## Use pa of pair center for tod2map if differential pointing
+            ## is used. Otherwise the polarization angle of a pair is the
+            ## same as the top and bottom detectors.
+            try:
+                pol_ang_pair, pol_ang2_pair = self.compute_simpolangle(
+                    ch, pa_pair, polangle_err=False)
+            except:
+                pol_ang_pair  = pol_ang
+                pol_ang2_pair = pol_ang2
+
             ## For demodulation, HWP angles are not included at the level
             ## of the pointing matrix (convention).
             if hasattr(self, 'dm'):
-                pol_ang_out = pol_ang + 2.0 * self.hwpangle
+                pol_ang_out = pol_ang_pair + 2.0 * self.hwpangle
             else:
-                pol_ang_out = pol_ang
+                pol_ang_out = pol_ang_pair
 
-            ## Store list polangle only for top bolometers
+            ## Store list of polangle only for top bolometers
             if ch % 2 == 0 and not self.mapping_perpair:
                 self.pol_angs[int(ch/2)] = pol_ang_out
             elif ch % 2 == 0 and self.mapping_perpair:
@@ -867,9 +880,9 @@ class TimeOrderedDataPairDiff():
                 # For demodulation, HWP angles are not included at the level
                 ## of the pointing matrix (convention).
                 if hasattr(self, 'dm'):
-                    pol_ang_out2 = pol_ang2 + 2.0 * self.hwpangle
+                    pol_ang_out2 = pol_ang2_pair + 2.0 * self.hwpangle
                 else:
-                    pol_ang_out2 = pol_ang2
+                    pol_ang_out2 = pol_ang2_pair
 
                 ## Store list polangle only for top bolometers
                 if ch % 2 == 0 and not self.mapping_perpair:
@@ -2025,7 +2038,7 @@ class OutputSkyMap():
         I[hit] = self.d[hit]/self.w[hit]
         return I
 
-    def get_QU(self):
+    def get_QU(self,force=False):
         """
         Solve for the polarisation maps from projected difference timestream
         maps and weights:
@@ -2055,7 +2068,7 @@ class OutputSkyMap():
         if self.demodulation:
             return self.get_QU_demod()
 
-        if not hasattr(self, 'idet'):
+        if ((not hasattr(self, 'idet')) or force):
             self.set_idet()
 
         Q = self.idet * (self.ss * self.dc - self.cs * self.ds)
