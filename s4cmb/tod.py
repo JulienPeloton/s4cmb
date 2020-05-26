@@ -2038,7 +2038,7 @@ class OutputSkyMap():
         I[hit] = self.d[hit]/self.w[hit]
         return I
 
-    def get_QU(self,force=False):
+    def get_QU(self,force=True):
         """
         Solve for the polarisation maps from projected difference timestream
         maps and weights:
