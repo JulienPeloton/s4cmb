@@ -6,6 +6,7 @@ class HealpixFitsMap to handle it easily.
 If you have a different I/O in your pipeline, just add a new class.
 
 Author: Julien Peloton, j.peloton@sussex.ac.uk
+        Giulio Fabbian, g.fabbian@sussex.ac.uk
 """
 from __future__ import division, absolute_import, print_function
 
