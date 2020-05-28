@@ -6,24 +6,27 @@ class HealpixFitsMap to handle it easily.
 If you have a different I/O in your pipeline, just add a new class.
 
 Author: Julien Peloton, j.peloton@sussex.ac.uk
+        Giulio Fabbian, g.fabbian@sussex.ac.uk
 """
 from __future__ import division, absolute_import, print_function
 
 import glob
 import os
+import warnings
 
 import healpy as hp
 import numpy as np
 from astropy.io import fits as pyfits
 
 from s4cmb.config_s4cmb import compare_version_number
+from s4cmb.tools import alm2map_spin_der1
 
 class HealpixFitsMap():
     """ Class to handle fits file containing healpix maps """
     def __init__(self, input_filename,
                  do_pol=True, verbose=False, fwhm_in=0.0, fwhm_in2=None,
                  nside_in=16, lmax=None, map_seed=53543, no_ileak=False,
-                 no_quleak=False, compute_derivatives=False,
+                 no_quleak=False, compute_derivatives=None,derivatives_type='T',
                  ext_map_gal=False):
         """
 
@@ -68,12 +71,17 @@ class HealpixFitsMap():
             Set it to True if you are reading a map in Galactic coordinate.
             (Planck maps for example).
         compute_derivatives : bool, optional
-            If True, return derivatives of the input temperature map
-            1st and 2nd order derivatives (t=theta, p=phi):
-            dI/dt, dI/dp, d2I/d2t, d2I/d2p, d2I/dtdp.
-            Note that dI/dp is already divided by sin(theta).
+            If True, return derivatives of relevant Stokes component according
+            to the derivatives_type option.
             Be sure that you have enough memory!
-
+        derivatives_type : str, optional
+            If 'T' ('P') present in the string return 1st and 2nd derivatives
+            of the input temperature (Q and U) map (t=theta, p=phi).
+            Note that d/dp is already divided by sin(theta).
+            Options:
+            - 'T1' will compute 1st derivatives dI/dt, dI/dp alone
+            - 'P1' will compute 1st derivatives dQ/dt, dU/dt, dQ/dp, dU/dp.
+            Be sure that you have enough memory!
         """
         self.input_filename = input_filename
         self.do_pol = do_pol
@@ -90,7 +98,7 @@ class HealpixFitsMap():
             self.lmax = lmax
         self.map_seed = map_seed
         self.compute_derivatives = compute_derivatives
-
+        self.derivatives_type = derivatives_type
         self.I = None
         self.Q = None
         self.U = None
@@ -124,7 +132,10 @@ class HealpixFitsMap():
         self.set_leakage_to_zero()
 
         if self.compute_derivatives:
-            self.compute_intensity_derivatives(fromalm=fromalms)
+            if 'T' in self.derivatives_type:
+                self.compute_intensity_derivatives(fromalm=fromalms)
+            if 'P' in self.derivatives_type:
+                self.compute_pol_derivatives(fromalm=fromalms)
 
     def load_healpix_fits_map(self, force=False):
         """
@@ -366,10 +377,6 @@ class HealpixFitsMap():
     def compute_intensity_derivatives(self, fromalm=False):
         """
         Compute derivatives of the input temperature map (healpix).
-        Unfortunately, healpy does not allow to have derivatives
-        higher than 1 (see healpix for better treatment),
-        so we use only an approximation.
-
         Not updated for dichroic for the moment.
 
         Parameters
@@ -393,19 +400,71 @@ class HealpixFitsMap():
         else:
             alm = hp.map2alm(self.I, self.lmax)
 
-        ## Compute 1st order derivatives
-        junk, self.dIdt, self.dIdp = hp.alm2map_der1(
+        lmax=hp.Alm.getlmax(alm.size)
+        if 'T1' in self.derivatives_type:
+            junk, self.dIdt, self.dIdp = hp.alm2map_der1(
             alm, self.nside_in, self.lmax)
+        else:
+            # computes first and second derivative as derivatives of spin-1
+            # transform of a scalar field with _1Elm=sqrt(l(l+1))Ilm _1Blm=0
+            l=np.arange(self.lmax+1)
+            grad=np.sqrt(l*(l+1))
+            curl = np.zeros_like(alm)
+            dervs = alm2map_spin_der1([hp.almxfl(alm,grad),curl],self.nside_in,1)
+            self.dIdt = dervs[0][0]
+            self.dIdp = dervs[0][1]
+            self.d2Id2t = dervs[1][0]
+            self.d2Id2p = dervs[2][1]
+            self.d2Idpdt = dervs[2][0]
 
-        alm_der1_theta = hp.map2alm(self.dIdt, self.lmax)
-        alm_der1_phi = hp.map2alm(self.dIdp, self.lmax)
+    def compute_pol_derivatives(self, fromalm=False):
+        """
+        Compute derivatives of the input polarization components (healpix).
+        Not updated for dichroic for the moment.
 
-        ## Compute 2nd order derivatives
-        junk, self.d2Id2t, der2map_theta_phi = hp.alm2map_der1(
-            alm_der1_theta, self.nside_in, self.lmax)
-        junk, self.d2Idpdt, self.d2Id2p = hp.alm2map_der1(
-            alm_der1_phi, self.nside_in, self.lmax)
+        Parameters
+        ----------
+        fromalm : bool, optional
+            If True, loads alm file from disk instead of fourier
+            transform the input map. Automatically turns True if you input
+            alm files. False otherwise.
 
+        Examples
+        ----------
+        >>> filename = 's4cmb/data/test_data_set_lensedCls.dat'
+        >>> hpmap = HealpixFitsMap(input_filename=filename, fwhm_in=3.5,
+        ...     nside_in=16, compute_derivatives=True, map_seed=489237)
+        >>> hasattr(hpmap, 'dIdp')
+        True
+
+        """
+        if fromalm:
+            Elm = hp.read_alm(self.input_filename[1])
+            Blm = hp.read_alm(self.input_filename[2])
+        else:
+            alm = hp.map2alm([self.I,self.Q,self.U], self.lmax)
+            Elm=alm[1]
+            Blm=alm[2]
+        lmax=hp.Alm.getlmax(alm.size)
+        if 'P1' in self.derivatives_type:
+            out = alm2map_spin_der1([Elm,Blm], self.nside_in, 2)
+            self.dQdt =out[1][0]
+            self.dUdt =out[1][1]
+            self.dQdp =out[2][0]
+            self.dUdp =out[2][1]
+        else:
+            warnings.warn('Computation of second order polarization derivatives not implemented yet. Set to 0.')
+            out = alm2map_spin_der1([Elm,Blm], self.nside_in, 2)
+            self.dQdt =out[1][0]
+            self.dUdt =out[1][1]
+            self.dQdp =out[2][0]
+            self.dUdp =out[2][1]
+            self.d2Qd2t = np.zeros_like(self.dQdt)
+            self.d2Qd2p = np.zeros_like(self.dQdt)
+            self.d2Qdpdt = np.zeros_like(self.dQdt)
+            self.d2Ud2t = np.zeros_like(self.dQdt)
+            self.d2Ud2p = np.zeros_like(self.dQdt)
+            self.d2Udpdt = np.zeros_like(self.dQdt)
 
 def add_hierarch(lis):
     """
@@ -492,6 +551,12 @@ def SFL(ra, dec):
     are equally spaced straight lines. Scale is true along central meridian
     and all paralles.'''
     return ra * np.cos(dec), dec
+
+def deSFL(x,y):
+    return x/np.cos(y),y
+
+def deLamCyl(x,y):
+    return x,np.arcsin(y)
 
 def create_sky_map(cl_fn, nside=16, FWHM=0.0, seed=548397, lmax=None):
     """

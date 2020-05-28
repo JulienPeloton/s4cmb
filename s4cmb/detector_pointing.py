@@ -9,6 +9,7 @@ RA/Dec specify the direction of a point on the celestial sphere in the
 equatorial coordinate system.
 
 Author: Julien Peloton, j.peloton@sussex.ac.uk
+        Giulio Fabbian, g.fabbian@sussex.ac.uk
 """
 from __future__ import division, absolute_import, print_function
 
@@ -18,7 +19,8 @@ from numpy import cos
 from numpy import sin
 from numpy import tan
 from pyslalib import slalib
-
+from astropy.utils import iers
+import warnings
 from s4cmb.detector_pointing_f import detector_pointing_f
 
 sec2deg = 360.0/86400.0
@@ -30,10 +32,15 @@ APPARENT_TOPOCENTRIC = 2
 def get_ut1utc(ut1utc_fn, mjd):
     """ Return the time correction to UTC.
 
-    Those are computed from 01 01 2012 (MJD=55927) to 01 01 2018 (MJD=58119).
-    Unfortunately the database used to compute those is currently down
-    (http://maia.usno.navy.mil/cgi-bin/search.cgi), so for date > 01 01 2018,
-    the correction applied will be the one on 01 01 2018.
+    Those are computed from 01 01 2012 (MJD=55927) to the latest MJD available
+    in the s4cmb/data/ut1utc.ephem file.
+    Unfortunately the IERS Bulletin A database used to compute those is often
+    down/flaky (http://maia.usno.navy.mil/cgi-bin/search.cgi). For dates outside
+    the range included in the ut1utc.ephem file, the 01 01 2012 correction is
+    applied for earlier dates and the correction of the last available date in
+    the file is applied for future dates. Consider updating the content of your
+    ut1utc file using the dedicated routine update_ut1utc in s4cmb (see below,
+    uses astropy and requires internet access).
 
     Parameters
     ----------
@@ -60,16 +67,19 @@ def get_ut1utc(ut1utc_fn, mjd):
     >>> print(round(get_ut1utc(fn, mjd=59119), 3))
     0.128
     """
-    if mjd <= 58119:
-        umjds, ut1utcs = np.loadtxt(ut1utc_fn, usecols=(1, 2)).T
-        uindex = np.searchsorted(umjds, mjd)
-        ut1utc = ut1utcs[uindex]
+    warn_me = True
+    umjds, ut1utcs = np.loadtxt(ut1utc_fn, usecols=(1, 2)).T
+    if mjd < umjds[0]:
+        mjd_tmp = umjds[0]
+    elif mjd > umjds[-1]:
+        mjd_tmp = umjds[-1]
     else:
-        mjd_tmp = 58119
-        umjds, ut1utcs = np.loadtxt(ut1utc_fn, usecols=(1, 2)).T
-        uindex = np.searchsorted(umjds, mjd_tmp)
-        ut1utc = ut1utcs[uindex]
-
+        mjd_tmp = mjd
+        warn_me = False
+    if warn_me:
+        warnings.warn('MJD outside ut1utc file date range %.6f -- %.6f. Default corrections applied. Consider updating the ut1utc file.'%(umjds[0],umjds[-1]))
+    uindex = np.searchsorted(umjds, mjd_tmp)
+    ut1utc = ut1utcs[uindex]
     return ut1utc
 
 class Pointing():
@@ -857,6 +867,53 @@ def load_fake_pointing():
 
     return allowed_params, value_params, az_enc, el_enc, time
 
+def update_ut1utc(fname='ut1utc_user.ephem',begin_date='2012-01-01',end_date=None):
+    """
+    Creates an updated database file with time correction to UTC.
+
+    The script retrieves the IERS data base through astropy and requires access
+    to the internet the first time this routine is called. Subsequent calls to
+    IERS data base may not update the database.
+
+    See https://docs.astropy.org/en/stable/utils/iers.html for more details.
+
+    Parameters
+    ----------
+    fname : string
+        Filename of the updated data base.
+    begin_date : string
+        First date to include in the updated data base. Supports any format
+        supported by astropy Time class.
+    end_date : string
+        Last date to include in the updated data base. Supports any format
+        supported by astropy Time class. By default include all the available
+        dates in the IERS data base (usually ~1yr data in the future from the
+        current date)
+    """
+    iers_table = iers.IERS_Auto.open()
+    begin_time = Time(begin_date)
+    mask = (iers_table['MJD'].value>=begin_time.mjd)
+    if end_date is not None:
+        end_time = Time(end_time)
+        mask &= (iers_table['MJD'].value<=end_time.mjd)
+    y=iers_table['year'][mask]
+    m=iers_table['month'][mask]
+    d=iers_table['day'][mask]
+    mjd=iers_table['MJD'].value[mask]
+    ut1utc=iers_table['UT1_UTC'][mask]
+
+    # Corrects MJD according to astropy doc
+    y[mjd<=51543]+=1900
+    y[mjd>=51544]+=2000
+
+    try:
+        fname_path = os.path.join(os.environ['s4cmbPATH'],'s4cmb/data')
+    except:
+        fname_path = './'
+
+    np.savetxt(os.path.join(fname_path,fname),np.column_stack((y,m,d,mjd,ut1utc)),fmt="%d-%d-%d\t%.6f\t%.6f")
+    iers_table.close()
+    return
 
 if __name__ == "__main__":
     import doctest

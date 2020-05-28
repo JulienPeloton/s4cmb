@@ -3,6 +3,7 @@
 Module to handle instrument systematics.
 
 Author: Julien Peloton, j.peloton@sussex.ac.uk
+        Giulio Fabbian, g.fabbian@sussex.ac.uk
 """
 from __future__ import division, absolute_import, print_function
 
@@ -10,7 +11,7 @@ import numpy as np
 from scipy import signal
 
 from s4cmb.systematics_f import systematics_f
-from s4cmb.instrument import construct_beammap
+from s4cmb.instrument import construct_beammap, coordinates_on_grid,gauss2d
 
 arcsecond2rad = np.pi / 180. / 3600.
 arcmin2rad = np.pi / 180. / 60.
@@ -717,24 +718,28 @@ def linear_function_gen(nsamples, mean=1, std=0.05,
 
         yield gains
 
-def get_kernel_coefficients(beamprm, pairlist, nx=128, pix_size=None):
-    """ Generate beam expansion coefficients.
+def get_kernel_coefficients(beamprm, pairlist,kernel_type='diff', nx=128, pix_size=None,basis='circular'):
+    """
+    Generate beam expansion coefficients.
 
     Here we compute the coefficients of the operator K to go from the observed
-    temperature map to the T->P leakage. It is based on the sum and difference
-    beam maps:
+    temperature map to the T->P and P->T as well as T->T, P->P leakage. It is
+    based on the sum and difference beam maps derivative expansion onto
+    a basis beam:
 
-    diffbeam = K conv sumbeam,
+    diffbeam = K- conv basis_beam,
+    sumbeam  = K+ conv basis_beam,
 
     with
 
-    K = a.D,
+    K+/- = a.D,
 
-    where D is a vector containing temperature map and its derivatives:
+    where D is a vector containing beam map and its derivatives:
 
     D = (I, dI/dt, dI/dp, d2I/dpdt, d2I/dt2, d2I/d2p),
 
-    and a are coefficients.
+    and a are coefficients. This assumes the polarized beams are the same for
+    intensity and linear polarization.
 
     Parameters
     ----------
@@ -743,6 +748,9 @@ def get_kernel_coefficients(beamprm, pairlist, nx=128, pix_size=None):
     pairlist : list of list
         List containing the indices of bolometers grouped by pair
         [[0, 1], [2, 3], ...]
+    kernel_type : string
+        Specify if the kernel needed ar for a sum or diff beams or both.
+        Supported options: 'sum','diff' or both.
     nx : int, optional
         Number of pixels per row/column (in pixel) to construct the beam maps.
         You want nx * pix_size to be a large number compared to the beam size
@@ -750,6 +758,11 @@ def get_kernel_coefficients(beamprm, pairlist, nx=128, pix_size=None):
     pix_size : float, optional
         Pixel size in radian. If None, set automatically to be 1/7th of the
         beam size.
+    basis : string
+        Specify the basis onto whish developing the sum or diff beam. The
+        default assumes a Gaussian circular beam with FWHM specified in the beam
+        model instance. The sum beam can be used instead.
+        Supported options: 'circular' (default),'sumbeam'
 
     Returns
     ----------
@@ -771,7 +784,7 @@ def get_kernel_coefficients(beamprm, pairlist, nx=128, pix_size=None):
     True
 
     Let's perturb the beam now by adding beam ellipticity.
-    Beam ellipticity involves T and its second derivatives,
+    Beam ellipticity involves a Stokes parameter and its second derivatives,
     but not the first derivatives (2nd and 3rd coefficients are zeros).
     >>> bm = BeamModel(fp, verbose=False)
     >>> bm.sig_1, bm.sig_2, bm.ellip_ang = inject_beam_ellipticity(
@@ -779,8 +792,8 @@ def get_kernel_coefficients(beamprm, pairlist, nx=128, pix_size=None):
     >>> coeffs = get_kernel_coefficients(bm, pairlist, nx=32)
 
     Let's perturb the beam now by adding differential pointing.
-    Differential pointing only first derivatives of T,
-    but not the teperature itself and its second derivatives
+    Differential pointing mainly the first derivatives of a Stokes parameter,
+    but not the temperature itself and its second derivatives
     (0th, 4th, 5th, and 6th coefficients are zeros).
     >>> bm = BeamModel(fp, verbose=False)
     >>> bm.xpos, bm.ypos = modify_beam_offsets(bm.xpos, bm.ypos,
@@ -788,6 +801,8 @@ def get_kernel_coefficients(beamprm, pairlist, nx=128, pix_size=None):
     >>> coeffs = get_kernel_coefficients(bm, pairlist, nx=32)
 
     """
+    assert basis in ['circular','sumbeam']
+    assert kernel_type in ['sum','diff','sumdiff','diffsum']
     if pix_size is None:
         ## Go from sigma to FWHM
         mean_FWHM_x = np.mean(beamprm.sig_1) / np.sqrt(8*np.log(2))
@@ -796,18 +811,33 @@ def get_kernel_coefficients(beamprm, pairlist, nx=128, pix_size=None):
         ## 1/7th of the beam size.
         pix_size = (mean_FWHM_x + mean_FWHM_y) / 2. / 7.
 
-    out = []
+    if basis=='circular':
+        ## Creates the a circular beam used to develop the sum/diff beam
+        fwhm=beamprm.fwhm*np.pi/180/60
+        xy2f = coordinates_on_grid(pix_size=pix_size, nx=nx)
+        basis_beam = gauss2d(xy2f,0,0, 1, fwhm/np.sqrt(8*np.log(2)), fwhm/np.sqrt(8*np.log(2)),0).reshape((nx, nx))
+
+    out_diff = []
+    out_sum = []
 
     for ct, cb in pairlist:
         summap, diffmap = construct_beammap(beamprm, ct, cb, nx, pix_size)
         if summap is not None and diffmap is not None:
-            kernel = split_deriv(summap, diffmap, pix_size)
+            if basis is not 'circular': basis_beam = summap
+            if 'diff' in kernel_type:
+                kernel_diff = split_deriv(basis_beam, diffmap, pix_size)
+            if 'sum' in kernel_type:
+                kernel_sum = split_deriv(basis_beam, summap, pix_size)
         else:
             kernel = None
-
-        out.append(kernel)
-
-    return np.array(out)
+            kernel_sum = None
+        if 'diff' in kernel_type: out_diff.append(kernel_diff)
+        if 'sum'  in kernel_type: out_sum.append(kernel_sum)
+    if (('diff' in kernel_type) and ('sum' in kernel_type)):
+        return np.array(out_diff), np.array(out_sum)
+    else:
+        if 'diff'==kernel_type: return np.array(out_diff)
+        if 'sum'== kernel_type: return np.array(out_sum)
 
 def split_deriv(sumbeam, diffbeam, pix_size):
     """
@@ -816,8 +846,8 @@ def split_deriv(sumbeam, diffbeam, pix_size):
 
     B- = K conv B+
 
-    where K = a.D, with D is a vector containing temperature map
-    and its derivatives:
+    where K = a.D, with D is a vector containing Stokes parameter map
+    and its derivatives. In the case of e.g. temperature:
 
     D = (I, dI/dt, dI/dp, d2I/dpdt, d2I/dt2, d2I/d2p),
 
@@ -835,8 +865,8 @@ def split_deriv(sumbeam, diffbeam, pix_size):
     Returns
     ----------
     x : 1d array of 6 elements
-        Vector containing the beam kernel coefficients
-        (one for each T derivative).
+        Vector containing the beam kernel coefficients a
+        (one for each derivative of the beam map).
 
     Examples
     ----------
@@ -1052,9 +1082,24 @@ def rotate_deriv(K, theta):
 
     return es
 
+def fix_kernel_type(K,kernel_type='diffnomonopole'):
+    if 'sum' in kernel_type:
+        ## subtracts monopole part already included
+        ## in the input timestream
+        K[:, 0] -= 1
+    if 'nomonopole' in kernel_type:
+        ## Force monopole to 0 when using leakage beam
+        K[:, 0] = 0.0
+    ## Flips the sign of dtheta terms.
+    K[:, 1] *= -1
+    K[:, 3] *= -1
+    return K
+
 def waferts_add_diffbeam(waferts, point_matrix, beam_orientation,
                          intensity_derivatives, diffbeam_kernels,
-                         pairlist, spins='012'):
+                         pairlist, spins='012',kernel_type='diff_nomonopole',
+                         pol_derivatives=None,pol_angle=None,spins_pol='012',
+                         Usign=1):
     """
     Modify timestreams by injecting T->P leakage from beam mismatch.
     Note that timestreams are modified on-the-fly.
@@ -1068,7 +1113,9 @@ def waferts_add_diffbeam(waferts, point_matrix, beam_orientation,
     beam_orientation : ndarray
         Array containing intrinsic orientation of the pixels
     intensity_derivatives : ndarray
-        Containing map of the intensity and its derivatives (6 maps)
+        Containing map of the intensity and its derivatives (6 maps). They need
+        to include only the pixels in the field defined by the scan (see obspix
+        field of TOD class).
     diffbeam_kernels : 1d array of 6 elements
         Array containing beam kernel coefficients
         (one for each T derivative) for all pairs.
@@ -1079,7 +1126,22 @@ def waferts_add_diffbeam(waferts, point_matrix, beam_orientation,
         Which type of derivatives you want to use for you leakage.
         Example: beam ellipticity would use 0 and 2, while differential
         pointing would use just 1.
-
+    kernel_type : string
+        String specifying if sum or diff beam leakage components
+        has to be injected. Add _nomonopole if you want not to include
+        monopole leakage component and force it to be 0.
+    pol_derivatives : list of ndarray
+        Containing map of the Q and U parameters and their
+        derivatives (2x6 maps: [[Q,dQ/dx...],[U,dU/dx...]])
+    pol_angle: ndarray
+        Array containing the value of the polarization angle
+    spins_pol: string
+        as the spins argument. Allows to use different leakage
+        derivatives for the polarization part of the beam leakage. By
+        default spins=spins_pol
+    Usign: int
+        defines sign convention to match the IAU convention in case
+        the flat map projection is used.
 
     Examples
     ----------
@@ -1121,18 +1183,26 @@ def waferts_add_diffbeam(waferts, point_matrix, beam_orientation,
     ...     pairlist, spins='012')
 
     """
+    assert kernel_type in ['sum','diff','sum_nomonopole','diff_nomonopole']
+
     ## Just to preserve it
     K = diffbeam_kernels + 0.
 
-    ## Set temperature to 0 and flip the sign of dtheta terms.
-    K[:, 0] = 0.0
-    K[:, 1] *= -1
-    K[:, 3] *= -1
+    K = fix_kernel_type(K,kernel_type)
+
+    if 'sum' in kernel_type:
+        ## adds I->I in sum timestream and P->P in diff timestream
+        bottom_sign = -1
+    else:
+        bottom_sign = 1
 
     for i in range(len(K)):
         K[i] = fixspin(K[i], spins)
 
     diffbeamleak = np.zeros((int(waferts.shape[0]/2), waferts.shape[1]))
+
+    ## adds I leakage. if kernel_type is "diff" adds I->P leakage, otherwise
+    ## adds I->I leakage
     diffbeam_map2tod(
         diffbeamleak,
         intensity_derivatives,
@@ -1141,10 +1211,29 @@ def waferts_add_diffbeam(waferts, point_matrix, beam_orientation,
         K)
 
     waferts[::2] += diffbeamleak
-    waferts[1::2] -= diffbeamleak
+    waferts[1::2] -= bottom_sign*diffbeamleak
 
-def diffbeam_map2tod(out, intensity_derivatives,
-                     point_matrix, beam_orientation, diffbeam_kernels):
+    ## adds P leakage. If kernel_type is "diff" adds P->I leakage, otherwise
+    ## adds P->P leakage
+    if ((pol_derivatives is not None) and (pol_angle is not None)):
+        if ((spins_pol!=spins) and (pol_derivatives is not None)):
+            ## initialize a new copy of polarization kernels withot modifying
+            ## the input
+            K_pol = fix_kernel_type(diffbeam_kernels+0.,kernel_type)
+            K_pol[i] = fixspin(K_pol[i], spins_pol)
+        else: K_pol = K
+        diffbeamleak[:,:] = 0.0
+        diffbeam_map2tod(
+            diffbeamleak,
+            pol_derivatives,
+            point_matrix,
+            beam_orientation,
+            K_pol,pol_angle,Usign)
+
+        waferts[::2] += diffbeamleak
+        waferts[1::2] += bottom_sign*diffbeamleak
+
+def diffbeam_map2tod(out, signal_derivatives,point_matrix, beam_orientation, diffbeam_kernels, pol_angle=None,Usign=1):
     """
     Scan the leakage maps to generate polarisation timestream for channel ch,
     using the differential beam model kernel.
@@ -1157,8 +1246,9 @@ def diffbeam_map2tod(out, intensity_derivatives,
     ----------
     out : ndarray
         Will contain the spurious signal (npair, nsamples)
-    intensity_derivatives : ndarray
+    signal_derivatives : ndarray
         Containing map of the intensity and its derivatives (6 maps)
+        or a list of Q and U derivatives (2x6 maps)
     point_matrix : ndarray
         Array containing pointing information
     beam_orientation : ndarray
@@ -1166,11 +1256,20 @@ def diffbeam_map2tod(out, intensity_derivatives,
     diffbeam_kernels : 1d array of 6 elements
         Array containing beam kernel coefficients
         (one for each T derivative) for all pairs.
+    pol_angle: ndarray
+        Array containing polarization angle information.
+    Usign: int
+        defines sign convention to match the IAU convention in case
+        the flat map projection is used.
     """
     npix, nt = out.shape
     assert point_matrix.shape == out.shape
     assert diffbeam_kernels.shape[0] == npix
-    assert len(intensity_derivatives) == diffbeam_kernels.shape[1]
+    if pol_angle is None:
+        assert len(signal_derivatives) == diffbeam_kernels.shape[1]
+    else:
+        assert len(signal_derivatives) == 2
+        assert len(signal_derivatives[0]) == diffbeam_kernels.shape[1]
     assert beam_orientation.shape == (npix, nt)
 
     for ipix in range(npix):
@@ -1180,11 +1279,22 @@ def diffbeam_map2tod(out, intensity_derivatives,
         k = rotate_deriv(
             diffbeam_kernels[ipix],
             -beam_orientation[ipix, okpointing])
-
+        if (pol_angle is not None):
+            #compute cosine and sine polarization angles to save time
+            psi = pol_angle[ipix,:]
+            c2pol_ang = np.cos(2*psi[okpointing])
+            s2pol_ang = np.sin(2*psi[okpointing])
+            if signal_derivatives is not None:
+                for coeff in range(len(k)):
+                    # Q derivatives
+                    out[ipix, okpointing] += (signal_derivatives[0][coeff, io]*k[coeff])*c2pol_ang
+                    # U derivatives
+                    out[ipix, okpointing] += (signal_derivatives[1][coeff, io]*k[coeff])*s2pol_ang*Usign
         ## Add the leakage on-the-fly
-        for coeff in range(len(k)):
-            out[ipix, okpointing] += intensity_derivatives[coeff, io]*k[coeff]
-
+        else:
+            for coeff in range(len(k)):
+                # T derivatives
+                out[ipix, okpointing] += signal_derivatives[coeff, io]*k[coeff]
 
 if __name__ == "__main__":
     import doctest
