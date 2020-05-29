@@ -445,7 +445,7 @@ class HealpixFitsMap():
             alm = hp.map2alm([self.I,self.Q,self.U], self.lmax)
             Elm=alm[1]
             Blm=alm[2]
-        lmax=hp.Alm.getlmax(alm.size)
+        lmax=hp.Alm.getlmax(Elm.size)
         if 'P1' in self.derivatives_type:
             out = alm2map_spin_der1([Elm,Blm], self.nside_in, 2)
             self.dQdt =out[1][0]
