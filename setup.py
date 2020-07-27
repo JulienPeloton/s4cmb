@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2017 Julien Peloton
+# Copyright 2017-2020 Julien Peloton
 # Licensed under the GPL-3.0 License, see LICENSE file for details.
 
 ## A bit wacky... Wheel perhaps?
@@ -42,7 +42,7 @@ def configuration(parent_package='', top_path=None):
 
 if __name__ == "__main__":
     ## version
-    version = '0.6.1'
+    version = '0.7.0'
 
     ## Download url
     d_url = 'https://github.com/JulienPeloton/s4cmb/archive/{}.tar.gz'.format(
