@@ -229,19 +229,20 @@ class TimeOrderedDataPairDiff():
                 array_noise_level=self.array_noise_level,
                 ndetectors=2*self.npair,
                 ntimesamples=self.nsamples,
-                array_noise_seed=self.array_noise_seed)
+                array_noise_seed=self.array_noise_seed,
+                sampling_freq=self.scanning_strategy.sampling_freq)
         elif self.array_noise_level is not None and self.alpha is not None:
             self.noise_generator = CorrNoiseGenerator(
                 array_noise_level=self.array_noise_level,
                 ndetectors=2*self.npair,
                 ntimesamples=self.nsamples,
                 array_noise_seed=self.array_noise_seed,
+                sampling_freq=self.scanning_strategy.sampling_freq,
                 nclouds=self.nclouds,
                 f0=self.f0,
                 amp_atm=self.amp_atm,
                 corrlength=self.corrlength,
-                alpha=self.alpha,
-                sampling_freq=self.scanning_strategy.sampling_freq)
+                alpha=self.alpha)
         else:
             self.noise_generator = None
 
@@ -252,19 +253,20 @@ class TimeOrderedDataPairDiff():
                 array_noise_level=self.array_noise_level2,
                 ndetectors=2*self.npair,
                 ntimesamples=self.nsamples,
-                array_noise_seed=self.array_noise_seed2)
+                array_noise_seed=self.array_noise_seed2,
+                sampling_freq=self.scanning_strategy.sampling_freq)
         elif self.array_noise_level2 is not None and self.alpha is not None:
             self.noise_generator2 = CorrNoiseGenerator(
                 array_noise_level=self.array_noise_level2,
                 ndetectors=2*self.npair,
                 ntimesamples=self.nsamples,
                 array_noise_seed=self.array_noise_seed2,
+                sampling_freq=self.scanning_strategy.sampling_freq,
                 nclouds=self.nclouds,
                 f0=self.f0,
                 amp_atm=self.amp_atm,
                 corrlength=self.corrlength,
-                alpha=self.alpha,
-                sampling_freq=self.scanning_strategy.sampling_freq)
+                alpha=self.alpha)
         else:
             self.noise_generator2 = None
 
@@ -1045,7 +1047,7 @@ class TimeOrderedDataPairDiff():
                 wafermask_pixel, npixfp, self.npixsky)
         elif (hasattr(output_maps, 'dm') and gdeprojection):
             if (hasattr(self, 'dm') and gdeprojection):
-                warnings.warn('G deprojection not supported for demodulated TODs. Pair differencing is used instead')
+                warnings.warn('G deprojection not supported for demodulated TODs and continously rotating HWP. Pair differencing is used instead.')
             tod_f.tod2map_pair_gdeprojection_f(
                 output_maps.d, output_maps.w,
                 output_maps.dm, output_maps.dc, output_maps.ds,
@@ -1525,7 +1527,7 @@ def convolvefilter(x, f, ff=None, isreal=False):
 class WhiteNoiseGenerator():
     """ Class to handle white noise """
     def __init__(self, array_noise_level, ndetectors, ntimesamples,
-                 array_noise_seed):
+                 array_noise_seed,sampling_freq):
         """
         This class is used to simulate time-domain noise.
         Usually, it is used in combination with map2tod to insert noise
@@ -1543,7 +1545,8 @@ class WhiteNoiseGenerator():
         array_noise_seed : int
             Seed used to generate random numbers. From this single seed,
             we generate a list of seeds for all detectors.
-
+        sampling_freq : float
+            Sampling frequency of the detectors in Hz
         """
         self.array_noise_level = array_noise_level
         self.ndetectors = ndetectors
@@ -1574,7 +1577,7 @@ class WhiteNoiseGenerator():
 
         Examples
         ----------
-        >>> wn = WhiteNoiseGenerator(3000., 2, 4, array_noise_seed=493875)
+        >>> wn = WhiteNoiseGenerator(3000., 2, 4, array_noise_seed=493875, sampling_freq=8)
         >>> ts = wn.simulate_noise_one_detector(0)
         >>> print(ts) #doctest: +NORMALIZE_WHITESPACE
         [ -2185.65609023   5137.21044598  -5407.22292574  11020.59471471]
@@ -1582,13 +1585,13 @@ class WhiteNoiseGenerator():
         state = np.random.RandomState(self.noise_seeds[ch])
         vec = state.normal(size=self.ntimesamples)
 
-        return self.detector_noise_level * vec
+        return self.detector_noise_level * vec * np.sqrt(sampling_freq)
 
 class CorrNoiseGenerator(WhiteNoiseGenerator):
     """ """
     def __init__(self, array_noise_level, ndetectors, ntimesamples,
-                 array_noise_seed, nclouds=10, f0=0.1, alpha=-4, amp_atm=1e2,
-                 corrlength=300, sampling_freq=8):
+                 array_noise_seed, sampling_freq, nclouds=10, f0=0.1, alpha=-4, amp_atm=1e2,
+                 corrlength=300):
         """
         This class is used to simulate time-domain correlated noise.
         Usually, it is used in combination with map2tod to insert noise
@@ -1636,6 +1639,8 @@ class CorrNoiseGenerator(WhiteNoiseGenerator):
         array_noise_seed : int
             Seed used to generate random numbers. From this single seed,
             we generate a list of seeds for all detectors.
+        sampling_freq : float
+            Sampling frequency of the detectors in Hz
         nclouds : int, optional
             Number of clouds, that is number of correlated regions
             in the focal plane.
@@ -1650,13 +1655,10 @@ class CorrNoiseGenerator(WhiteNoiseGenerator):
             Correlation length in time over which atmosphere signal
             is supposed to be constant. Few minutes is typical.
             Units are seconds.
-        sampling_freq : float, optional
-            Sampling frequency of the detectors in Hz.
-
         """
         WhiteNoiseGenerator.__init__(
             self, array_noise_level, ndetectors,
-            ntimesamples, array_noise_seed)
+            ntimesamples, array_noise_seed,sampling_freq)
         self.nclouds = nclouds
         self.alpha = alpha
         self.sampling_freq = sampling_freq
@@ -1685,7 +1687,7 @@ class CorrNoiseGenerator(WhiteNoiseGenerator):
         Examples
         ----------
         >>> cn = CorrNoiseGenerator(3000., 2, 17000,
-        ...     array_noise_seed=493875, nclouds=1, f0=0.5, amp_atm=1.,
+        ...     array_noise_seed=493875, sampling_freq=8,nclouds=1, f0=0.5, amp_atm=1.,
         ...     corrlength=300, alpha=-4, sampling_freq=8.)
         >>> ts = cn.simulate_noise_one_detector(0)
         >>> print(ts) #doctest: +NORMALIZE_WHITESPACE
@@ -1695,7 +1697,7 @@ class CorrNoiseGenerator(WhiteNoiseGenerator):
         ## White noise part
         state = np.random.RandomState(self.noise_seeds[ch])
         vec = state.normal(size=self.ntimesamples)
-        wnoise = self.detector_noise_level * vec
+        wnoise = self.detector_noise_level * vec * np.sqrt(self.sampling_freq)
 
         ## Correlated part
         state = np.random.RandomState(self.pixel_noise_seeds[ch])
