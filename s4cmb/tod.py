@@ -1043,7 +1043,9 @@ class TimeOrderedDataPairDiff():
                 point_matrix, pol_angs, waferts,
                 diff_weight, sum_weight, nt,
                 wafermask_pixel, npixfp, self.npixsky)
-        elif (hasattr(self, 'dm') and gdeprojection):
+        elif (hasattr(output_maps, 'dm') and gdeprojection):
+            if (hasattr(self, 'dm') and gdeprojection):
+                warnings.warn('G deprojection not supported for demodulated TODs. Pair differencing is used instead')
             tod_f.tod2map_pair_gdeprojection_f(
                 output_maps.d, output_maps.w,
                 output_maps.dm, output_maps.dc, output_maps.ds,
