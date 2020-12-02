@@ -1296,7 +1296,6 @@ class TimeOrderedDataPairDiff:
                 self.npixsky,
             )
         elif (hasattr(output_maps, "dm") is False) and gdeprojection:
-            print("gdep!")
             tod_f.tod2map_pair_gdeprojection_f(
                 output_maps.d,
                 output_maps.w,
