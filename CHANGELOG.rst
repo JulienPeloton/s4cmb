@@ -1,9 +1,18 @@
 v0.x.x
 =============
-* Current version.
-* Add dichroic detector (dichroic branch)
-* Add subscans information
-* Add beam ellipticity systematics
+* current version
+
+v0.7.0
+=============
+* Update differential beam simulation (#40)
+* fixed the gain's linear drift function bug (#39). Thanks @markm42
+* Add module to predict the trajectory of a body (Sun, Moon, ...) (#38)
+* Updated flat sky visualization (#37). Thanks @markm42
+* Fix the RA/DEC of the first time sample correctly (#35)
+* Correlated noise (#29)
+* Add dichroic detector (#28)
+* Add subscans information (#27)
+* Add beam ellipticity systematics (#26)
 
 v0.6.1
 =============
