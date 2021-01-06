@@ -698,7 +698,7 @@ class TimeOrderedDataPairDiff():
             if self.coherent_pa:
                 if ch==0:
                     print('All angle shifts are {}.'.format(self.pa_mu))
-                dpolang = np.ones_like(dpolang)*self.pa_mu # in deg
+                dpolang = np.ones(len(self.intrinsic_polangle))*self.pa_mu # in deg
             else:
                 dpolang = state_for_polang.normal(self.pa_mu, self.pa_sig,len(self.intrinsic_polangle)) # in deg
 
