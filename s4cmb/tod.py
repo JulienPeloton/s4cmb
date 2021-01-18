@@ -43,7 +43,7 @@ class TimeOrderedDataPairDiff():
                  array_noise_level2=None, array_noise_seed2=56736,
                  nclouds=None, corrlength=None, alpha=None,
                  f0=None, amp_atm=None, mapping_perpair=False, mode='standard', 
-                 store_pointing_matrix_input = False, verbose=False, perturb_el = False, perturb_az = False, seed_pointing = 0., mu_pointing = 0., sigma_pointing = 13.,perturb_pol_angs=False,seed_pa=0.,pa_mu=0.,pa_sig=0.,pa_diff=False,coherent_pa=False):
+                 store_pointing_matrix_input = False, verbose=False, perturb_el = False, perturb_az = False, seed_pointing = 0., mu_pointing = 0., sigma_pointing = 13.,perturb_pol_angs=False,seed_pa=0.,pa_mu=0.,pa_sig=0.,pa_diff=False):
         """
         C'est parti!
 
@@ -146,8 +146,6 @@ class TimeOrderedDataPairDiff():
             width of pa syst perturbation.
         pa_diff : bool, optional
             if True, doing differential pa perturbation
-        coherent_pa : bool, optional
-            If true, using pa_mu as the pa perturbation for all detectors
         """
         ## Initialise args
         self.verbose = verbose
@@ -162,7 +160,6 @@ class TimeOrderedDataPairDiff():
         self.pa_mu = pa_mu
         self.pa_sig = pa_sig
         self.pa_diff = pa_diff
-        self.coherent_pa = coherent_pa
 
         ## Check if you can run dichroic detectors
         self.mode = mode
@@ -639,14 +636,17 @@ class TimeOrderedDataPairDiff():
             lat=lat, ra_src=ra_src, dec_src=dec_src)
         
         # boresight pointing systematics
-        self.pointing_perturbed = Pointing(
-            az_enc = np.array([p + err for p, err in zip(self.scan['azimuth'], self.err_azimuth)]), # degrees, size of nts
-            el_enc = np.array([p + err for p, err in zip(self.scan['elevation'], self.err_elevation)]), # degrees, size of nts
-            time=self.scan['clock-utc'],
-            value_params=self.hardware.pointing_model.value_params,
-            allowed_params=self.hardware.pointing_model.allowed_params,
-            ut1utc_fn=self.scanning_strategy.ut1utc_fn,
-            lat=lat, ra_src=ra_src, dec_src=dec_src)
+        if perturb_el or perturb_az:
+            self.pointing_perturbed = Pointing(
+                az_enc = (self.scan['azimuth']+self.err_azimuth), # degrees, size of nts
+                el_enc = (self.scan['elevation']+self.err_elevation), # degrees, size of nts
+                time=self.scan['clock-utc'],
+                value_params=self.hardware.pointing_model.value_params,
+                allowed_params=self.hardware.pointing_model.allowed_params,
+                ut1utc_fn=self.scanning_strategy.ut1utc_fn,
+                lat=lat, ra_src=ra_src, dec_src=dec_src)
+        else:
+            self.perturbed_pointing = None
 
     def compute_simpolangle(self, ch, parallactic_angle, polangle_err=False):
         """
@@ -692,26 +692,22 @@ class TimeOrderedDataPairDiff():
         """
         
         if polangle_err:
-            state_for_polang = np.random.RandomState(self.seed_pa)#+ch) # no need to add ch because already different for each channel as this is for all detectors.
+            state_for_polang = np.random.RandomState(self.seed_pa)
             
 
-            if self.coherent_pa:
-                if ch==0:
-                    print('All angle shifts are {}.'.format(self.pa_mu))
+            if self.pa_sig==0:
                 dpolang = np.ones(len(self.intrinsic_polangle))*self.pa_mu # in deg
             else:
                 dpolang = state_for_polang.normal(self.pa_mu, self.pa_sig,len(self.intrinsic_polangle)) # in deg
 
             if self.pa_diff:
                 # differential pol ang symmetrically
-                print('Differential pol angl.')
                 dpolang = dpolang
             else:
-                print('no diff pol angl.')
                 dpolang[1::2] = dpolang[::2]
 
             # inject perturbations
-            intrinsic_polangle = list(np.array(self.intrinsic_polangle) + dpolang)
+            intrinsic_polangle = np.array(self.intrinsic_polangle) + dpolang
         else:
             intrinsic_polangle = self.intrinsic_polangle
 
@@ -870,15 +866,23 @@ class TimeOrderedDataPairDiff():
 
         ## Compute pointing for detector ch
         ra, dec, pa = self.pointing.offset_detector(azd, eld)
-        
-        # Perturbed boresight pointing values
-        ra_perturbed, dec_perturbed, pa_perturbed = self.pointing_perturbed.offset_detector(azd, eld)
-        
+
         ## Compute pointing matrix
-        index_global, index_local = self.get_pixel_indices(ra,dec)
-        
+        index_global, index_local = self.get_pixel_indices(ra, dec)
+
         # Perturbed boresight pointing values
-        index_global_perturbed, index_local_perturbed = self.get_pixel_indices(ra_perturbed,dec_perturbed)
+        if self.pointing_perturbed is not None:
+            ra_perturbed, dec_perturbed, pa_perturbed = self.pointing_perturbed.offset_detector(azd, eld)
+
+            # Perturbed boresight pointing values
+            index_global_perturbed, index_local_perturbed = self.get_pixel_indices(ra_perturbed,dec_perturbed)
+
+        else:
+            ra_perturbed = ra
+            dec_perturbed = dec
+            pa_perturbed = pa
+            index_global_perturbed = index_global
+            index_local_perturbed = index_local
 
         if ((self.projection == 'healpix') & (index_local is None)) :
             # Using a pointer not to increase memory usage
@@ -2370,7 +2374,6 @@ class OutputSkyMap():
                         'projection': self.projection,
                         'nside': self.nside, 'pixel_size': self.pixel_size,
                         'obspix': self.obspix}
-                print('Saved IQU.')
             except:
                 I, G, Q, U = self.get_IQU() # if using IGQU class
                 wP = qu_weight_mineig(self.cc, self.cs, self.ss,
@@ -2381,7 +2384,6 @@ class OutputSkyMap():
                         'projection': self.projection,
                         'nside': self.nside, 'pixel_size': self.pixel_size,
                         'obspix': self.obspix}
-                print('Saved IGQU.')
                 
             if shrink_maps and self.projection == 'flat':
                 data = shrink_me(data, based_on='wP')
