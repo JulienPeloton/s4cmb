@@ -205,7 +205,6 @@ class TimeOrderedDataPairDiff():
             sigma_pointing = sigma_pointing / (3600*np.sqrt(2)) * np.pi/180 # arcsec to degrees and also dividing by sqrt(2) so that the overal error on position is np.sqrt(\delta_az^2+\delta_el^2)
         if perturb_az:
             # perturb azimuth
-            print('Perturbing azimuth.')
             seed_pointing_az = seed_pointing
             state_for_pointing_errors_az = np.random.RandomState(seed_pointing_az)
             self.err_azimuth = state_for_pointing_errors_az.normal(mu_pointing, sigma_pointing, self.scan['nts'])
@@ -215,7 +214,6 @@ class TimeOrderedDataPairDiff():
         
         if perturb_el:
             # perturb elevation
-            print('Perturbing elevation.')
             seed_pointing_el = seed_pointing + 1234567890 # different seed for each perturbation; tried to avoid having another seed input
             state_for_pointing_errors_el = np.random.RandomState(seed_pointing_el)
             self.err_elevation = state_for_pointing_errors_el.normal(mu_pointing, sigma_pointing, self.scan['nts'])    
@@ -956,16 +954,15 @@ class TimeOrderedDataPairDiff():
 
         if self.HealpixFitsMap.do_pol:
             ## pol_ang2 is None if mode == 'standard'
-            pol_ang, pol_ang2 = self.compute_simpolangle(
-                ch, pa, polangle_err=False)
-            
+            pol_ang, pol_ang2 = self.compute_simpolangle(ch, pa, polangle_err=False)
+
             if self.perturb_pol_angs:
-                # Perturbed polarization angles
-                pol_ang_perturbed, pol_ang2_perturbed = self.compute_simpolangle(ch, pa, polangle_err=True)
+                do_polangle_err = True
             else:
-                pol_ang_perturbed = pol_ang
-                pol_ang2_perturbed = pol_ang2
-            
+                do_polangle_err = False
+
+            pol_ang_perturbed, pol_ang2_perturbed = self.compute_simpolangle(ch, pa, polangle_err=do_polangle_err)
+
             
             ## Use pa of pair center for tod2map if differential pointing
             ## is used. Otherwise the polarization angle of a pair is the
@@ -974,7 +971,7 @@ class TimeOrderedDataPairDiff():
                 pol_ang_pair, pol_ang2_pair = self.compute_simpolangle(
                     ch, pa_pair, polangle_err=False)
             except:
-                pol_ang_pair  = pol_ang
+                pol_ang_pair = pol_ang
                 pol_ang2_pair = pol_ang2
 
             ## For demodulation, HWP angles are not included at the level
@@ -2374,7 +2371,8 @@ class OutputSkyMap():
                         'projection': self.projection,
                         'nside': self.nside, 'pixel_size': self.pixel_size,
                         'obspix': self.obspix}
-            except:
+            except Exception as e:
+                print('Exception error: ', e)
                 I, G, Q, U = self.get_IQU() # if using IGQU class
                 wP = qu_weight_mineig(self.cc, self.cs, self.ss,
                                       epsilon=epsilon, verbose=verbose)
