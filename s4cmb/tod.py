@@ -153,7 +153,11 @@ class TimeOrderedDataPairDiff():
         self.scanning_strategy = scanning_strategy
         self.HealpixFitsMap = HealpixFitsMap
         self.mapping_perpair = mapping_perpair
-        
+
+        # boresight pointing syst:
+        self.perturb_el = perturb_el
+        self.perturb_az = perturb_az
+
         # pol ang syst:
         self.perturb_pol_angs = perturb_pol_angs
         self.seed_pa = seed_pa
@@ -634,7 +638,7 @@ class TimeOrderedDataPairDiff():
             lat=lat, ra_src=ra_src, dec_src=dec_src)
         
         # boresight pointing systematics
-        if perturb_el or perturb_az:
+        if self.perturb_el or self.perturb_az:
             self.pointing_perturbed = Pointing(
                 az_enc = (self.scan['azimuth']+self.err_azimuth), # degrees, size of nts
                 el_enc = (self.scan['elevation']+self.err_elevation), # degrees, size of nts
