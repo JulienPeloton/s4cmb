@@ -33,8 +33,10 @@ jobs:
       run: |
         make
         export PYTHONPATH=$PWD:$PYTHONPATH
+        echo $PYTHONPATH
     - name: Unit tests
       run: |
+        echo $PWD
         ./coverage_and_test.sh
     - name: Integration tests
       run: |
