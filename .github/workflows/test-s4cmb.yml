@@ -16,6 +16,11 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
+    - name: Install add-ons
+      run: |
+        sudo apt-get install libopenmpi-dev
+        sudo apt-get install openmpi-bin
+        sudo apt-get install gfortran
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
