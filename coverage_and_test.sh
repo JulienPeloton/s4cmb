@@ -4,6 +4,7 @@
 ## Launch it using ./coverage
 ## and open the html files under the folder htmlcov/
 ## Skip xpure.py as it is not really part of the pipeline
+export PYTHONPATH=$PWD:$PYTHONPATH
 for i in s4cmb/*.py
 do
     coverage run -a --source=s4cmb --omit=s4cmb/xpure.py $i

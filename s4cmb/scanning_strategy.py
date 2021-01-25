@@ -336,7 +336,7 @@ class ScanningStrategy():
         elif RADEC:
             ## If given bounds in declination, make bounds in azimuth
             ## note there is no sanity checking here!
-            az_array = np.linspace(0., 180., endpoint=True, num=360.)
+            az_array = np.linspace(0., 180., endpoint=True, num=360)
             ra_array = np.zeros(az_array.shape)
             dec_array = np.zeros(az_array.shape)
             dec_min = ephem.degrees(self.dec_min[scan_number])
