@@ -42,3 +42,5 @@ jobs:
     - name: Coverage
       run: |
         coveralls
+      env:
+        GITHUB_TOKEN: ${{ secrets.COVERALLS }}
