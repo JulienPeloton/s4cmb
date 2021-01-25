@@ -637,7 +637,7 @@ class TimeOrderedDataPairDiff():
             lat=lat, ra_src=ra_src, dec_src=dec_src)
 
         # boresight pointing systematics
-        if perturb_el or perturb_az:
+        if self.perturb_el or self.perturb_az:
             self.pointing_perturbed = Pointing(
                 az_enc = (self.scan['azimuth']+self.err_azimuth), # degrees, size of nts
                 el_enc = (self.scan['elevation']+self.err_elevation), # degrees, size of nts
