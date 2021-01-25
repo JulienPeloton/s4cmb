@@ -42,8 +42,8 @@ class TimeOrderedDataPairDiff():
                  array_noise_level=None, array_noise_seed=487587,
                  array_noise_level2=None, array_noise_seed2=56736,
                  nclouds=None, corrlength=None, alpha=None,
-                 f0=None, amp_atm=None,
-                 mapping_perpair=False, mode='standard', store_pointing_matrix_input = False, verbose=False):
+                 f0=None, amp_atm=None, mapping_perpair=False, mode='standard', 
+                 store_pointing_matrix_input = False, verbose=False, perturb_el = False, perturb_az = False, seed_pointing = 0., mu_pointing = 0., sigma_pointing = 13.,perturb_pol_angs=False,seed_pa=0.,pa_mu=0.,pa_sig=0.,pa_diff=False):
         """
         C'est parti!
 
@@ -119,7 +119,33 @@ class TimeOrderedDataPairDiff():
             should contain the inputs maps at different frequency.
         store_pointing_matrix_input : bool, optional
             Store pointing matrix used to scan the input map
-
+        perturb_el : boolean, optional
+            If True, perturb one of a few pointing instances.
+            If False, sets error arrays to 0 so that the additional pointing instances 
+            are the same as the original ones.
+        perturb_az : boolean, optional
+            If True, perturb one of a few pointing instances.
+            If False, sets error arrays to 0 so that the additional pointing instances 
+            are the same as the original ones.
+        seed_pointing : integer, optional
+            Seed for boresight pointing perturbation. Doesn't affect anything if 
+            perturb_el == False or perturb_az == False.
+        mu_pointing : integer, optional
+            Mean for boresight error distribution in arcseconds. Doesn't affect anything
+            perturb_el == False or perturb_az == False.
+        sigma_pointing : integer, optional
+            Width for boresight error distribution in arcseconds. Doesn't affect anything
+            perturb_el == False or perturb_az == False.
+        perturb_pol_angs : bool, optional
+            If True, perturbing polarization angles.
+        seed_pa : int, optional
+            seed for perturbing polarization angle (ch is added to it for randomization)
+        pa_mu : float, optional
+            mean of pa syst perturbation.
+        pa_sig : float, optional
+            width of pa syst perturbation.
+        pa_diff : bool, optional
+            if True, doing differential pa perturbation
         """
         ## Initialise args
         self.verbose = verbose
@@ -127,6 +153,13 @@ class TimeOrderedDataPairDiff():
         self.scanning_strategy = scanning_strategy
         self.HealpixFitsMap = HealpixFitsMap
         self.mapping_perpair = mapping_perpair
+        
+        # pol ang syst:
+        self.perturb_pol_angs = perturb_pol_angs
+        self.seed_pa = seed_pa
+        self.pa_mu = pa_mu
+        self.pa_sig = pa_sig
+        self.pa_diff = pa_diff
 
         ## Check if you can run dichroic detectors
         self.mode = mode
@@ -143,6 +176,7 @@ class TimeOrderedDataPairDiff():
         self.width = width
         self.cut_pixels_outside = cut_pixels_outside
         self.store_pointing_matrix_input = store_pointing_matrix_input
+
         ## Check the projection
         self.projection = projection
         assert self.projection in ['healpix', 'flat'], \
@@ -165,6 +199,28 @@ class TimeOrderedDataPairDiff():
         self.pair_list = np.reshape(
             self.hardware.focal_plane.bolo_index_in_fp, (self.npair, 2))
 
+        # boresight pointing perturbation errors
+        if perturb_az or perturb_el:
+            mu_pointing = mu_pointing / 3600 * np.pi/180 # arcsec to radians
+            sigma_pointing = sigma_pointing / (3600*np.sqrt(2)) * np.pi/180 # arcsec to degrees and also dividing by sqrt(2) so that the overal error on position is np.sqrt(\delta_az^2+\delta_el^2)
+        if perturb_az:
+            # perturb azimuth
+            seed_pointing_az = seed_pointing
+            state_for_pointing_errors_az = np.random.RandomState(seed_pointing_az)
+            self.err_azimuth = state_for_pointing_errors_az.normal(mu_pointing, sigma_pointing, self.scan['nts'])
+        else:
+            print('Not perturbing azimuth.')
+            self.err_azimuth = np.zeros(self.scan['nts'])
+        
+        if perturb_el:
+            # perturb elevation
+            seed_pointing_el = seed_pointing + 1234567890 # different seed for each perturbation; tried to avoid having another seed input
+            state_for_pointing_errors_el = np.random.RandomState(seed_pointing_el)
+            self.err_elevation = state_for_pointing_errors_el.normal(mu_pointing, sigma_pointing, self.scan['nts'])    
+        else:
+            print('Not perturbing elevation.')
+            self.err_elevation = np.zeros(self.scan['nts'])
+            
         ## Pre-compute boresight pointing objects
         self.get_boresightpointing()
 
@@ -182,13 +238,16 @@ class TimeOrderedDataPairDiff():
         if not self.mapping_perpair:
             self.point_matrix = np.zeros(
                 (self.npair, self.nsamples), dtype=np.int32)
+            
         else:
             self.point_matrix = np.zeros((1, self.nsamples), dtype=np.int32)
+            
 
         # If set, stores the pointing matrix used to scan the map
         if self.store_pointing_matrix_input:
             self.point_matrix_input =  np.zeros(self.point_matrix.shape, dtype=np.int32)
 
+            
         ## Initialise the mask for timestreams
         self.wafermask_pixel = self.get_timestream_masks()
 
@@ -549,7 +608,7 @@ class TimeOrderedDataPairDiff():
             ra_src = 0.0
             dec_src = 0.0
         elif self.projection == 'flat':
-            ra_src = self.scanning_strategy.ra_mid
+            ra_src = self.scanning_strategy.ra_mid * np.pi / 180.
             dec_src = self.scanning_strategy.dec_mid * np.pi / 180.
 
             ## Perform a rotation of the input to put the point
@@ -566,13 +625,26 @@ class TimeOrderedDataPairDiff():
             # self.HealpixFitsMap.U = self.HealpixFitsMap.U[pix]
 
         self.pointing = Pointing(
-            az_enc=self.scan['azimuth'],
-            el_enc=self.scan['elevation'],
+            az_enc=self.scan['azimuth'], # degrees, size of nts
+            el_enc=self.scan['elevation'], # degrees, size of nts
             time=self.scan['clock-utc'],
             value_params=self.hardware.pointing_model.value_params,
             allowed_params=self.hardware.pointing_model.allowed_params,
             ut1utc_fn=self.scanning_strategy.ut1utc_fn,
             lat=lat, ra_src=ra_src, dec_src=dec_src)
+        
+        # boresight pointing systematics
+        if perturb_el or perturb_az:
+            self.pointing_perturbed = Pointing(
+                az_enc = (self.scan['azimuth']+self.err_azimuth), # degrees, size of nts
+                el_enc = (self.scan['elevation']+self.err_elevation), # degrees, size of nts
+                time=self.scan['clock-utc'],
+                value_params=self.hardware.pointing_model.value_params,
+                allowed_params=self.hardware.pointing_model.allowed_params,
+                ut1utc_fn=self.scanning_strategy.ut1utc_fn,
+                lat=lat, ra_src=ra_src, dec_src=dec_src)
+        else:
+            self.perturbed_pointing = None
 
     def compute_simpolangle(self, ch, parallactic_angle, polangle_err=False):
         """
@@ -616,31 +688,51 @@ class TimeOrderedDataPairDiff():
         ...     parallactic_angle=np.array([np.pi] * tod.nsamples))
         >>> assert angles2 is not None
         """
-        if not polangle_err:
-            ang_pix = (90.0 - self.intrinsic_polangle[ch]) * d2r
+        
+        if polangle_err:
+            state_for_polang = np.random.RandomState(self.seed_pa)
+            
+
+            if self.pa_sig==0:
+                dpolang = np.ones(len(self.intrinsic_polangle))*self.pa_mu # in deg
+            else:
+                dpolang = state_for_polang.normal(self.pa_mu, self.pa_sig,len(self.intrinsic_polangle)) # in deg
+
+            if self.pa_diff:
+                # differential pol ang symmetrically
+                dpolang = dpolang
+            else:
+                dpolang[1::2] = dpolang[::2]
+
+            # inject perturbations
+            intrinsic_polangle = np.array(self.intrinsic_polangle) + dpolang
+        else:
+            intrinsic_polangle = self.intrinsic_polangle
+
+        
+        # calc total pa (with or without perturbations)
+        
+        ang_pix = (90.0 - intrinsic_polangle[ch]) * d2r
+
+        ## Demodulation or pair diff use different convention
+        ## for the definition of the angle.
+        if not hasattr(self, 'dm'):
+            pol_ang = parallactic_angle + ang_pix + 2.0 * self.hwpangle
+        else:
+            pol_ang = parallactic_angle - ang_pix - 2.0 * self.hwpangle
+
+        pol_ang2 = None
+        # TODO: add polarization angle perturbations for the second frequency.
+        if self.mode == 'dichroic':
+            ang_pix2 = (90.0 - self.intrinsic_polangle2[ch]) * d2r
 
             ## Demodulation or pair diff use different convention
             ## for the definition of the angle.
             if not hasattr(self, 'dm'):
-                pol_ang = parallactic_angle + ang_pix + 2.0 * self.hwpangle
+                pol_ang2 = parallactic_angle + ang_pix2 + 2.0*self.hwpangle
             else:
-                pol_ang = parallactic_angle - ang_pix - 2.0 * self.hwpangle
-
-            pol_ang2 = None
-            if self.mode == 'dichroic':
-                ang_pix2 = (90.0 - self.intrinsic_polangle2[ch]) * d2r
-
-                ## Demodulation or pair diff use different convention
-                ## for the definition of the angle.
-                if not hasattr(self, 'dm'):
-                    pol_ang2 = parallactic_angle + ang_pix2 + 2.0*self.hwpangle
-                else:
-                    pol_ang2 = parallactic_angle - ang_pix2 - 2.0*self.hwpangle
-        else:
-            print("This is where you call the systematic module!")
-            sys.exit()
-            pass
-
+                pol_ang2 = parallactic_angle - ang_pix2 - 2.0*self.hwpangle
+        
         return pol_ang, pol_ang2
 
     def return_parallactic_angle(self, ch, frequency_channel=1):
@@ -774,17 +866,36 @@ class TimeOrderedDataPairDiff():
         ra, dec, pa = self.pointing.offset_detector(azd, eld)
 
         ## Compute pointing matrix
-        index_global, index_local = self.get_pixel_indices(ra,dec)
+        index_global, index_local = self.get_pixel_indices(ra, dec)
+
+        # Perturbed boresight pointing values
+        if self.pointing_perturbed is not None:
+            ra_perturbed, dec_perturbed, pa_perturbed = self.pointing_perturbed.offset_detector(azd, eld)
+
+            # Perturbed boresight pointing values
+            index_global_perturbed, index_local_perturbed = self.get_pixel_indices(ra_perturbed,dec_perturbed)
+
+        else:
+            ra_perturbed = ra
+            dec_perturbed = dec
+            pa_perturbed = pa
+            index_global_perturbed = index_global
+            index_local_perturbed = index_local
+
         if ((self.projection == 'healpix') & (index_local is None)) :
             # Using a pointer not to increase memory usage
             index_local = index_global
+            
+            # Perturbed boresight pointing values
+            index_local_perturbed = index_global_perturbed
 
+        
         ## For flat projection, one needs to flip the sign of U
         ## w.r.t to the full-sky basis (IAU angle convention)
         if self.projection == 'flat':
-            sign=-1
-        elif self.projection == 'healpix': sign=1
-        self.Usign=sign
+            sign = -1.
+        elif self.projection == 'healpix': sign = 1.
+        self.Usign = sign
 
         ## Store pointing matrix and parallactic angle for tod2map operations
         if ch % 2 == 0:
@@ -816,7 +927,8 @@ class TimeOrderedDataPairDiff():
                 if self.store_pointing_matrix_input:
                     index_global_pair[index_local==-1] = -1
                     self.point_matrix_input[0] = index_global_pair
-
+        
+        
         ## Default gain for a detector is 1.,
         ## but you can change it using set_detector_gains or
         ## set_detector_gains_perpair.
@@ -842,9 +954,16 @@ class TimeOrderedDataPairDiff():
 
         if self.HealpixFitsMap.do_pol:
             ## pol_ang2 is None if mode == 'standard'
-            pol_ang, pol_ang2 = self.compute_simpolangle(
-                ch, pa, polangle_err=False)
+            pol_ang, pol_ang2 = self.compute_simpolangle(ch, pa, polangle_err=False)
 
+            if self.perturb_pol_angs:
+                do_polangle_err = True
+            else:
+                do_polangle_err = False
+
+            pol_ang_perturbed, pol_ang2_perturbed = self.compute_simpolangle(ch, pa, polangle_err=do_polangle_err)
+
+            
             ## Use pa of pair center for tod2map if differential pointing
             ## is used. Otherwise the polarization angle of a pair is the
             ## same as the top and bottom detectors.
@@ -852,7 +971,7 @@ class TimeOrderedDataPairDiff():
                 pol_ang_pair, pol_ang2_pair = self.compute_simpolangle(
                     ch, pa_pair, polangle_err=False)
             except:
-                pol_ang_pair  = pol_ang
+                pol_ang_pair = pol_ang
                 pol_ang2_pair = pol_ang2
 
             ## For demodulation, HWP angles are not included at the level
@@ -892,18 +1011,18 @@ class TimeOrderedDataPairDiff():
                     self.pol_angs2[0] = pol_ang_out2
 
                 ts2 = (
-                    self.HealpixFitsMap.I2[index_global] +
-                    self.HealpixFitsMap.Q2[index_global] * np.cos(2*pol_ang2) +
-                    sign * self.HealpixFitsMap.U2[index_global] *
-                    np.sin(2 * pol_ang2) + noise2) * norm
+                    self.HealpixFitsMap.I2[index_global_perturbed] +
+                    self.HealpixFitsMap.Q2[index_global_perturbed] * np.cos(2*pol_ang2_perturbed) +
+                    sign * self.HealpixFitsMap.U2[index_global_perturbed] *
+                    np.sin(2 * pol_ang2_perturbed) + noise2) * norm
                 return np.array([ts1, ts2])
 
         else:
-            ts1 = norm * (self.HealpixFitsMap.I[index_global] + noise)
+            ts1 = norm * (self.HealpixFitsMap.I[index_global_perturbed] + noise)
             if self.mode == 'standard':
                 return ts1
             elif self.mode == 'dichroic':
-                ts2 = norm * (self.HealpixFitsMap.I2[index_global] + noise2)
+                ts2 = norm * (self.HealpixFitsMap.I2[index_global_perturbed] + noise2)
                 return np.array([ts1, ts2])
 
     def tod2map(self, waferts, output_maps,
@@ -1043,7 +1162,8 @@ class TimeOrderedDataPairDiff():
                 point_matrix, pol_angs, waferts,
                 diff_weight, sum_weight, nt,
                 wafermask_pixel, npixfp, self.npixsky)
-        elif (hasattr(self, 'dm') and gdeprojection):
+        elif ((hasattr(output_maps, 'dm') is False) and gdeprojection):
+            print('gdep!')
             tod_f.tod2map_pair_gdeprojection_f(
                 output_maps.d, output_maps.w,
                 output_maps.dm, output_maps.dc, output_maps.ds,
@@ -2241,16 +2361,28 @@ class OutputSkyMap():
                 fn, shrink_maps=shrink_maps, crop_maps=crop_maps,
                 epsilon=epsilon, verbose=verbose)
         else:
-            I, Q, U = self.get_IQU()
-            wP = qu_weight_mineig(self.cc, self.cs, self.ss,
-                                  epsilon=epsilon, verbose=verbose)
+            try:
+                I, Q, U = self.get_IQU()
+                wP = qu_weight_mineig(self.cc, self.cs, self.ss,
+                                      epsilon=epsilon, verbose=verbose)
 
-            data = {'I': I, 'Q': Q, 'U': U,
-                    'wI': self.w, 'wP': wP, 'nhit': self.nhit,
-                    'projection': self.projection,
-                    'nside': self.nside, 'pixel_size': self.pixel_size,
-                    'obspix': self.obspix}
+                data = {'I': I, 'Q': Q, 'U': U,
+                        'wI': self.w, 'wP': wP, 'nhit': self.nhit,
+                        'projection': self.projection,
+                        'nside': self.nside, 'pixel_size': self.pixel_size,
+                        'obspix': self.obspix}
+            except Exception as e:
+                print('Exception error: ', e)
+                I, G, Q, U = self.get_IQU() # if using IGQU class
+                wP = qu_weight_mineig(self.cc, self.cs, self.ss,
+                                      epsilon=epsilon, verbose=verbose)
 
+                data = {'I': I, 'G': G, 'Q': Q, 'U': U,
+                        'wI': self.w, 'wP': wP, 'nhit': self.nhit,
+                        'projection': self.projection,
+                        'nside': self.nside, 'pixel_size': self.pixel_size,
+                        'obspix': self.obspix}
+                
             if shrink_maps and self.projection == 'flat':
                 data = shrink_me(data, based_on='wP')
             elif crop_maps is not False and self.projection == 'flat':
