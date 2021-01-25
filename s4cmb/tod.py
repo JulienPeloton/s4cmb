@@ -203,10 +203,10 @@ class TimeOrderedDataPairDiff():
             self.hardware.focal_plane.bolo_index_in_fp, (self.npair, 2))
 
         # boresight pointing perturbation errors
-        if perturb_az or perturb_el:
+        if self.perturb_az or self.perturb_el:
             mu_pointing = mu_pointing / 3600 * np.pi/180 # arcsec to radians
             sigma_pointing = sigma_pointing / (3600*np.sqrt(2)) * np.pi/180 # arcsec to degrees and also dividing by sqrt(2) so that the overal error on position is np.sqrt(\delta_az^2+\delta_el^2)
-        if perturb_az:
+        if self.perturb_az:
             # perturb azimuth
             seed_pointing_az = seed_pointing
             state_for_pointing_errors_az = np.random.RandomState(seed_pointing_az)
@@ -215,7 +215,7 @@ class TimeOrderedDataPairDiff():
             print('Not perturbing azimuth.')
             self.err_azimuth = np.zeros(self.scan['nts'])
 
-        if perturb_el:
+        if self.perturb_el:
             # perturb elevation
             seed_pointing_el = seed_pointing + 1234567890 # different seed for each perturbation; tried to avoid having another seed input
             state_for_pointing_errors_el = np.random.RandomState(seed_pointing_el)
