@@ -26,8 +26,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install --upgrade pip setuptools wheel
         pip install -r requirements.txt
-        export PYTHONPATH=$PWD:$PYTHONPATH
-        echo $PYTHONPATH
     - name: Install pyslalib
       run: |
         pip install pyslalib>=1.0.4
@@ -36,9 +34,8 @@ jobs:
         make
     - name: Unit tests
       run: |
-        echo $PWD
-        ls
         ./coverage_and_test.sh
     - name: Integration tests
       run: |
+        export PYTHONPATH=$PWD:$PYTHONPATH
         python examples/test/simple_app.py -inifile examples/inifiles/simple_parameters.py -tag 'test'
