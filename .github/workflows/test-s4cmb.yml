@@ -31,7 +31,7 @@ jobs:
         pip install pyslalib>=1.0.4
     - name: Compile sources and install
       run: |
-        python setup.py install
+        python setup.py install .
     - name: Unit tests
       run: |
         ./coverage_and_test.sh
