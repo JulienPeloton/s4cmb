@@ -212,7 +212,6 @@ class TimeOrderedDataPairDiff():
             state_for_pointing_errors_az = np.random.RandomState(seed_pointing_az)
             self.err_azimuth = state_for_pointing_errors_az.normal(mu_pointing, sigma_pointing, self.scan['nts'])
         else:
-            print('Not perturbing azimuth.')
             self.err_azimuth = np.zeros(self.scan['nts'])
 
         if self.perturb_el:
@@ -221,7 +220,6 @@ class TimeOrderedDataPairDiff():
             state_for_pointing_errors_el = np.random.RandomState(seed_pointing_el)
             self.err_elevation = state_for_pointing_errors_el.normal(mu_pointing, sigma_pointing, self.scan['nts'])
         else:
-            print('Not perturbing elevation.')
             self.err_elevation = np.zeros(self.scan['nts'])
 
         ## Pre-compute boresight pointing objects
