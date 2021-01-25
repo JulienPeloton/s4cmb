@@ -41,6 +41,6 @@ jobs:
         python examples/test/simple_app.py -inifile examples/inifiles/simple_parameters.py -tag 'test'
     - name: Coverage
       run: |
-        coveralls
+        coveralls --service=github
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
