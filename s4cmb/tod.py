@@ -645,7 +645,7 @@ class TimeOrderedDataPairDiff():
                 ut1utc_fn=self.scanning_strategy.ut1utc_fn,
                 lat=lat, ra_src=ra_src, dec_src=dec_src)
         else:
-            self.perturbed_pointing = None
+            self.pointing_perturbed = None
 
     def compute_simpolangle(self, ch, parallactic_angle, polangle_err=False):
         """
