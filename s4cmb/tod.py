@@ -954,34 +954,6 @@ class TimeOrderedDataPairDiff:
         # Compute pointing matrix
         index_global, index_local = self.get_pixel_indices(ra, dec)
 
-        # Perturbed boresight pointing values
-        if self.pointing_perturbed is not None:
-            (
-                ra_perturbed,
-                dec_perturbed,
-                pa_perturbed,
-            ) = self.pointing_perturbed.offset_detector(azd, eld)
-
-            # Perturbed boresight pointing values
-            (
-                index_global_perturbed,
-                index_local_perturbed,
-            ) = self.get_pixel_indices(ra_perturbed, dec_perturbed)
-
-        else:
-            ra_perturbed = ra
-            dec_perturbed = dec
-            pa_perturbed = pa
-            index_global_perturbed = index_global
-            index_local_perturbed = index_local
-
-        if (self.projection == "healpix") & (index_local is None):
-            # Using a pointer not to increase memory usage
-            index_local = index_global
-
-            # Perturbed boresight pointing values
-            index_local_perturbed = index_global_perturbed
-
         # For flat projection, one needs to flip the sign of U
         # w.r.t to the full-sky basis (IAU angle convention)
         if self.projection == "flat":
