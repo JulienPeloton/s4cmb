@@ -39,3 +39,6 @@ jobs:
       run: |
         export PYTHONPATH=$PWD:$PYTHONPATH
         python examples/test/simple_app.py -inifile examples/inifiles/simple_parameters.py -tag 'test'
+    - name: Coverage
+      run: |
+        coveralls
