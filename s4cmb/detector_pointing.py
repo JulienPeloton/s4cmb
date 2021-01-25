@@ -59,13 +59,6 @@ def get_ut1utc(ut1utc_fn, mjd):
     >>> fn = 's4cmb/data/ut1utc.ephem'
     >>> print(round(get_ut1utc(fn, mjd=56293), 3))
     0.277
-
-    For date > 01 01 2018 (MJD=58119), we do not have data currently.
-    So by default it will return the correction for 01 01 2018.
-    >>> print(round(get_ut1utc(fn, mjd=58119), 3))
-    0.128
-    >>> print(round(get_ut1utc(fn, mjd=59119), 3))
-    0.128
     """
     warn_me = True
     umjds, ut1utcs = np.loadtxt(ut1utc_fn, usecols=(1, 2)).T
