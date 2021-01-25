@@ -1037,12 +1037,13 @@ class TimeOrderedDataPairDiff:
             # Use pa of pair center for tod2map if differential pointing
             # is used. Otherwise the polarization angle of a pair is the
             # same as the top and bottom detectors.
+            # TODO: I do not understand this try/except.
+            # TODO: remove the bare exception!!!
             try:
                 pol_ang_pair, pol_ang2_pair = self.compute_simpolangle(
                     ch, pa_pair, polangle_err=False
                 )
-            except Exception as e:
-                print(str(e))
+            except:
                 pol_ang_pair = pol_ang
                 pol_ang2_pair = pol_ang2
 
