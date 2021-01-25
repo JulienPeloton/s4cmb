@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.5]
+        python-version: [3.6]
 
     steps:
     - uses: actions/checkout@v2
@@ -21,7 +21,6 @@ jobs:
         sudo apt-get install libopenmpi-dev
         sudo apt-get install openmpi-bin
         sudo apt-get install gfortran
-        sudo apt-get install gcc
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -32,7 +31,7 @@ jobs:
         pip install pyslalib>=1.0.4
     - name: Compile sources and install
       run: |
-        python setup.py install
+        make
     - name: Unit tests
       run: |
         ./coverage_and_test.sh
