@@ -10,15 +10,13 @@ Author: Julien Peloton, j.peloton@sussex.ac.uk
 """
 from __future__ import division, absolute_import, print_function
 
-import os
 import copy
-import glob
-import datetime
 import numpy as np
 
-def coordinates_on_grid(pix_size=None, row_size=None,
-                        nx=None, nx2=None,
-                        max_points=None):
+
+def coordinates_on_grid(
+    pix_size=None, row_size=None, nx=None, nx2=None, max_points=None
+):
     """
     Return the x and y coordinates of points on a grid.
     The grid is centered on (0, 0).
@@ -92,18 +90,23 @@ def coordinates_on_grid(pix_size=None, row_size=None,
     a pixel (pix_size), or the size of a row (row_size).
     """
     if (nx is None and nx2 is None) or (nx is not None and nx2 is not None):
-        raise AssertionError('You should specify either the ' +
-                             'number of pixel per row column (nx), or ' +
-                             'the total number of point in the grid (nx2).\n')
+        raise AssertionError(
+            """You should specify either the
+            number of pixel per row column (nx), or
+            the total number of point in the grid (nx2).\n"""
+        )
 
-    if (pix_size is None and row_size is None) or \
-            (pix_size is not None and row_size is not None):
-        raise AssertionError('You should specify either the ' +
-                             'size of a pixel (pix_size), ' +
-                             'or the size of a row (row_size).\n')
+    if (pix_size is None and row_size is None) or (
+        pix_size is not None and row_size is not None
+    ):
+        raise AssertionError(
+            """You should specify either the
+            size of a pixel (pix_size),
+            or the size of a row (row_size).\n"""
+        )
 
     if nx2 is not None:
-        ## Look for the closest number with square root being an integer
+        # Look for the closest number with square root being an integer
         nx2_tmp = copy.copy(nx2)
         while True:
             nx = np.sqrt(nx2_tmp)
@@ -113,7 +116,7 @@ def coordinates_on_grid(pix_size=None, row_size=None,
             else:
                 nx2_tmp += 1
     else:
-        nx2 = nx**2
+        nx2 = nx ** 2
 
     if max_points is None:
         max_points = nx2
@@ -124,14 +127,13 @@ def coordinates_on_grid(pix_size=None, row_size=None,
         row_size = pix_size * nx
 
     ix1 = np.arange(nx)
-    xs1 = (ix1 - (nx - 1.) / 2.) * pix_size
+    xs1 = (ix1 - (nx - 1.0) / 2.0) * pix_size
     x2, y2 = np.meshgrid(xs1, xs1)
 
-    coordinates = np.array(
-        (x2.flatten()[:max_points],
-         y2.flatten()[:max_points]))
+    coordinates = np.array((x2.flatten()[:max_points], y2.flatten()[:max_points]))
 
     return coordinates
+
 
 def convert_pair_to_bolometer_position(xcoord_pairs, ycoord_pairs):
     """
@@ -167,16 +169,24 @@ def convert_pair_to_bolometer_position(xcoord_pairs, ycoord_pairs):
     [-15. -15. -15. -15.  15.  15.  15.  15.]
     """
     nbolometer = 2 * len(xcoord_pairs)
-    xcoord_bolometers = np.dstack(
-        (xcoord_pairs, xcoord_pairs)).reshape((1, nbolometer))[0]
-    ycoord_bolometers = np.dstack(
-        (ycoord_pairs, ycoord_pairs)).reshape((1, nbolometer))[0]
+    xcoord_bolometers = np.dstack((xcoord_pairs, xcoord_pairs)).reshape(
+        (1, nbolometer)
+    )[0]
+    ycoord_bolometers = np.dstack((ycoord_pairs, ycoord_pairs)).reshape(
+        (1, nbolometer)
+    )[0]
 
     return xcoord_bolometers, ycoord_bolometers
 
-def show_focal_plane(bolo_xcoord, bolo_ycoord, bolo_polangle=None,
-                     fn_out='plot_hardware_map_test.png',
-                     save_on_disk=True, display=False):
+
+def show_focal_plane(
+    bolo_xcoord,
+    bolo_ycoord,
+    bolo_polangle=None,
+    fn_out="plot_hardware_map_test.png",
+    save_on_disk=True,
+    display=False,
+):
     """
     Show the focal plane of the instrument, split in two panels:
     top and bottom bolometers
@@ -206,8 +216,10 @@ def show_focal_plane(bolo_xcoord, bolo_ycoord, bolo_polangle=None,
     """
     if not display:
         import matplotlib as mpl
-        mpl.use('Agg')
+
+        mpl.use("Agg")
         import matplotlib.pyplot as pl
+
         pl.ioff()
     else:
         import matplotlib.pyplot as pl
@@ -216,31 +228,56 @@ def show_focal_plane(bolo_xcoord, bolo_ycoord, bolo_polangle=None,
         bolo_polangle = np.ones_like(bolo_xcoord)
 
     fig, ax = pl.subplots(1, 2, figsize=(10, 5))
-    ## Top pixel
-    ax[0].scatter(bolo_xcoord[::2], bolo_ycoord[::2],
-                  c=bolo_polangle[::2], alpha=1, s=30, cmap=pl.cm.jet)
-    ax[0].scatter(bolo_xcoord[::2], bolo_ycoord[::2],
-                  c='black', s=30, marker='|',
-                  label='Top pixel', alpha=0.6)
-    ax[0].set_ylabel('y position (cm)')
-    ax[0].set_xlabel('x position (cm)')
-    ax[0].set_title('Top pixels')
+    # Top pixel
+    ax[0].scatter(
+        bolo_xcoord[::2],
+        bolo_ycoord[::2],
+        c=bolo_polangle[::2],
+        alpha=1,
+        s=30,
+        cmap=pl.cm.jet,
+    )
+    ax[0].scatter(
+        bolo_xcoord[::2],
+        bolo_ycoord[::2],
+        c="black",
+        s=30,
+        marker="|",
+        label="Top pixel",
+        alpha=0.6,
+    )
+    ax[0].set_ylabel("y position (cm)")
+    ax[0].set_xlabel("x position (cm)")
+    ax[0].set_title("Top pixels")
 
-    ## Bottom pixel
-    ax[1].scatter(bolo_xcoord[1::2], bolo_ycoord[1::2],
-                  c=bolo_polangle[1::2], alpha=1, s=30, cmap=pl.cm.jet)
-    ax[1].scatter(bolo_xcoord[1::2], bolo_ycoord[1::2],
-                  c='black', s=30, marker='_',
-                  label='Bottom pixel', alpha=0.6)
-    ax[1].set_ylabel('y position (cm)')
-    ax[1].set_xlabel('x position (cm)')
-    ax[1].set_title('Bottom pixels')
+    # Bottom pixel
+    ax[1].scatter(
+        bolo_xcoord[1::2],
+        bolo_ycoord[1::2],
+        c=bolo_polangle[1::2],
+        alpha=1,
+        s=30,
+        cmap=pl.cm.jet,
+    )
+    ax[1].scatter(
+        bolo_xcoord[1::2],
+        bolo_ycoord[1::2],
+        c="black",
+        s=30,
+        marker="_",
+        label="Bottom pixel",
+        alpha=0.6,
+    )
+    ax[1].set_ylabel("y position (cm)")
+    ax[1].set_xlabel("x position (cm)")
+    ax[1].set_title("Bottom pixels")
 
     if save_on_disk:
         pl.savefig(fn_out)
         pl.clf()
     if display:
         pl.show()
+
 
 def convert_cm_to_rad(xcm, ycm, conversion):
     """
@@ -270,7 +307,7 @@ def convert_cm_to_rad(xcm, ycm, conversion):
     Focal plane of 60 cm diameter and mirror
     giving a 3 deg projection on the sky by default
     >>> fp = FocalPlane(verbose=False)
-    >>> projected_fp_size = 3. ## degrees
+    >>> projected_fp_size = 3. # degrees
     >>> xcm, ycm = coordinates_on_grid(
     ...                 row_size=fp.fp_size, nx2=fp.npair)
     >>> print(convert_cm_to_rad(xcm, ycm,
@@ -281,6 +318,7 @@ def convert_cm_to_rad(xcm, ycm, conversion):
 
     """
     return np.array(xcm) * conversion, np.array(ycm) * conversion
+
 
 def construct_beammap(beamprm, ct, cb, nx, pix_size):
     """
@@ -333,20 +371,31 @@ def construct_beammap(beamprm, ct, cb, nx, pix_size):
 
     xy2f = coordinates_on_grid(pix_size=pix_size, nx=nx)
 
-    tmap = gauss2d(xy2f, tx, ty,
-                   beamprm.Amp[ct], beamprm.sig_1[ct],
-                   beamprm.sig_2[ct],
-                   beamprm.ellip_ang[ct]).reshape((nx, nx))
+    tmap = gauss2d(
+        xy2f,
+        tx,
+        ty,
+        beamprm.Amp[ct],
+        beamprm.sig_1[ct],
+        beamprm.sig_2[ct],
+        beamprm.ellip_ang[ct],
+    ).reshape((nx, nx))
 
-    bmap = gauss2d(xy2f, bx, by,
-                   beamprm.Amp[cb], beamprm.sig_1[cb],
-                   beamprm.sig_2[cb],
-                   beamprm.ellip_ang[cb]).reshape((nx, nx))
+    bmap = gauss2d(
+        xy2f,
+        bx,
+        by,
+        beamprm.Amp[cb],
+        beamprm.sig_1[cb],
+        beamprm.sig_2[cb],
+        beamprm.ellip_ang[cb],
+    ).reshape((nx, nx))
 
     summap = 0.5 * (tmap + bmap)
     diffmap = 0.5 * (tmap - bmap)
 
     return summap, diffmap
+
 
 def gauss2d(xy, x_0, y_0, Amp, sig_xp, sig_yp, psi):
     """
@@ -401,11 +450,10 @@ def gauss2d(xy, x_0, y_0, Amp, sig_xp, sig_yp, psi):
     psi2 = -psi * np.pi / 180.0
 
     # x/y coordinates make an angle psi with the xp/yp input coordinates
-    R = np.array(
-        [[np.cos(psi2), -np.sin(psi2)], [np.sin(psi2), np.cos(psi2)]])
+    R = np.array([[np.cos(psi2), -np.sin(psi2)], [np.sin(psi2), np.cos(psi2)]])
     p = np.dot(R, xy_1)
 
-    u = p[0, :]**2 / (2 * sig_xp**2) + p[1, :]**2 / (2 * sig_yp**2)
+    u = p[0, :] ** 2 / (2 * sig_xp ** 2) + p[1, :] ** 2 / (2 * sig_yp ** 2)
 
     # Hide underflow by clipping beam function at -430dB level
     mask = u < 100
@@ -413,15 +461,26 @@ def gauss2d(xy, x_0, y_0, Amp, sig_xp, sig_yp, psi):
 
     return z
 
-class Hardware():
+
+class Hardware:
     """ Class to load all the hardware and models of the instrument in once """
-    def __init__(self,
-                 ncrate=1, ndfmux_per_crate=1, nsquid_per_mux=1,
-                 npair_per_squid=4, fp_size=60.,
-                 fwhm=3.5, beam_seed=58347,
-                 projected_fp_size=3.,
-                 pm_name='5params',
-                 type_hwp='CRHWP', freq_hwp=2., angle_hwp=0., verbose=False):
+
+    def __init__(
+        self,
+        ncrate=1,
+        ndfmux_per_crate=1,
+        nsquid_per_mux=1,
+        npair_per_squid=4,
+        fp_size=60.0,
+        fwhm=3.5,
+        beam_seed=58347,
+        projected_fp_size=3.0,
+        pm_name="5params",
+        type_hwp="CRHWP",
+        freq_hwp=2.0,
+        angle_hwp=0.0,
+        verbose=False,
+    ):
         """
         This class creates the data used to model the instrument:
         * focal plane
@@ -470,19 +529,26 @@ class Hardware():
         ----------
         >>> instrument = Hardware()
         """
-        self.focal_plane = FocalPlane(ncrate, ndfmux_per_crate,
-                                      nsquid_per_mux, npair_per_squid,
-                                      fp_size, verbose)
+        self.focal_plane = FocalPlane(
+            ncrate,
+            ndfmux_per_crate,
+            nsquid_per_mux,
+            npair_per_squid,
+            fp_size,
+            verbose,
+        )
 
-        self.beam_model = BeamModel(self.focal_plane, fwhm, beam_seed,
-                                    projected_fp_size, verbose)
+        self.beam_model = BeamModel(
+            self.focal_plane, fwhm, beam_seed, projected_fp_size, verbose
+        )
 
         self.pointing_model = PointingModel(pm_name)
 
         self.half_wave_plate = HalfWavePlate(type_hwp, freq_hwp, angle_hwp)
 
-    def make_dichroic(self, fwhm=1.8, beam_seed=58347, projected_fp_size=3.,
-                      shift_angle=45):
+    def make_dichroic(
+        self, fwhm=1.8, beam_seed=58347, projected_fp_size=3.0, shift_angle=45
+    ):
         """
         Add a layer of detectors on top of the existing ones
         to have dichroic detectors. The new detectors will sit on top of the
@@ -515,19 +581,28 @@ class Hardware():
         """
         self.focal_plane2 = copy.copy(self.focal_plane)
 
-        ## Shift the polarisation angles (and clip it btw 0 and 360 deg)
+        # Shift the polarisation angles (and clip it btw 0 and 360 deg)
         self.focal_plane2.bolo_polangle = (
-            np.array(self.focal_plane2.bolo_polangle) + shift_angle) % 360
+            np.array(self.focal_plane2.bolo_polangle) + shift_angle
+        ) % 360
 
         self.beam_model2 = BeamModel(
-            self.focal_plane2, fwhm, beam_seed,
-            projected_fp_size)
+            self.focal_plane2, fwhm, beam_seed, projected_fp_size
+        )
 
-class FocalPlane():
+
+class FocalPlane:
     """ Class to handle the focal plane of the instrument. """
-    def __init__(self,
-                 ncrate=1, ndfmux_per_crate=1, nsquid_per_mux=1,
-                 npair_per_squid=4, fp_size=60., verbose=False):
+
+    def __init__(
+        self,
+        ncrate=1,
+        ndfmux_per_crate=1,
+        nsquid_per_mux=1,
+        npair_per_squid=4,
+        fp_size=60.0,
+        verbose=False,
+    ):
         """
         Initialise our focal plane.
 
@@ -562,9 +637,12 @@ class FocalPlane():
         self.nsquid_per_mux = nsquid_per_mux
         self.npair_per_squid = npair_per_squid
 
-        ## Total number of pairs and bolometers in the focal plane
-        self.npair = self.ncrate * self.ndfmux_per_crate * \
-            self.nsquid_per_mux * self.npair_per_squid
+        # Total number of pairs and bolometers in the focal plane
+        self.npair = self.ncrate\
+            * self.ndfmux_per_crate\
+            * self.nsquid_per_mux\
+            * self.npair_per_squid
+
         self.nbolometer = self.npair * 2
 
         self.fp_size = fp_size
@@ -595,17 +673,16 @@ class FocalPlane():
         >>> fp = FocalPlane(verbose=True)
         Hardware map generated...
         """
-        ## Retrieve coordinate of the pairs inside the focal plane
+        # Retrieve coordinate of the pairs inside the focal plane
         # xcoord, ycoord = self.compute_pairs_coordinates(self.npair)
-        xcoord, ycoord = coordinates_on_grid(row_size=self.fp_size,
-                                             nx2=self.npair)
+        xcoord, ycoord = coordinates_on_grid(row_size=self.fp_size, nx2=self.npair)
 
-        ## Initialise
+        # Initialise
         self.crate_id, self.dfmux_id = [], []
         self.squid_id, self.bolo_id = [], []
         self.bolo_index_in_squid, self.bolo_index_in_fp = [], []
         self.bolo_xcoord, self.bolo_ycoord, self.bolo_polangle = [], [], []
-        ## Construct the hardware map
+        # Construct the hardware map
         max_hit = False
         while max_hit is False:
             bolo_index = 0
@@ -613,97 +690,101 @@ class FocalPlane():
             squid_index = 0
             dfmux_index = 0
             for crate in range(self.ncrate):
-                ## CRATE
-                self.crate_id.append('Cr{:03}'.format(crate))
+                # CRATE
+                self.crate_id.append("Cr{:03}".format(crate))
 
                 for dfmux in range(self.ndfmux_per_crate):
-                    ## DFMUX
-                    self.dfmux_id.append('Cr{:03}Df{:03}'.format(
-                            crate, dfmux_index))
+                    # DFMUX
+                    self.dfmux_id.append("Cr{:03}Df{:03}".format(crate, dfmux_index))
 
                     for squid in range(self.nsquid_per_mux):
-                        ## SQUID
-                        self.squid_id.append('Cr{:03}Df{:03}Sq{:03}'.format(
-                            crate, dfmux_index, squid_index))
+                        # SQUID
+                        self.squid_id.append(
+                            "Cr{:03}Df{:03}Sq{:03}".format(
+                                crate, dfmux_index, squid_index
+                            )
+                        )
 
                         for pair in range(self.npair_per_squid):
-                            ## BOLOMETER
+                            # BOLOMETER
 
-                            ## Split Q/U
-                            boloQ = 2*pair
-                            boloU = 2*pair + 1
+                            # Split Q/U
+                            boloQ = 2 * pair
+                            boloU = 2 * pair + 1
 
-                            if int(pair_index/np.sqrt(self.npair)) % 2 == 0:
-                                shift = 0.
-                                shiftinv = 45.
+                            if int(pair_index / np.sqrt(self.npair)) % 2 == 0:
+                                shift = 0.0
+                                shiftinv = 45.0
                             else:
-                                shift = 45.
-                                shiftinv = 0.
+                                shift = 45.0
+                                shiftinv = 0.0
 
-                            ## Top pixel
-                            ## Position of the bolometer within the SQUID
+                            # Top pixel
+                            # Position of the bolometer within the SQUID
                             self.bolo_index_in_squid.append(boloQ)
                             self.bolo_index_in_fp.append(bolo_index)
                             self.bolo_id.append(
-                                'Cr{:03}Df{:03}Sq{:03}Bo{:03}t'.format(
-                                    crate, dfmux_index, squid_index, boloQ))
+                                "Cr{:03}Df{:03}Sq{:03}Bo{:03}t".format(
+                                    crate, dfmux_index, squid_index, boloQ
+                                )
+                            )
                             self.bolo_xcoord.append(xcoord[pair_index])
                             self.bolo_ycoord.append(ycoord[pair_index])
 
-                            ## Q/U pixels
+                            # Q/U pixels
                             # bolo in pairs are separated by 90 deg,
                             # and each quadran is separated by 90 deg.
                             if bolo_index % 4 == 0:
-                                shift_ = 45.
-                                shiftinv_ = 0.
+                                shift_ = 45.0
+                                shiftinv_ = 0.0
                             else:
-                                shift_ = 0.
-                                shiftinv_ = 45.
-                            if xcoord[pair_index] < 0 and \
-                                    ycoord[pair_index] >= 0:
+                                shift_ = 0.0
+                                shiftinv_ = 45.0
+                            if xcoord[pair_index] < 0 and ycoord[pair_index] >= 0:
                                 angle = shift
-                            elif xcoord[pair_index] >= 0 and \
-                                    ycoord[pair_index] >= 0:
-                                angle = 90. + shift_
-                            elif xcoord[pair_index] >= 0 and \
-                                    ycoord[pair_index] <= 0:
-                                angle = 180. + shiftinv
-                            elif xcoord[pair_index] <= 0 and \
-                                    ycoord[pair_index] <= 0:
-                                angle = 270. + shiftinv_
+                            elif xcoord[pair_index] >= 0 and ycoord[pair_index] >= 0:
+                                angle = 90.0 + shift_
+                            elif xcoord[pair_index] >= 0 and ycoord[pair_index] <= 0:
+                                angle = 180.0 + shiftinv
+                            elif xcoord[pair_index] <= 0 and ycoord[pair_index] <= 0:
+                                angle = 270.0 + shiftinv_
 
                             self.bolo_polangle.append(angle)
 
-                            ## Move in bolo space (2 bolos/pair)
+                            # Move in bolo space (2 bolos/pair)
                             bolo_index += 1
 
-                            ## Bottom pixel
-                            ## Top pixel
-                            ## Position of the bolometer within the SQUID
+                            # Bottom pixel
+                            # Top pixel
+                            # Position of the bolometer within the SQUID
                             self.bolo_index_in_squid.append(boloU)
                             self.bolo_index_in_fp.append(bolo_index)
                             self.bolo_id.append(
-                                'Cr{:03}Df{:03}Sq{:03}Bo{:03}b'.format(
-                                    crate, dfmux_index, squid_index, boloU))
+                                "Cr{:03}Df{:03}Sq{:03}Bo{:03}b".format(
+                                    crate, dfmux_index, squid_index, boloU
+                                )
+                            )
                             self.bolo_xcoord.append(xcoord[pair_index])
                             self.bolo_ycoord.append(ycoord[pair_index])
 
-                            ## 90 degree difference wrt top bolometer
+                            # 90 degree difference wrt top bolometer
                             self.bolo_polangle.append((angle + 90) % 360)
 
-                            ## Move again in bolo space (2 bolos/pair)
+                            # Move again in bolo space (2 bolos/pair)
                             bolo_index += 1
 
-                            ## Move in pair space
+                            # Move in pair space
                             pair_index += 1
 
-                            ## Close the job if you hit the maximum number of
-                            ## bolometers or pairs.
+                            # Close the job if you hit the maximum number of
+                            # bolometers or pairs.
                             try:
-                                assert bolo_index < self.nbolometer, \
-                                    'Hardware map generated...'
-                                assert pair_index < self.npair, \
-                                    'Hardware map generated...'
+                                assert (
+                                    bolo_index < self.nbolometer
+                                ), "Hardware map generated..."
+                                assert (
+                                    pair_index < self.npair
+                                ), "Hardware map generated..."
                             except AssertionError as e:
                                 if self.verbose:
                                     print(str(e))
@@ -712,7 +793,7 @@ class FocalPlane():
                         squid_index += 1
                     dfmux_index += 1
 
-    def get_indices(self, name='Cr'):
+    def get_indices(self, name="Cr"):
         """
         Returns Cr(ate), Df(mux) or Sq(uid) indices.
 
@@ -738,19 +819,26 @@ class FocalPlane():
         [0, 0, 0, 0, 0, 0, 0, 0]
 
         """
-        assert name in ['Cr', 'Sq', 'Df'], \
-            ValueError("name must be in ['Cr', 'Sq', 'Df'].")
+        assert name in ["Cr", "Sq", "Df"], ValueError(
+            "name must be in ['Cr', 'Sq', 'Df']."
+        )
 
-        indices = [
-            int(comp.split(name)[-1][:3]) for comp in self.bolo_id]
+        indices = [int(comp.split(name)[-1][:3]) for comp in self.bolo_id]
 
         return indices
 
-class BeamModel():
+
+class BeamModel:
     """ Class to handle the beams of the detectors """
-    def __init__(self,
-                 focal_plane, fwhm=3.5, beam_seed=58347,
-                 projected_fp_size=3., verbose=False):
+
+    def __init__(
+        self,
+        focal_plane,
+        fwhm=3.5,
+        beam_seed=58347,
+        projected_fp_size=3.0,
+        verbose=False,
+    ):
         """
         Parameters
         ----------
@@ -768,15 +856,15 @@ class BeamModel():
         verbose : boolean, optional
             If True, print out a number of useful comments for verboseging.
         """
-        ## Focal plane parameters
+        # Focal plane parameters
         self.focal_plane = focal_plane
 
-        ## Beam model and mirror parameters
+        # Beam model and mirror parameters
         self.fwhm = fwhm
         self.beam_seed = beam_seed
         self.projected_fp_size = projected_fp_size
 
-        ## Paths and names
+        # Paths and names
         self.verbose = verbose
 
         self.beamprm = self.generate_beam_parameters()
@@ -801,43 +889,56 @@ class BeamModel():
          -0.01308997 -0.01308997  0.01308997  0.01308997]
         """
 
-        beamprm_header = ['Amp', 'Amp_err',
-                          'ellip_ang', 'ellip_ang_err',
-                          'sig_1', 'sig_1_err',
-                          'sig_2', 'sig_2_err',
-                          'xpos', 'xpos_err',
-                          'ypos', 'ypos_err']
+        beamprm_header = [
+            "Amp",
+            "Amp_err",
+            "ellip_ang",
+            "ellip_ang_err",
+            "sig_1",
+            "sig_1_err",
+            "sig_2",
+            "sig_2_err",
+            "xpos",
+            "xpos_err",
+            "ypos",
+            "ypos_err",
+        ]
 
         for b in beamprm_header:
             setattr(self, b, np.zeros(self.focal_plane.nbolometer))
 
-        ## Position of the bolometers
-        ## (bolometers cm -> bolometers radians)
+        # Position of the bolometers
+        # (bolometers cm -> bolometers radians)
         self.xpos, self.ypos = convert_cm_to_rad(
-            self.focal_plane.bolo_xcoord, self.focal_plane.bolo_ycoord,
-            conversion=self.projected_fp_size /
-            self.focal_plane.fp_size * np.pi / 180.)
+            self.focal_plane.bolo_xcoord,
+            self.focal_plane.bolo_ycoord,
+            conversion=(
+                self.projected_fp_size / self.focal_plane.fp_size * np.pi / 180.0
+            ),
+        )
 
-        ## Generate Gaussian beams.
-        ## FWHM arcmin -> FWHM rad -> sigma rad
-        FWHM_rad = self.fwhm / 60. * np.pi / 180.
+        # Generate Gaussian beams.
+        # FWHM arcmin -> FWHM rad -> sigma rad
+        FWHM_rad = self.fwhm / 60.0 * np.pi / 180.0
         sigma_rad = FWHM_rad / np.sqrt(8 * np.log(2))
 
         self.sig_1 = np.ones(self.focal_plane.nbolometer) * sigma_rad
         self.sig_2 = np.ones(self.focal_plane.nbolometer) * sigma_rad
 
-        ## Angle of rotation for the ellipses.
-        ## Between -90 and 90 degrees.
+        # Angle of rotation for the ellipses.
+        # Between -90 and 90 degrees.
         state = np.random.RandomState(self.beam_seed)
         self.ellip_ang = state.uniform(-90, 90, self.focal_plane.nbolometer)
 
-        ## Amplitude of the beams
-        ## Default is one.
+        # Amplitude of the beams
+        # Default is one.
         self.Amp = np.ones(self.focal_plane.nbolometer)
 
-class PointingModel():
+
+class PointingModel:
     """ Class to handle the pointing model of the telescope """
-    def __init__(self, pm_name='5params'):
+
+    def __init__(self, pm_name="5params"):
         """
         We focus on a five-parameter pointing model (Mangum 2001) to
         characterize the relationship between the telescope's encoder
@@ -875,30 +976,35 @@ class PointingModel():
         """
         self.pm_name = pm_name
 
-        if self.pm_name == '5params':
+        if self.pm_name == "5params":
             self.five_parameter_pointing_model()
         else:
-            raise ValueError('Only the five-parameter ' +
-                             'pointing model (Mangum 2001) is implemented ' +
-                             'for the moment (pm_name = 5params)')
+            raise ValueError(
+                """Only the five-parameter
+                pointing model (Mangum 2001) is implemented
+                for the moment (pm_name = 5params)"""
+            )
 
     def five_parameter_pointing_model(self):
         """
         Parameters based on Polarbear configuration.
         """
-        self.allowed_params = 'ia ie ca an aw'
+        self.allowed_params = "ia ie ca an aw"
 
-        self.value_params = np.array([-10.28473073, 8.73953334,
-                                      -15.59771781, -0.50977716, 0.10858016])
+        self.value_params = np.array(
+            [-10.28473073, 8.73953334, -15.59771781, -0.50977716, 0.10858016]
+        )
 
-        ## Set this to zero for the moment
+        # Set this to zero for the moment
         self.RMS_AZ = 0.0
         self.RMS_EL = 0.0
         self.RMS_RESID = 0.0
 
-class HalfWavePlate():
+
+class HalfWavePlate:
     """ Class to handle the Half-Wave Plate (HWP) """
-    def __init__(self, type_hwp='CRHWP', freq_hwp=2., angle_hwp=0.):
+
+    def __init__(self, type_hwp="CRHWP", freq_hwp=2.0, angle_hwp=0.0):
         """
         This class provides routines to compute the HWP angles.
         This can be use later to generate timestreams.
@@ -919,15 +1025,16 @@ class HalfWavePlate():
         self.freq_hwp = freq_hwp
         self.angle_hwp = angle_hwp
 
-        if self.type_hwp not in ['CRHWP', 'stepped']:
+        if self.type_hwp not in ["CRHWP", "stepped"]:
             raise ValueError("`type_hwp` has to be 'CRHWP' or 'stepped'.")
 
-        if self.type_hwp is 'stepped' and freq_hwp != 0.0:
-            raise AssertionError("You cannot have a stepped HWP and non-" +
-                                 "zero frequency! set freq_hwp=0.0 " +
-                                 "if you want a stepped HWP.")
+        if self.type_hwp == "stepped" and freq_hwp != 0.0:
+            raise AssertionError(
+                """You cannot have a stepped HWP and non-zero frequency!
+                set freq_hwp=0.0 if you want a stepped HWP."""
+            )
 
-    def compute_HWP_angles(self, sample_rate=1., size=1):
+    def compute_HWP_angles(self, sample_rate=1.0, size=1):
         """
         Generate HWP angles which can be use later to generate timestreams.
 
@@ -968,11 +1075,14 @@ class HalfWavePlate():
         AssertionError: You cannot have a stepped HWP and non-zero frequency!
         set freq_hwp=0.0 if you want a stepped HWP.
         """
-        angle = self.angle_hwp * np.pi / 180.
+        angle = self.angle_hwp * np.pi / 180.0
 
         HWP_angles = np.array(
-            [angle + t * (self.freq_hwp / sample_rate) *
-             2. * np.pi for t in range(size)])
+            [
+                angle + t * (self.freq_hwp / sample_rate) * 2.0 * np.pi
+                for t in range(size)
+            ]
+        )
 
         return HWP_angles
 
@@ -1015,6 +1125,7 @@ class HalfWavePlate():
 
 if __name__ == "__main__":
     import doctest
+
     if np.__version__ >= "1.14.0":
         np.set_printoptions(legacy="1.13")
     doctest.testmod()

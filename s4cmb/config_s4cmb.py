@@ -11,6 +11,7 @@ import sys
 import importlib
 import numpy as np
 
+
 def compare_version_number(version, threshold):
     """
     Compare two version numbers.
@@ -36,12 +37,12 @@ def compare_version_number(version, threshold):
     True
 
     """
-    ## If the two versions are equal
+    # If the two versions are equal
     if version == threshold:
         return True
 
-    version_numbers = version.split('.')
-    threshold_numbers = threshold.split('.')
+    version_numbers = version.split(".")
+    threshold_numbers = threshold.split(".")
     for v, t in zip(version_numbers, threshold_numbers):
         v = int(v)
         t = int(t)
@@ -52,6 +53,7 @@ def compare_version_number(version, threshold):
         if v < t:
             return False
     return True
+
 
 def import_string_as_module(fn_full):
     """
@@ -76,16 +78,18 @@ def import_string_as_module(fn_full):
     True
 
     """
-    ## Import parameters from the user parameter file
-    fn_short = os.path.basename(fn_full).split('.py')[0]
-    sys.path.insert(0, os.path.realpath(
-        os.path.join(os.getcwd(), os.path.dirname(fn_full))))
+    # Import parameters from the user parameter file
+    fn_short = os.path.basename(fn_full).split(".py")[0]
+    sys.path.insert(
+        0, os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(fn_full)))
+    )
     params = importlib.import_module(fn_short)
     return params
 
 
 if __name__ == "__main__":
     import doctest
+
     if np.__version__ >= "1.14.0":
         np.set_printoptions(legacy="1.13")
     doctest.testmod()

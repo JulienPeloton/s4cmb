@@ -16,18 +16,29 @@ import warnings
 
 import healpy as hp
 import numpy as np
-from astropy.io import fits as pyfits
 
-from s4cmb.config_s4cmb import compare_version_number
 from s4cmb.tools import alm2map_spin_der1
 
-class HealpixFitsMap():
+
+class HealpixFitsMap:
     """ Class to handle fits file containing healpix maps """
-    def __init__(self, input_filename,
-                 do_pol=True, verbose=False, fwhm_in=0.0, fwhm_in2=None,
-                 nside_in=16, lmax=None, map_seed=53543, no_ileak=False,
-                 no_quleak=False, compute_derivatives=None,derivatives_type='T',
-                 ext_map_gal=False):
+
+    def __init__(
+        self,
+        input_filename,
+        do_pol=True,
+        verbose=False,
+        fwhm_in=0.0,
+        fwhm_in2=None,
+        nside_in=16,
+        lmax=None,
+        map_seed=53543,
+        no_ileak=False,
+        no_quleak=False,
+        compute_derivatives=None,
+        derivatives_type="T",
+        ext_map_gal=False,
+    ):
         """
 
         Parameters
@@ -113,28 +124,30 @@ class HealpixFitsMap():
                 print("Reading sky maps from alms file...")
             self.load_healpix_fits_map_from_alms()
             fromalms = True
-        elif self.input_filename[-4:] == '.dat':
+        elif self.input_filename[-4:] == ".dat":
             if self.verbose:
                 print("Creating sky maps from cl file...")
             self.create_healpix_fits_map()
-        elif self.input_filename[-5:] == '.fits':
+        elif self.input_filename[-5:] == ".fits":
             if self.verbose:
                 print("Reading sky maps from fits file...")
             self.load_healpix_fits_map()
         else:
-            raise IOError("Input file not understood! Should be either a " +
-                          "fits file containing the sky maps " +
-                          "(data will be loaded), or a CAMB lensed cl file " +
-                          "(.dat) containing lensed power spectra with " +
-                          "order ell, TT, EE, BB, TE " +
-                          "(maps will be created on-the-fly).")
+            raise IOError(
+                """Input file not understood! Should be either a
+                fits file containing the sky maps
+                (data will be loaded), or a CAMB lensed cl file
+                (.dat) containing lensed power spectra with
+                order ell, TT, EE, BB, TE
+                (maps will be created on-the-fly)."""
+            )
 
         self.set_leakage_to_zero()
 
         if self.compute_derivatives:
-            if 'T' in self.derivatives_type:
+            if "T" in self.derivatives_type:
                 self.compute_intensity_derivatives(fromalm=fromalms)
-            if 'P' in self.derivatives_type:
+            if "P" in self.derivatives_type:
                 self.compute_pol_derivatives(fromalm=fromalms)
 
     def load_healpix_fits_map(self, force=False):
@@ -170,10 +183,12 @@ class HealpixFitsMap():
         if self.I is None or force:
             if self.do_pol:
                 self.I, self.Q, self.U = hp.read_map(
-                    self.input_filename, (0, 1, 2), verbose=self.verbose)
+                    self.input_filename, (0, 1, 2), verbose=self.verbose
+                )
             else:
                 self.I = hp.read_map(
-                    self.input_filename, field=0, verbose=self.verbose)
+                    self.input_filename, field=0, verbose=self.verbose
+                )
             self.nside = hp.npix2nside(len(self.I))
         else:
             print("External data already present in memory")
@@ -228,17 +243,23 @@ class HealpixFitsMap():
                     [tlm, elm, blm],
                     nside=self.nside_in,
                     pixwin=False,
-                    fwhm=self.fwhm_in / 60. * np.pi / 180.,
-                    sigma=None, pol=True, inplace=False,
-                    verbose=self.verbose)
+                    fwhm=self.fwhm_in / 60.0 * np.pi / 180.0,
+                    sigma=None,
+                    pol=True,
+                    inplace=False,
+                    verbose=self.verbose,
+                )
                 if self.fwhm_in2 is not None:
                     self.I2, self.Q2, self.U2 = hp.alm2map(
                         [tlm, elm, blm],
                         nside=self.nside_in,
                         pixwin=False,
-                        fwhm=self.fwhm_in2 / 60. * np.pi / 180.,
-                        sigma=None, pol=True, inplace=False,
-                        verbose=self.verbose)
+                        fwhm=self.fwhm_in2 / 60.0 * np.pi / 180.0,
+                        sigma=None,
+                        pol=True,
+                        inplace=False,
+                        verbose=self.verbose,
+                    )
             else:
                 tlm = hp.read_alm(self.input_filename[0])
 
@@ -246,17 +267,23 @@ class HealpixFitsMap():
                     tlm,
                     nside=self.nside_in,
                     pixwin=False,
-                    fwhm=self.fwhm_in / 60. * np.pi / 180.,
-                    sigma=None, pol=False, inplace=False,
-                    verbose=self.verbose)
+                    fwhm=self.fwhm_in / 60.0 * np.pi / 180.0,
+                    sigma=None,
+                    pol=False,
+                    inplace=False,
+                    verbose=self.verbose,
+                )
                 if self.fwhm_in2 is not None:
                     self.I2 = hp.alm2map(
                         tlm,
                         nside=self.nside_in,
                         pixwin=False,
-                        fwhm=self.fwhm_in2 / 60. * np.pi / 180.,
-                        sigma=None, pol=False, inplace=False,
-                        verbose=self.verbose)
+                        fwhm=self.fwhm_in2 / 60.0 * np.pi / 180.0,
+                        sigma=None,
+                        pol=False,
+                        inplace=False,
+                        verbose=self.verbose,
+                    )
 
             self.nside = hp.npix2nside(len(self.I))
         else:
@@ -304,28 +331,32 @@ class HealpixFitsMap():
                     nside=self.nside_in,
                     FWHM=self.fwhm_in,
                     seed=self.map_seed,
-                    lmax=self.lmax)
+                    lmax=self.lmax,
+                )
                 if self.fwhm_in2 is not None:
                     self.I2, self.Q2, self.U2 = create_sky_map(
                         self.input_filename,
                         nside=self.nside_in,
                         FWHM=self.fwhm_in2,
                         seed=self.map_seed,
-                        lmax=self.lmax)
+                        lmax=self.lmax,
+                    )
             else:
                 self.I = create_sky_map(
                     self.input_filename,
                     nside=self.nside_in,
                     FWHM=self.fwhm_in,
                     seed=self.map_seed,
-                    lmax=self.lmax)
+                    lmax=self.lmax,
+                )
                 if self.fwhm_in2 is not None:
                     self.I2 = create_sky_map(
                         self.input_filename,
                         nside=self.nside_in,
                         FWHM=self.fwhm_in2,
                         seed=self.map_seed,
-                        lmax=self.lmax)
+                        lmax=self.lmax,
+                    )
             self.nside = hp.npix2nside(len(self.I))
         else:
             print("External data already present in memory")
@@ -356,13 +387,13 @@ class HealpixFitsMap():
         >>> print(hpmap.I, hpmap.I2)
         [ 0.  0.  0. ...,  0.  0.  0.] [ 0.  0.  0. ...,  0.  0.  0.]
         """
-        ## Set temperature to zero to avoid I->QU leakage
+        # Set temperature to zero to avoid I->QU leakage
         if self.no_ileak:
             self.I[:] = 0.0
             if self.I2 is not None:
                 self.I2[:] = 0.0
 
-        ## Set polarisation to zero to avoid QU leakage
+        # Set polarisation to zero to avoid QU leakage
         if self.no_quleak:
             if self.Q is not None:
                 self.Q[:] = 0.0
@@ -400,17 +431,18 @@ class HealpixFitsMap():
         else:
             alm = hp.map2alm(self.I, self.lmax)
 
-        lmax=hp.Alm.getlmax(alm.size)
-        if 'T1' in self.derivatives_type:
+        # lmax = hp.Alm.getlmax(alm.size)
+        if "T1" in self.derivatives_type:
             junk, self.dIdt, self.dIdp = hp.alm2map_der1(
-            alm, self.nside_in, self.lmax)
+                alm, self.nside_in, self.lmax
+            )
         else:
             # computes first and second derivative as derivatives of spin-1
             # transform of a scalar field with _1Elm=sqrt(l(l+1))Ilm _1Blm=0
-            l=np.arange(self.lmax+1)
-            grad=np.sqrt(l*(l+1))
+            l = np.arange(self.lmax + 1)
+            grad = np.sqrt(l * (l + 1))
             curl = np.zeros_like(alm)
-            dervs = alm2map_spin_der1([hp.almxfl(alm,grad),curl],self.nside_in,1)
+            dervs = alm2map_spin_der1([hp.almxfl(alm, grad), curl], self.nside_in, 1)
             self.dIdt = dervs[0][0]
             self.dIdp = dervs[0][1]
             self.d2Id2t = dervs[1][0]
@@ -442,29 +474,34 @@ class HealpixFitsMap():
             Elm = hp.read_alm(self.input_filename[1])
             Blm = hp.read_alm(self.input_filename[2])
         else:
-            alm = hp.map2alm([self.I,self.Q,self.U], self.lmax)
-            Elm=alm[1]
-            Blm=alm[2]
-        lmax=hp.Alm.getlmax(Elm.size)
-        if 'P1' in self.derivatives_type:
-            out = alm2map_spin_der1([Elm,Blm], self.nside_in, 2)
-            self.dQdt =out[1][0]
-            self.dUdt =out[1][1]
-            self.dQdp =out[2][0]
-            self.dUdp =out[2][1]
+            alm = hp.map2alm([self.I, self.Q, self.U], self.lmax)
+            Elm = alm[1]
+            Blm = alm[2]
+        # lmax = hp.Alm.getlmax(Elm.size)
+        if "P1" in self.derivatives_type:
+            out = alm2map_spin_der1([Elm, Blm], self.nside_in, 2)
+            self.dQdt = out[1][0]
+            self.dUdt = out[1][1]
+            self.dQdp = out[2][0]
+            self.dUdp = out[2][1]
         else:
-            warnings.warn('Computation of second order polarization derivatives not implemented yet. Set to 0.')
-            out = alm2map_spin_der1([Elm,Blm], self.nside_in, 2)
-            self.dQdt =out[1][0]
-            self.dUdt =out[1][1]
-            self.dQdp =out[2][0]
-            self.dUdp =out[2][1]
+            warnings.warn("""
+            Computation of second order polarization derivatives not
+            implemented yet. Set to 0.
+            """)
+
+            out = alm2map_spin_der1([Elm, Blm], self.nside_in, 2)
+            self.dQdt = out[1][0]
+            self.dUdt = out[1][1]
+            self.dQdp = out[2][0]
+            self.dUdp = out[2][1]
             self.d2Qd2t = np.zeros_like(self.dQdt)
             self.d2Qd2p = np.zeros_like(self.dQdt)
             self.d2Qdpdt = np.zeros_like(self.dQdt)
             self.d2Ud2t = np.zeros_like(self.dQdt)
             self.d2Ud2p = np.zeros_like(self.dQdt)
             self.d2Udpdt = np.zeros_like(self.dQdt)
+
 
 def add_hierarch(lis):
     """
@@ -488,10 +525,11 @@ def add_hierarch(lis):
     """
     for i, item in enumerate(lis):
         if len(item) == 3:
-            lis[i] = ('HIERARCH ' + item[0], item[1], item[2])
+            lis[i] = ("HIERARCH " + item[0], item[1], item[2])
         else:
-            lis[i] = ('HIERARCH ' + item[0], item[1])
+            lis[i] = ("HIERARCH " + item[0], item[1])
     return lis
+
 
 def get_obspix(xmin, xmax, ymin, ymax, nside):
     """
@@ -523,20 +561,20 @@ def get_obspix(xmin, xmax, ymin, ymax, nside):
            18, 19, 20, 21, 26, 27, 28, 29,
            30, 34, 35, 36, 37, 42, 43, 44])
     """
-    theta_min = np.pi / 2. - ymax
-    theta_max = np.pi / 2. - ymin
-    fpix, lpix = hp.ang2pix(nside, [theta_min, theta_max], [0., 2.*np.pi])
+    theta_min = np.pi / 2.0 - ymax
+    theta_max = np.pi / 2.0 - ymin
+    fpix, lpix = hp.ang2pix(nside, [theta_min, theta_max], [0.0, 2.0 * np.pi])
     pixs = np.arange(fpix, lpix + 1, dtype=np.int)
 
     theta, phi = hp.pix2ang(nside, pixs)
     if xmin < 0:
-        phi[phi > np.pi] = (phi[phi > np.pi] - 2 * np.pi)
-    good = (theta >= theta_min) * (theta <= theta_max) * \
-        (phi <= xmax) * (phi >= xmin)
+        phi[phi > np.pi] = phi[phi > np.pi] - 2 * np.pi
+    good = (theta >= theta_min) * (theta <= theta_max) * (phi <= xmax) * (phi >= xmin)
     obspix = pixs[good]
     obspix.sort()
 
     return obspix
+
 
 def LamCyl(ra, dec):
     """
@@ -545,18 +583,22 @@ def LamCyl(ra, dec):
     """
     return ra, np.sin(dec)
 
+
 def SFL(ra, dec):
-    '''SFL stands for Sanson-Flamsteed. In the USGS report this is
+    """SFL stands for Sanson-Flamsteed. In the USGS report this is
     referred to as the Sinusoidal Projection. It is equal-area. Parallels
     are equally spaced straight lines. Scale is true along central meridian
-    and all paralles.'''
+    and all paralles."""
     return ra * np.cos(dec), dec
 
-def deSFL(x,y):
-    return x/np.cos(y),y
 
-def deLamCyl(x,y):
-    return x,np.arcsin(y)
+def deSFL(x, y):
+    return x / np.cos(y), y
+
+
+def deLamCyl(x, y):
+    return x, np.arcsin(y)
+
 
 def create_sky_map(cl_fn, nside=16, FWHM=0.0, seed=548397, lmax=None):
     """
@@ -587,27 +629,41 @@ def create_sky_map(cl_fn, nside=16, FWHM=0.0, seed=548397, lmax=None):
        80.8613084 ]
     """
     if lmax is None:
-        lmax = 2*nside
+        lmax = 2 * nside
     ell, TT, EE, BB, TE = np.loadtxt(cl_fn).T
 
-    ## Take out the normalisation...
-    llp = ell * (ell + 1.) / (2 * np.pi)
+    # Take out the normalisation...
+    llp = ell * (ell + 1.0) / (2 * np.pi)
 
-    ## Arcmin to rad
-    FWHM_rad = FWHM / 60. * np.pi / 180.
+    # Arcmin to rad
+    FWHM_rad = FWHM / 60.0 * np.pi / 180.0
 
     np.random.seed(seed)
     I, Q, U = hp.synfast(
-        [TT / llp, EE / llp, BB / llp, TE / llp], nside,
-        lmax=lmax, mmax=None, alm=False,
-        pol=True, pixwin=False,
-        fwhm=FWHM_rad, sigma=None, new=True,
-        verbose=False)
+        [TT / llp, EE / llp, BB / llp, TE / llp],
+        nside,
+        lmax=lmax,
+        mmax=None,
+        alm=False,
+        pol=True,
+        pixwin=False,
+        fwhm=FWHM_rad,
+        sigma=None,
+        new=True,
+        verbose=False,
+    )
     return I, Q, U
 
-def write_healpix_cmbmap(output_filename, data, fits_IDL=False,
-                         coord=None, colnames=['I', 'Q', 'U'], partial=True,
-                         nest=False):
+
+def write_healpix_cmbmap(
+    output_filename,
+    data,
+    fits_IDL=False,
+    coord=None,
+    colnames=["I", "Q", "U"],
+    partial=True,
+    nest=False,
+):
     """
     Write healpix fits map in full sky mode or partial sky,
     Input data have to be a list with n fields to be written.
@@ -640,26 +696,25 @@ def write_healpix_cmbmap(output_filename, data, fits_IDL=False,
     >>> write_healpix_cmbmap('myfits_to_test_.fits',
     ...     data=[I, Q, U], colnames=colnames)
     """
-    ## Write the header
+    # Write the header
     extra_header = []
     for c in colnames:
-        extra_header.append(('column_names', c))
+        extra_header.append(("column_names", c))
     extra_header = add_hierarch(extra_header)
 
-    ## Need to introduce this workaround because the last
-    ## version of healpy introduced non-backward compatibility...
-    try:
-        hp.write_map(
-            output_filename, data, fits_IDL=fits_IDL,
-            coord=coord, column_names=None, partial=partial,
-            extra_header=extra_header, overwrite=True)
-    except:
-        hp.write_map(
-            output_filename, data, fits_IDL=fits_IDL,
-            coord=coord, column_names=None, partial=partial,
-            extra_header=extra_header)
+    hp.write_map(
+        output_filename,
+        data,
+        fits_IDL=fits_IDL,
+        coord=coord,
+        column_names=None,
+        partial=partial,
+        extra_header=extra_header,
+        overwrite=True,
+    )
 
-def write_dummy_map(filename='myfits_to_test_.fits', nside=16):
+
+def write_dummy_map(filename="myfits_to_test_.fits", nside=16):
     """
     Write dummy file on disk for test purposes.
 
@@ -676,10 +731,11 @@ def write_dummy_map(filename='myfits_to_test_.fits', nside=16):
     """
     nside = 16
     I, Q, U = np.random.rand(3, hp.nside2npix(nside))
-    colnames = ['I', 'Q', 'U']
+    colnames = ["I", "Q", "U"]
     write_healpix_cmbmap(filename, data=[I, Q, U], colnames=colnames)
 
-def remove_test_data(has_id='_to_test_', silent=True):
+
+def remove_test_data(has_id="_to_test_", silent=True):
     """
     Remove data with name containing the `has_id`.
 
@@ -695,16 +751,17 @@ def remove_test_data(has_id='_to_test_', silent=True):
     >>> remove_test_data(has_id='_to_erase_', silent=False)
     Removing files:  ['file_to_erase_.txt']
     """
-    fns = glob.glob('*' + has_id + '*')
+    fns = glob.glob("*" + has_id + "*")
     if not silent:
-        print('Removing files: ', fns)
+        print("Removing files: ", fns)
     for fn in fns:
         os.remove(fn)
 
 
 if __name__ == "__main__":
     import doctest
+
     if np.__version__ >= "1.14.0":
         np.set_printoptions(legacy="1.13")
     doctest.testmod()
-    remove_test_data(has_id='_to_test_', silent=True)
+    remove_test_data(has_id="_to_test_", silent=True)

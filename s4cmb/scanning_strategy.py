@@ -15,18 +15,28 @@ from s4cmb.scanning_strategy_f import scanning_strategy_f
 
 from pyslalib import slalib
 
-## numerical constants
-radToDeg = 180. / np.pi
+# numerical constants
+radToDeg = 180.0 / np.pi
 sidDayToSec = 86164.0905
 
-class ScanningStrategy():
+
+class ScanningStrategy:
     """ Class to handle the scanning strategy of the telescope """
-    def __init__(self, nces=12, start_date='2013/1/1 00:00:00',
-                 telescope_longitude='-67:46.816',
-                 telescope_latitude='-22:56.396', telescope_elevation=5200.,
-                 name_strategy='deep_patch', sampling_freq=30., sky_speed=0.4,
-                 ut1utc_fn='s4cmb/data/ut1utc.ephem', language='python',
-                 verbose=False):
+
+    def __init__(
+        self,
+        nces=12,
+        start_date="2013/1/1 00:00:00",
+        telescope_longitude="-67:46.816",
+        telescope_latitude="-22:56.396",
+        telescope_elevation=5200.0,
+        name_strategy="deep_patch",
+        sampling_freq=30.0,
+        sky_speed=0.4,
+        ut1utc_fn="s4cmb/data/ut1utc.ephem",
+        language="python",
+        verbose=False,
+    ):
         """
         A scanning strategy consists in defining the site of observation
         on earth for which we will make the observation, the region
@@ -78,22 +88,28 @@ class ScanningStrategy():
 
         self.ut1utc_fn = ut1utc_fn
         if not os.path.isfile(self.ut1utc_fn):
-            url = 'http://tycho.usno.navy.mil/leapsec.html'
-            msg = 'The path {} does not point to a valid file! see ' + \
-                's4cmb/data/ut1utc.ephem provided with the package. ' + \
-                'For more information, see {}.'
+            url = "http://tycho.usno.navy.mil/leapsec.html"
+            msg = """
+            The path {} does not point to a valid file! see
+            s4cmb/data/ut1utc.ephem provided with the package.
+            For more information, see {}.
+            """
             raise Exception(msg.format(self.ut1utc_fn, url))
 
         self.verbose = verbose
 
         self.telescope_location = self.define_telescope_location(
-            telescope_longitude, telescope_latitude, telescope_elevation)
+            telescope_longitude, telescope_latitude, telescope_elevation
+        )
 
         self.define_boundary_of_scan()
 
-    def define_telescope_location(self, telescope_longitude='-67:46.816',
-                                  telescope_latitude='-22:56.396',
-                                  telescope_elevation=5200.):
+    def define_telescope_location(
+        self,
+        telescope_longitude="-67:46.816",
+        telescope_latitude="-22:56.396",
+        telescope_elevation=5200.0,
+    ):
         """
         Routine to define the site of observation on earth for which
         positions are to be computed. The location of the Polarbear telescope
@@ -160,33 +176,87 @@ class ScanningStrategy():
         ['deep_patch', 'shallow_patch', 'small_aperture', 'custom']
         """
         self.allowed_scanning_strategies = [
-            'deep_patch',
-            'shallow_patch',
-            'small_aperture',
-            'custom']
+            "deep_patch",
+            "shallow_patch",
+            "small_aperture",
+            "custom",
+        ]
 
-        if self.name_strategy == 'deep_patch':
-            self.elevation = [30.0, 45.5226, 47.7448, 49.967,
-                              52.1892, 54.4114, 56.6336, 58.8558,
-                              61.078, 63.3002, 65.5226, 35.2126]
+        if self.name_strategy == "deep_patch":
+            self.elevation = [
+                30.0,
+                45.5226,
+                47.7448,
+                49.967,
+                52.1892,
+                54.4114,
+                56.6336,
+                58.8558,
+                61.078,
+                63.3002,
+                65.5226,
+                35.2126,
+            ]
 
-            self.az_min = [134.2263, 162.3532, 162.3532, 162.3532,
-                           162.3532, 162.3532, 162.3532, 162.3532,
-                           162.3532, 162.3532, 162.3532, 204.7929]
+            self.az_min = [
+                134.2263,
+                162.3532,
+                162.3532,
+                162.3532,
+                162.3532,
+                162.3532,
+                162.3532,
+                162.3532,
+                162.3532,
+                162.3532,
+                162.3532,
+                204.7929,
+            ]
 
-            self.az_max = [154.2263, 197.3532, 197.3532, 197.3532,
-                           197.3532, 197.3532, 197.3532, 197.3532,
-                           197.3532, 197.3532, 197.3532, 224.7929]
+            self.az_max = [
+                154.2263,
+                197.3532,
+                197.3532,
+                197.3532,
+                197.3532,
+                197.3532,
+                197.3532,
+                197.3532,
+                197.3532,
+                197.3532,
+                197.3532,
+                224.7929,
+            ]
 
-            self.begin_LST = ['17:07:54.84', '22:00:21.76', '22:00:21.76',
-                              '22:00:21.76', '22:00:21.76', '22:00:21.76',
-                              '22:00:21.76', '22:00:21.76', '22:00:21.76',
-                              '22:00:21.76', '22:00:21.76', '2:01:01.19']
+            self.begin_LST = [
+                "17:07:54.84",
+                "22:00:21.76",
+                "22:00:21.76",
+                "22:00:21.76",
+                "22:00:21.76",
+                "22:00:21.76",
+                "22:00:21.76",
+                "22:00:21.76",
+                "22:00:21.76",
+                "22:00:21.76",
+                "22:00:21.76",
+                "2:01:01.19",
+            ]
 
-            self.end_LST = ['22:00:21.76', '02:01:01.19', '02:01:01.19',
-                            '02:01:01.19', '02:01:01.19', '02:01:01.19',
-                            '02:01:01.19', '02:01:01.19', '02:01:01.19',
-                            '02:01:01.19', '02:01:01.19', '6:53:29.11']
+            self.end_LST = [
+                "22:00:21.76",
+                "02:01:01.19",
+                "02:01:01.19",
+                "02:01:01.19",
+                "02:01:01.19",
+                "02:01:01.19",
+                "02:01:01.19",
+                "02:01:01.19",
+                "02:01:01.19",
+                "02:01:01.19",
+                "02:01:01.19",
+                "6:53:29.11",
+            ]
 
             self.dec_min = None
             self.dec_max = None
@@ -194,23 +264,33 @@ class ScanningStrategy():
             self.end_RA = None
             self.orientation = None
 
-            ## Center of the patch in RA/Dec
-            self.ra_mid = 0.
+            # Center of the patch in RA/Dec
+            self.ra_mid = 0.0
             self.dec_mid = -57.5
-        elif self.name_strategy == 'small_aperture':
-            self.elevation = [50.] * 6
+        elif self.name_strategy == "small_aperture":
+            self.elevation = [50.0] * 6
 
-            self.az_min = [37.1, 282.8, 110.3,
-                           197.0, 110.3, 197.0]
+            self.az_min = [37.1, 282.8, 110.3, 197.0, 110.3, 197.0]
 
-            self.az_max = [77.7, 322.9, 163.0,
-                           250.2, 163.0, 250.2]
+            self.az_max = [77.7, 322.9, 163.0, 250.2, 163.0, 250.2]
 
-            self.begin_LST = ['08:30:00.00', '12:30:00.00', '16:30:00.00',
-                              '02:30:00.00', '16:30:00.00', '22:30:00.00']
+            self.begin_LST = [
+                "08:30:00.00",
+                "12:30:00.00",
+                "16:30:00.00",
+                "02:30:00.00",
+                "16:30:00.00",
+                "22:30:00.00",
+            ]
 
-            self.end_LST = ['12:29:59.32', '16:29:59.32', '02:29:59.30',
-                            '08:29:59.98', '22:29:59.99', '08:29:59.30']
+            self.end_LST = [
+                "12:29:59.32",
+                "16:29:59.32",
+                "02:29:59.30",
+                "08:29:59.98",
+                "22:29:59.99",
+                "08:29:59.30",
+            ]
 
             self.dec_min = None
             self.dec_max = None
@@ -218,35 +298,59 @@ class ScanningStrategy():
             self.end_RA = None
             self.orientation = None
 
-            ## Center of the patch in RA/Dec
-            self.ra_mid = 0.
-            self.dec_mid = 0.
-        elif self.name_strategy == 'shallow_patch':
-            self.elevation = [30., 30., 30., 30., 30., 30.]
+            # Center of the patch in RA/Dec
+            self.ra_mid = 0.0
+            self.dec_mid = 0.0
+        elif self.name_strategy == "shallow_patch":
+            self.elevation = [30.0, 30.0, 30.0, 30.0, 30.0, 30.0]
 
-            self.dec_min = ["-5:00:00", "-5:00:00", "-15:00:00",
-                            "-15:00:00", "-60:00:00", "-60:00:00"]
+            self.dec_min = [
+                "-5:00:00",
+                "-5:00:00",
+                "-15:00:00",
+                "-15:00:00",
+                "-60:00:00",
+                "-60:00:00",
+            ]
 
-            self.dec_max = ["20:00:00", "20:00:00", "20:00:00",
-                            "20:00:00", "-15:00:00", "-15:00:00"]
+            self.dec_max = [
+                "20:00:00",
+                "20:00:00",
+                "20:00:00",
+                "20:00:00",
+                "-15:00:00",
+                "-15:00:00",
+            ]
 
-            self.begin_RA = ["7:40:00", "7:40:00", "20:00:00",
-                             "20:00:00", "20:00:00", "20:00:00"]
+            self.begin_RA = [
+                "7:40:00",
+                "7:40:00",
+                "20:00:00",
+                "20:00:00",
+                "20:00:00",
+                "20:00:00",
+            ]
 
-            self.end_RA = ["15:20:00", "15:20:00", "5:40:00",
-                           "5:40:00", "5:40:00", "5:40:00"]
+            self.end_RA = [
+                "15:20:00",
+                "15:20:00",
+                "5:40:00",
+                "5:40:00",
+                "5:40:00",
+                "5:40:00",
+            ]
 
-            self.orientation = ['west', 'east', 'west', 'east', 'west', 'east']
+            self.orientation = ["west", "east", "west", "east", "west", "east"]
 
             self.az_min = None
             self.az_max = None
             self.begin_LST = None
             self.end_LST = None
 
-            ## Center of the patch in RA/Dec
-            self.ra_mid = 0.
-            self.dec_mid = 0.
-        elif self.name_strategy == 'custom':
+            # Center of the patch in RA/Dec
+            self.ra_mid = 0.0
+            self.dec_mid = 0.0
+        elif self.name_strategy == "custom":
             self.elevation = None
             self.dec_min = None
             self.dec_max = None
@@ -258,14 +362,16 @@ class ScanningStrategy():
             self.begin_LST = None
             self.end_LST = None
 
-            ## Center of the patch in RA/Dec
-            self.ra_mid = 0.
-            self.dec_mid = 0.
+            # Center of the patch in RA/Dec
+            self.ra_mid = 0.0
+            self.dec_mid = 0.0
         else:
-            raise ValueError("Only name_strategy = deep_patch or " +
-                             "shallow_patch or custom are " +
-                             "currently available. For another usage " +
-                             "(advanced users), modify this routine.")
+            raise ValueError(
+                """Only name_strategy = deep_patch or
+                shallow_patch or custom are
+                currently available. For another usage
+                (advanced users), modify this routine."""
+            )
 
     def run_one_scan(self, scan_file, scan_number):
         """
@@ -284,104 +390,110 @@ class ScanningStrategy():
             Returns True if the scan has been generated, and False if the scan
             already exists on the disk.
         """
-        ## Check if we have too much/enough information to make a scan
+        # Check if we have too much/enough information to make a scan
         msg = "You cannot specify azimuth and declination!"
-        assert (getattr(self, 'az_min') and not getattr(self, 'dec_min')) or \
-            (not getattr(self, 'az_min') and getattr(self, 'dec_min')), msg
-        assert (getattr(self, 'az_max') and not getattr(self, 'dec_max')) or \
-            (not getattr(self, 'az_max') and getattr(self, 'dec_max')), msg
+        assert (getattr(self, "az_min") and not getattr(self, "dec_min")) or (
+            not getattr(self, "az_min") and getattr(self, "dec_min")
+        ), msg
+        assert (getattr(self, "az_max") and not getattr(self, "dec_max")) or (
+            not getattr(self, "az_max") and getattr(self, "dec_max")
+        ), msg
 
         msg = "You cannot specify LST and RA!"
-        assert (getattr(self, 'begin_LST') and not getattr(self, 'begin_RA')) or \
-            (not getattr(self, 'begin_LST') and getattr(self, 'begin_RA')), msg
-        assert (getattr(self, 'end_LST') and not getattr(self, 'end_RA')) or \
-            (not getattr(self, 'end_LST') and getattr(self, 'end_RA')), msg
+        assert (getattr(self, "begin_LST") and not getattr(self, "begin_RA")) or (
+            not getattr(self, "begin_LST") and getattr(self, "begin_RA")
+        ), msg
+        assert (getattr(self, "end_LST") and not getattr(self, "end_RA")) or (
+            not getattr(self, "end_LST") and getattr(self, "end_RA")
+        ), msg
 
-        if getattr(self, 'az_min') and getattr(self, 'az_max'):
-            msg = 'You need to define timing bounds!'
-            assert getattr(self, 'begin_LST') is not None, msg
-            assert getattr(self, 'end_LST') is not None, msg
+        if getattr(self, "az_min") and getattr(self, "az_max"):
+            msg = "You need to define timing bounds!"
+            assert getattr(self, "begin_LST") is not None, msg
+            assert getattr(self, "end_LST") is not None, msg
             azLST = True
             RADEC = False
             if self.verbose:
                 print("Using azimuth and LST bounds")
 
-        elif getattr(self, 'dec_min') and getattr(self, 'dec_max'):
-            msg = 'You need to define RA bounds!'
-            assert getattr(self, 'begin_RA') is not None, msg
-            assert getattr(self, 'end_RA') is not None, msg
-            msg = 'You need to define orientation of scan (east/west)!'
-            assert getattr(self, 'orientation') is not None, msg
+        elif getattr(self, "dec_min") and getattr(self, "dec_max"):
+            msg = "You need to define RA bounds!"
+            assert getattr(self, "begin_RA") is not None, msg
+            assert getattr(self, "end_RA") is not None, msg
+            msg = "You need to define orientation of scan (east/west)!"
+            assert getattr(self, "orientation") is not None, msg
             azLST = False
             RADEC = True
             if self.verbose:
                 print("Using RA and Dec bounds")
 
-        ## Figure out the elevation to run the scan
+        # Figure out the elevation to run the scan
         el = self.elevation[scan_number]
 
-        ## Define the sampling rate in Hz
+        # Define the sampling rate in Hz
         sampling_freq = self.sampling_freq
 
-        #########################################################
-        ## Define geometry of the scan
-        #########################################################
+        #############################
+        # Define geometry of the scan
+        #############################
         if azLST:
-            ## Define geometry of the scan by figuring out the azimuth bounds
-            az_mean = (
-                self.az_min[scan_number] + self.az_max[scan_number]) * 0.5
-            az_throw = (self.az_max[scan_number] -
-                        self.az_min[scan_number]) / np.cos(el / radToDeg)
+            # Define geometry of the scan by figuring out the azimuth bounds
+            az_mean = (self.az_min[scan_number] + self.az_max[scan_number]) * 0.5
+            az_throw = (self.az_max[scan_number] - self.az_min[scan_number]) / np.cos(
+                el / radToDeg
+            )
 
         elif RADEC:
-            ## If given bounds in declination, make bounds in azimuth
-            ## note there is no sanity checking here!
-            az_array = np.linspace(0., 180., endpoint=True, num=360)
+            # If given bounds in declination, make bounds in azimuth
+            # note there is no sanity checking here!
+            az_array = np.linspace(0.0, 180.0, endpoint=True, num=360)
             ra_array = np.zeros(az_array.shape)
             dec_array = np.zeros(az_array.shape)
             dec_min = ephem.degrees(self.dec_min[scan_number])
             dec_max = ephem.degrees(self.dec_max[scan_number])
-            if(self.orientation[scan_number] == 'west'):
-                az_array += 180.
+            if self.orientation[scan_number] == "west":
+                az_array += 180.0
 
             for i in range(0, az_array.shape[0]):
-                ra_array[i], dec_array[i] = \
-                    self.telescope_location.radec_of(
-                        az_array[i] / radToDeg, el / radToDeg)
+                ra_array[i], dec_array[i] = self.telescope_location.radec_of(
+                    az_array[i] / radToDeg, el / radToDeg
+                )
 
             az_allowed = np.asarray(
-                [az_array[i] for i in range(0, az_array.shape[0])
-                    if (dec_array[i] > dec_min and dec_array[i] < dec_max)])
+                [
+                    az_array[i]
+                    for i in range(0, az_array.shape[0])
+                    if (dec_array[i] > dec_min and dec_array[i] < dec_max)
+                ]
+            )
 
-            if (az_allowed.shape[0] < 2):
-                ms = 'Invalid combination of declination bounds and elevation.'
+            if az_allowed.shape[0] < 2:
+                ms = "Invalid combination of declination bounds and elevation."
                 print(ms)
                 exit(1)
 
             az_max = np.max(az_allowed)
             az_min = np.min(az_allowed)
             az_mean = (az_min + az_max) * 0.5
-            az_throw = (az_max - az_min)
+            az_throw = az_max - az_min
 
-        #########################################################
-        ## Define the timing bounds!
-        #########################################################
+        #############################
+        # Define the timing bounds!
+        #############################
         if azLST:
-            LST_now = float(
-                self.telescope_location.sidereal_time()) / (2 * np.pi)
-            begin_LST = float(
-                ephem.hours(self.begin_LST[scan_number])) / (2 * np.pi)
-            end_LST = float(
-                ephem.hours(self.end_LST[scan_number])) / (2 * np.pi)
+            LST_now = float(self.telescope_location.sidereal_time()) / (2 * np.pi)
+            begin_LST = float(ephem.hours(self.begin_LST[scan_number])) / (2 * np.pi)
+            end_LST = float(ephem.hours(self.end_LST[scan_number])) / (2 * np.pi)
 
-            if (begin_LST > end_LST):
-                begin_LST -= 1.
+            if begin_LST > end_LST:
+                begin_LST -= 1.0
 
-            ## Reset the date to correspond to the sidereal time to start
+            # Reset the date to correspond to the sidereal time to start
             self.telescope_location.date -= (
-                (LST_now - begin_LST) * sidDayToSec) * ephem.second
+                (LST_now - begin_LST) * sidDayToSec
+            ) * ephem.second
 
-            ## Figure out how long to run the scan for
+            # Figure out how long to run the scan for
             num_pts = int((end_LST - begin_LST) * sidDayToSec * sampling_freq)
 
         if RADEC:
@@ -393,7 +505,8 @@ class ScanningStrategy():
 
             # Figure out where we are looking now
             ra_target, dec_target = self.telescope_location.radec_of(
-                az_mean / radToDeg, el / radToDeg)
+                az_mean / radToDeg, el / radToDeg
+            )
 
             # Instantiate the targets
             target_min_ra._dec = dec_target
@@ -404,138 +517,151 @@ class ScanningStrategy():
             # Compute initial RA
             target_min_ra.compute(self.telescope_location)
             target_max_ra.compute(self.telescope_location)
-            if(self.orientation[scan_number] == 'east'):
-                self.telescope_location.date =  \
-                    self.telescope_location.next_rising(target_min_ra)
+            if self.orientation[scan_number] == "east":
+                self.telescope_location.date = self.telescope_location.next_rising(
+                    target_min_ra
+                )
 
                 # Recompute coodinates in the light of change of date
                 target_min_ra.compute(self.telescope_location)
                 target_max_ra.compute(self.telescope_location)
 
-                ## Update number of time samples for the scan
-                num_pts = int(
-                    (self.telescope_location.next_rising(
-                        target_max_ra) - self.telescope_location.date) /
-                    ephem.second * sampling_freq)
+                # Update number of time samples for the scan
+                ra_max_rising = self.telescope_location.next_rising(target_max_ra)
+                diff_ra = ra_max_rising - self.telescope_location.date
+                num_pts = int(diff_ra / ephem.second * sampling_freq)
 
-            if(self.orientation[scan_number] == 'west'):
-                self.telescope_location.date =  \
-                    self.telescope_location.next_setting(target_min_ra)
+            if self.orientation[scan_number] == "west":
+                self.telescope_location.date = self.telescope_location.next_setting(
+                    target_min_ra
+                )
 
                 # Recompute coodinates in the light of change of date
                 target_min_ra.compute(self.telescope_location)
                 target_max_ra.compute(self.telescope_location)
 
-                ## Update number of time samples for the scan
-                num_pts = int(
-                    (self.telescope_location.next_setting(
-                        target_max_ra) - self.telescope_location.date) /
-                    ephem.second * sampling_freq)
+                # Update number of time samples for the scan
+                ra_max_setting = self.telescope_location.next_setting(target_max_ra)
+                diff_ra = ra_max_setting - self.telescope_location.date
+                num_pts = int(diff_ra / ephem.second * sampling_freq)
 
-        ## Run the scan!
-        pb_az_dir = 1.
-        upper_az = az_mean + az_throw / 2.
-        lower_az = az_mean - az_throw / 2.
+        # Run the scan!
+        pb_az_dir = 1.0
+        upper_az = az_mean + az_throw / 2.0
+        lower_az = az_mean - az_throw / 2.0
         az_speed = self.sky_speed / np.cos(el / radToDeg)
         running_az = az_mean
 
-        ## Initialize arrays
+        # Initialize arrays
         pb_az_array = np.zeros(num_pts)
         pb_mjd_array = np.zeros(num_pts)
         pb_ra_array = np.zeros(num_pts)
         pb_dec_array = np.zeros(num_pts)
         pb_el_array = np.ones(num_pts) * el
 
-        ## Subscan boundaries
+        # Subscan boundaries
         pb_subscans = []
         pb_subscans.append(0)
 
-        ## Loop over time samples
+        # Loop over time samples
         # begin_lst = str(self.telescope_location.sidereal_time())
         # Pad scans 10 seconds on either side
         time_padding = 10.0 / 86400.0
 
-        ## Start of the scan
+        # Start of the scan
         pb_az_array[0] = running_az
         pb_mjd_array[0] = date_to_mjd(self.telescope_location.date)
 
-        ## Initialize the time
-        scan_file['firstmjd'] = pb_mjd_array[0] - time_padding
+        # Initialize the time
+        scan_file["firstmjd"] = pb_mjd_array[0] - time_padding
 
-        ## Update before starting the loop
+        # Update before starting the loop
         running_az += az_speed * pb_az_dir / sampling_freq
         self.telescope_location.date += ephem.second / sampling_freq
 
-        if self.language == 'python':
+        if self.language == "python":
             for t in range(0, num_pts):
-                ## Set the Azimuth and time
+                # Set the Azimuth and time
                 pb_az_array[t] = running_az
 
-                pb_ra_array[t], pb_dec_array[t] = \
-                    self.telescope_location.radec_of(
-                    pb_az_array[t] * np.pi / 180.,
-                    pb_el_array[t] * np.pi / 180.)
+                pb_ra_array[t], pb_dec_array[t] = self.telescope_location.radec_of(
+                    pb_az_array[t] * np.pi / 180.0, pb_el_array[t] * np.pi / 180.0
+                )
 
-                ## Case to change the direction of the scan
-                if(running_az > upper_az):
-                    pb_az_dir = -1.
+                # Case to change the direction of the scan
+                if running_az > upper_az:
+                    pb_az_dir = -1.0
                     pb_subscans.append(t)
-                elif(running_az < lower_az):
-                    pb_az_dir = 1.
+                elif running_az < lower_az:
+                    pb_az_dir = 1.0
                     pb_subscans.append(t)
 
                 running_az += az_speed * pb_az_dir / sampling_freq
 
-                ## Increment the time by one second / sampling rate
+                # Increment the time by one second / sampling rate
                 if t > 0:
-                    pb_mjd_array[t] = pb_mjd_array[t-1] + \
-                        ephem.second / sampling_freq
+                    pb_mjd_array[t] = (
+                        pb_mjd_array[t - 1] + ephem.second / sampling_freq
+                    )
 
-                ## Increment the time by one second / sampling rate
+                # Increment the time by one second / sampling rate
                 self.telescope_location.date += ephem.second / sampling_freq
 
-        elif self.language == 'fortran':
-            second = 1./24./3600.
+        elif self.language == "fortran":
+            second = 1.0 / 24.0 / 3600.0
             scanning_strategy_f.run_one_scan_f(
-                pb_az_array, pb_mjd_array,
-                running_az, upper_az, lower_az, az_speed, pb_az_dir,
-                second, sampling_freq, num_pts)
+                pb_az_array,
+                pb_mjd_array,
+                running_az,
+                upper_az,
+                lower_az,
+                az_speed,
+                pb_az_dir,
+                second,
+                sampling_freq,
+                num_pts,
+            )
 
-        ## Do not use that for precision - it truncates values
+        # Do not use that for precision - it truncates values
         self.telescope_location.date += num_pts * ephem.second / sampling_freq
 
-        ## Save in file
-        scan_file['nces'] = self.nces
-        scan_file['CES'] = scan_number
-        scan_file['sample_rate'] = sampling_freq
-        scan_file['sky_speed'] = self.sky_speed
-        scan_file['lastmjd'] = pb_mjd_array[-1] + time_padding
+        # Save in file
+        scan_file["nces"] = self.nces
+        scan_file["CES"] = scan_number
+        scan_file["sample_rate"] = sampling_freq
+        scan_file["sky_speed"] = self.sky_speed
+        scan_file["lastmjd"] = pb_mjd_array[-1] + time_padding
 
-        scan_file['azimuth'] = pb_az_array * np.pi / 180
-        scan_file['elevation'] = pb_el_array * np.pi / 180
-        scan_file['clock-utc'] = pb_mjd_array
+        scan_file["azimuth"] = pb_az_array * np.pi / 180
+        scan_file["elevation"] = pb_el_array * np.pi / 180
+        scan_file["clock-utc"] = pb_mjd_array
 
-        scan_file['RA'] = pb_ra_array
-        scan_file['Dec'] = pb_dec_array
+        scan_file["RA"] = pb_ra_array
+        scan_file["Dec"] = pb_dec_array
 
-        scan_file['nts'] = len(pb_mjd_array)
+        scan_file["nts"] = len(pb_mjd_array)
 
-        scan_file['subscans'] = zip(
-            pb_subscans[:-1], np.array(pb_subscans[1:]) - 1)
+        scan_file["subscans"] = zip(pb_subscans[:-1], np.array(pb_subscans[1:]) - 1)
 
         if self.verbose:
-            print('+-----------------------------------+')
-            print(' CES starts at %s and finishes at %s' % (
-                mjd_to_greg(scan_file['firstmjd']),
-                mjd_to_greg(scan_file['lastmjd'])))
-            print(' It lasts %.3f hours' % (
-                (scan_file['lastmjd'] - scan_file['firstmjd']) * 24))
-            print('+-----------------------------------+')
+            print("+-----------------------------------+")
+            print(
+                " CES starts at %s and finishes at %s"
+                % (
+                    mjd_to_greg(scan_file["firstmjd"]),
+                    mjd_to_greg(scan_file["lastmjd"]),
+                )
+            )
+            print(
+                " It lasts %.3f hours"
+                % ((scan_file["lastmjd"] - scan_file["firstmjd"]) * 24)
+            )
+            print("+-----------------------------------+")
 
-        ## Add one day before the next CES (to avoid conflict of time)
+        # Add one day before the next CES (to avoid conflict of time)
         self.telescope_location.date += 24 * ephem.second * 3600
 
-        ## Add the scan into the instance
+        # Add the scan into the instance
         # self._update('scan{}'.format(scan_number), scan_file)
 
         return True
@@ -586,20 +712,31 @@ class ScanningStrategy():
             orientations (east/west)
 
         """
-        ## Initialise the date and loop over CESes
+        # Initialise the date and loop over CESes
         self.telescope_location.date = self.start_date
         for CES_position in range(self.nces):
-            ## Initialise the starting date of observation
-            ## It will be updated then automatically
-            setattr(self, 'scan{}'.format(CES_position), {})
+            # Initialise the starting date of observation
+            # It will be updated then automatically
+            setattr(self, "scan{}".format(CES_position), {})
 
             # Create the scan strategy
             self.run_one_scan(
-                getattr(self, 'scan{}'.format(CES_position)), CES_position)
+                getattr(self, "scan{}".format(CES_position)), CES_position
+            )
 
-    def visualize_my_scan(self, nside, reso=6.9, xsize=900, rot=[0, -57.5],
-                          nfid_bolometer=6000, fp_size=180., boost=1.,
-                          fullsky=False,flatsky=False,nest=False):
+    def visualize_my_scan(
+        self,
+        nside,
+        reso=6.9,
+        xsize=900,
+        rot=[0, -57.5],
+        nfid_bolometer=6000,
+        fp_size=180.0,
+        boost=1.0,
+        fullsky=False,
+        flatsky=False,
+        nest=False,
+    ):
         """
         Simple map-making: project time ordered data into sky maps for
         visualisation. It works only in pure python (i.e. if you set
@@ -625,102 +762,140 @@ class ScanningStrategy():
             Boost factor to artificially increase the number of hits.
             It doesn't change the shape of the survey (just the amplitude).
         fullsky : boolean
-            If True, visualising full sky. If False, visualising area defined by reso and my xsize.
+            If True, visualising full sky. If False, visualising area defined by
+            reso and my xsize.
         flatsky : boolean
-            If True, visualising projection in a square array with the specified resolution. If False, visualising using healpy functions.
+            If True, visualising projection in a square array with the specified
+            resolution. If False, visualising using healpy functions.
         nest : boolean
             If flatsky projection, using the defined nesting in projection.
 
         Outputs
         ----------
-            * nhit: Sky map with cumulative hit counts. If flatsky is True, a square numpy array of size xsize x xsize is returned. Else, a 1D healpy array is returned.
+        nhit: Sky map with cumulative hit counts.
+            If flatsky is True, a square numpy array of size xsize x xsize is
+            returned. Else, a 1D healpy array is returned.
 
         Examples
         ----------
         >>> import matplotlib
-        >>> matplotlib.use("Agg") ## remove this if you want to display
+        >>> matplotlib.use("Agg") # remove this if you want to display
         >>> scan = ScanningStrategy(sampling_freq=1., nces=1)
         >>> scan.run()
         >>> nhit = scan.visualize_my_scan(512)
 
         """
         import pylab as pl
-        if self.language != 'python':
-            raise ValueError("Visualisation is available only in pure " +
-                             "python because we do not provide (yet) " +
-                             "RA and Dec in fortran. Relaunch " +
-                             "using language='python' in the class " +
-                             "ScanningStrategy.")
+
+        if self.language != "python":
+            raise ValueError(
+                """Visualisation is available only in pure
+                python because we do not provide (yet)
+                RA and Dec in fortran. Relaunch
+                using language='python' in the class
+                ScanningStrategy."""
+            )
 
         npix = hp.pixelfunc.nside2npix(nside)
         nhit = np.zeros(npix)
         for scan_number in range(self.nces):
-            scan = getattr(self, 'scan{}'.format(scan_number))
+            scan = getattr(self, "scan{}".format(scan_number))
 
-            num_pts = len(scan['clock-utc'])
+            num_pts = len(scan["clock-utc"])
             pix_global = hp.pixelfunc.ang2pix(
-                nside, (np.pi/2.) - scan['Dec'], scan['RA'])
+                nside, (np.pi / 2.0) - scan["Dec"], scan["RA"]
+            )
 
-            ## Boresight pointing healpix maps
+            # Boresight pointing healpix maps
             nhit_loc = np.zeros(npix, dtype=np.int32)
-            scanning_strategy_f.mapmaking(
-                pix_global, nhit_loc, npix, num_pts)
+            scanning_strategy_f.mapmaking(pix_global, nhit_loc, npix, num_pts)
 
-            ## Fake large focal plane with many bolometers for visualisation.
-            nhit_loc = convolve_focalplane(nhit_loc, nfid_bolometer,
-                                           fp_size, boost)
+            # Fake large focal plane with many bolometers for visualisation.
+            nhit_loc = convolve_focalplane(nhit_loc, nfid_bolometer, fp_size, boost)
 
             nhit += nhit_loc
 
         if self.verbose:
-            print('Stats: nhits = {}/{} (fsky={}%), max hit = {}'.format(
-                len(nhit[nhit > 0]),
-                len(nhit),
-                round(len(nhit[nhit > 0])/len(nhit) * 100, 2),
-                int(np.max(nhit))))
+            print(
+                "Stats: nhits = {}/{} (fsky={}%), max hit = {}".format(
+                    len(nhit[nhit > 0]),
+                    len(nhit),
+                    round(len(nhit[nhit > 0]) / len(nhit) * 100, 2),
+                    int(np.max(nhit)),
+                )
+            )
 
+        title = """
+        nbolos = {},
+        fp size = {} arcmin,
+        nhit boost = {}
+        """.format(nfid_bolometer, fp_size, boost)
         if flatsky:
             if fullsky:
                 # projecting full sky with the given resolution onto a squared array.
-                A_sky_deg2 = 360.**2/np.pi
-                N_pix = 60./reso * np.sqrt(A_sky_deg2) # number of pixels on a side
-                N_pix = np.ceil(N_pix) # rounding up, integer number required
-                ##################
+                A_sky_deg2 = 360.0 ** 2 / np.pi
+                N_pix = (
+                    60.0 / reso * np.sqrt(A_sky_deg2)
+                )  # number of pixels on a side
+                N_pix = np.ceil(N_pix)  # rounding up, integer number required
+                #########
                 # for full sky:
-                lonra = [-180,180]
-                latra = [-90,90]
-                ##################
-                hpcp = hp.projector.CartesianProj(xsize=N_pix,ysize=N_pix, lonra=lonra, latra=latra)
-                f = lambda x,y,z: hp.pixelfunc.vec2pix(nside,x,y,z,nest=nest)
-                flat_hits = np.flipud(hpcp.projmap(nhit, f)) # flipping array just for aesthetics
+                lonra = [-180, 180]
+                latra = [-90, 90]
+                #########
+                hpcp = hp.projector.CartesianProj(
+                    xsize=N_pix, ysize=N_pix, lonra=lonra, latra=latra
+                )
+                flat_hits = np.flipud(
+                    hpcp.projmap(
+                        nhit,
+                        lambda x, y, z:
+                            hp.pixelfunc.vec2pix(nside, x, y, z, nest=nest)
+                    )
+                )  # flipping array just for aesthetics
                 # plot
-                pl.imshow(flat_hits,cmap=pl.cm.viridis)
+                pl.imshow(flat_hits, cmap=pl.cm.viridis)
                 pl.colorbar()
-                pl.title('npix = {}, '.format(int(N_pix)) + 'nbolos = {}, '.format(nfid_bolometer) + 'fp size = {} arcmin, '.format(fp_size) + 'nhit boost = {}'.format(boost))
-                nhit = flat_hits # will return a flat hits map
+                title_ = """
+                npix = {},
+                nbolos = {},
+                fp size = {} arcmin,
+                nhit boost = {}
+                """.format(int(N_pix), nfid_bolometer, fp_size, boost)
+                pl.title(title_)
+                nhit = flat_hits  # will return a flat hits map
             else:
                 nhit[nhit == 0] = hp.UNSEEN
-                nhit = hp.gnomview(nhit, rot=rot, reso=reso, xsize=xsize,
-                        cmap=pl.cm.viridis,
-                        title='nbolos = {}, '.format(nfid_bolometer) +
-                        'fp size = {} arcmin, '.format(fp_size) +
-                        'nhit boost = {}'.format(boost), return_projected_map = True) # will return a flat hits map
+                nhit = hp.gnomview(
+                    nhit,
+                    rot=rot,
+                    reso=reso,
+                    xsize=xsize,
+                    cmap=pl.cm.viridis,
+                    title=title,
+                    return_projected_map=True,
+                )  # will return a flat hits map
                 hp.graticule(verbose=self.verbose)
         else:
             if fullsky:
                 nhit[nhit == 0] = hp.UNSEEN
-                hp.mollview(nhit, rot=rot, cmap=pl.cm.viridis,
-                            title='nbolos = {}, '.format(nfid_bolometer) +
-                            'fp size = {} arcmin, '.format(fp_size) +
-                            'nhit boost = {}'.format(boost))
+                hp.mollview(
+                    nhit,
+                    rot=rot,
+                    cmap=pl.cm.viridis,
+                    title=title
+                )
                 hp.graticule(verbose=self.verbose)
             else:
                 nhit[nhit == 0] = hp.UNSEEN
-                hp.gnomview(nhit, rot=rot, reso=reso, xsize=xsize,
-                        cmap=pl.cm.viridis,
-                        title='nbolos = {}, '.format(nfid_bolometer) +
-                        'fp size = {} arcmin, '.format(fp_size) +
-                        'nhit boost = {}'.format(boost))
+                hp.gnomview(
+                    nhit,
+                    rot=rot,
+                    reso=reso,
+                    xsize=xsize,
+                    cmap=pl.cm.viridis,
+                    title=title,
+                )
                 hp.graticule(verbose=self.verbose)
 
         pl.show()
@@ -740,6 +915,7 @@ class ScanningStrategy():
             The value of the attribute.
         """
         setattr(self, name, value)
+
 
 def convolve_focalplane(bore_nhits, nbolos, fp_radius_amin, boost):
     """
@@ -770,11 +946,11 @@ def convolve_focalplane(bore_nhits, nbolos, fp_radius_amin, boost):
     ----------
     >>> bore_nhits = np.zeros(hp.nside2npix(128))
 
-    ## Put a patch in the center
+    # Put a patch in the center
     >>> bore_nhits[hp.query_disc(128, hp.ang2vec(np.pi/2, 0.),
     ...     radius=10*np.pi/180.)] = 1.
 
-    ## Increase the number of detector (x100) and make a boost (x10)
+    # Increase the number of detector (x100) and make a boost (x10)
     >>> conv_bore_nhits = convolve_focalplane(bore_nhits, nbolos=100,
     ...     fp_radius_amin=180, boost=10)
     >>> print(round(np.max(bore_nhits), 2), round(np.max(conv_bore_nhits), 2))
@@ -786,25 +962,24 @@ def convolve_focalplane(bore_nhits, nbolos, fp_radius_amin, boost):
     # Resolution of our healpix map
     nside = hp.npix2nside(focalplane_nhits.shape[0])
     resol_amin = hp.nside2resol(nside, arcmin=True)
-    fp_rad_bins = int(fp_radius_amin * 2. / resol_amin)
+    fp_rad_bins = int(fp_radius_amin * 2.0 / resol_amin)
     fp_diam_bins = (fp_rad_bins * 2) + 1
 
     # Build the focal plane model and a list of offsets
     (x_fp, y_fp) = np.array(
-        np.unravel_index(
-            range(0, fp_diam_bins**2),
-            (fp_diam_bins, fp_diam_bins))).reshape(
-                2, fp_diam_bins, fp_diam_bins) - (fp_rad_bins)
-    fp_map = ((x_fp**2 + y_fp**2) < (fp_rad_bins)**2)
+        np.unravel_index(range(0, fp_diam_bins ** 2), (fp_diam_bins, fp_diam_bins))
+    ).reshape(2, fp_diam_bins, fp_diam_bins) - (fp_rad_bins)
+    fp_map = (x_fp ** 2 + y_fp ** 2) < (fp_rad_bins) ** 2
 
     bolo_per_pix = nbolos / float(np.sum(fp_map))
 
-    dRA = np.ndarray.flatten(
-        (x_fp[fp_map].astype(float) * fp_radius_amin) / (
-            fp_rad_bins * 60. * (180. / (np.pi))))
-    dDec = np.ndarray.flatten(
-        (y_fp[fp_map].astype(float) * fp_radius_amin) / (
-            fp_rad_bins * 60. * (180. / (np.pi))))
+    fp_amin_bins = fp_rad_bins * 60.0 * (180.0 / (np.pi))
+    dra = np.ndarray.flatten(
+        (x_fp[fp_map].astype(float) * fp_radius_amin) / fp_amin_bins
+    )
+    ddec = np.ndarray.flatten(
+        (y_fp[fp_map].astype(float) * fp_radius_amin) / fp_amin_bins
+    )
 
     pixels_global = np.array(np.where(bore_nhits != 0)[0], dtype=int)
     for n in pixels_global:
@@ -812,21 +987,23 @@ def convolve_focalplane(bore_nhits, nbolos, fp_radius_amin, boost):
 
         # Compute pointing offsets
         (theta_bore, phi_bore) = hp.pix2ang(nside, n)
-        phi = phi_bore + dRA * np.sin(theta_bore)
-        theta = theta_bore + dDec
+        phi = phi_bore + dra * np.sin(theta_bore)
+        theta = theta_bore + ddec
 
         pixels = hp.ang2pix(nside, theta, phi)
         npix_loc = len(pixels)
 
-        ## Necessary because the values in pixels aren't necessarily unique
-        ## This is a poor design choice and should probably be fixed
+        # Necessary because the values in pixels aren't necessarily unique
+        # This is a poor design choice and should probably be fixed
         scanning_strategy_f.convolve_focalplane_f(
-            bore_nhits[n], focalplane_nhits, pixels,
-            bolo_per_pix, boost, npix_loc)
+            bore_nhits[n], focalplane_nhits, pixels, bolo_per_pix, boost, npix_loc
+        )
 
     return focalplane_nhits
 
-## Here are a bunch of routines to handle dates...
+
+# Here are a bunch of routines to handle dates...
+
 
 def date_to_mjd(date):
     """
@@ -851,13 +1028,14 @@ def date_to_mjd(date):
     Examples
     ----------
     >>> e = ephem.Observer()
-    >>> e.date = 0.0 ## 1899 December 31 12:00 UT
+    >>> e.date = 0.0 # 1899 December 31 12:00 UT
     >>> mjd = date_to_mjd(e.date)
     >>> print('DATE={} ->'.format(round(e.date, 2)),
     ...     'MJD={}'.format(round(mjd, 2)))
     DATE=0.0 -> MJD=15019.5
     """
     return greg_to_mjd(date_to_greg(date))
+
 
 def date_to_greg(date):
     """
@@ -882,7 +1060,7 @@ def date_to_greg(date):
     Examples
     ----------
     >>> e = ephem.Observer()
-    >>> e.date = 0.0 ## 1899 December 31 12:00 UT
+    >>> e.date = 0.0 # 1899 December 31 12:00 UT
     >>> greg = date_to_greg(e.date)
     >>> print('DATE={} ->'.format(round(e.date, 2)),
     ...     'GREG={}'.format(greg))
@@ -890,12 +1068,10 @@ def date_to_greg(date):
     """
     date_ = str(date)
     date_ = str(date.datetime())
-    greg = date_.split('.')[0].replace('-',
-                                       '').replace(':',
-                                                   '').replace(' ',
-                                                               '_')
+    greg = date_.split(".")[0].replace("-", "").replace(":", "").replace(" ", "_")
 
     return greg
+
 
 def greg_to_mjd(greg):
     """
@@ -931,6 +1107,7 @@ def greg_to_mjd(greg):
 
     return mjd
 
+
 def mjd_to_greg(mjd):
     """
     Convert MJD into gregorian date.
@@ -955,19 +1132,21 @@ def mjd_to_greg(mjd):
     year, month, day, fracday, baddate = slalib.sla_djcl(mjd)
 
     if baddate:
-        raise ValueError(BadMJD)
+        raise ValueError("Bad MJD")
 
     sign, (hour, minute, second, frac) = slalib.sla_dd2tf(2, fracday)
 
-    s = '{:4d}{:2d}{:2d}_{:2d}{:2d}{:2d}'.format(
-        year, month, day, hour, minute, second)
-    s = s.replace(' ', '0')
+    s = "{:4d}{:2d}{:2d}_{:2d}{:2d}{:2d}".format(
+        year, month, day, hour, minute, second
+    )
+    s = s.replace(" ", "0")
 
     return s
 
 
 if __name__ == "__main__":
     import doctest
+
     if np.__version__ >= "1.14.0":
         np.set_printoptions(legacy="1.13")
     doctest.testmod()

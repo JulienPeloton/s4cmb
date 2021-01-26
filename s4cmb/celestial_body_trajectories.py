@@ -11,10 +11,19 @@ import ephem
 from datetime import datetime, date, time, timedelta
 import numpy as np
 
-class celestial_trajectory():
+
+class celestial_trajectory:
     """Predict the trajectory of a body (Sun, Moon, ...) """
-    def __init__(self, body, lon_observer, lat_observer, elevation_observer,
-                 year, tz_offset=0.):
+
+    def __init__(
+        self,
+        body,
+        lon_observer,
+        lat_observer,
+        elevation_observer,
+        year,
+        tz_offset=0.0,
+    ):
         """
         Parameters
         ----------
@@ -38,8 +47,20 @@ class celestial_trajectory():
         self.year = year
         self.tz_offset = tz_offset
 
-        self.months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        self.months = [
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Dec",
+        ]
 
         self.altaz = []
         self.radec = []
@@ -52,7 +73,7 @@ class celestial_trajectory():
         """
         Set the Longitute and Latitude of the Observer.
         """
-        ## Define the observer
+        # Define the observer
         self.ob = ephem.Observer()
         self.ob.lat, self.ob.lon = self.lat_observer, self.lon_observer
         self.ob.elevation = self.elevation_observer
@@ -141,20 +162,19 @@ class celestial_trajectory():
             WTF?
 
         """
-        ## Update the date
-        date = datetime.combine(date, time(12)) - timedelta(
-            hours=self.tz_offset)
+        # Update the date
+        date = datetime.combine(date, time(12)) - timedelta(hours=self.tz_offset)
         self.ob.date = date
 
-        ## Alt/Az
+        # Alt/Az
         ALTAZ = self.alt_az(date)
         self.altaz.append(ALTAZ)
 
-        ## RA/Dec
+        # RA/Dec
         RADEC = self.radec_of(ALTAZ)
         self.radec.append(RADEC)
 
-        ## Theta/Phi
+        # Theta/Phi
         THETAPHI = self.radec2thetaphi(RADEC)
         self.thetaphi.append(THETAPHI)
 
@@ -188,4 +208,5 @@ class celestial_trajectory():
 
 if __name__ == "__main__":
     import doctest
+
     doctest.testmod()

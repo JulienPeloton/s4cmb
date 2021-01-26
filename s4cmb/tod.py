@@ -13,6 +13,7 @@ import os
 
 import numpy as np
 import healpy as hp
+
 # Python3 does not have the cPickle module
 try:
     import cPickle as pickle
@@ -31,19 +32,47 @@ from s4cmb.tod_f import tod_f
 from s4cmb.xpure import qu_weight_mineig
 
 d2r = np.pi / 180.0
-am2rad = np.pi / 180. / 60.
+am2rad = np.pi / 180.0 / 60.0
 
-class TimeOrderedDataPairDiff():
+
+class TimeOrderedDataPairDiff:
     """ Class to handle Time-Ordered Data (TOD) """
-    def __init__(self, hardware, scanning_strategy, HealpixFitsMap,
-                 CESnumber, projection='healpix',
-                 nside_out=None, pixel_size=None, width=140.,
-                 cut_pixels_outside=True,
-                 array_noise_level=None, array_noise_seed=487587,
-                 array_noise_level2=None, array_noise_seed2=56736,
-                 nclouds=None, corrlength=None, alpha=None,
-                 f0=None, amp_atm=None, mapping_perpair=False, mode='standard',
-                 store_pointing_matrix_input = False, verbose=False, perturb_el = False, perturb_az = False, seed_pointing = 0., mu_pointing = 0., sigma_pointing = 13.,perturb_pol_angs=False,seed_pa=0.,pa_mu=0.,pa_sig=0.,pa_diff=False):
+
+    def __init__(
+        self,
+        hardware,
+        scanning_strategy,
+        HealpixFitsMap,
+        CESnumber,
+        projection="healpix",
+        nside_out=None,
+        pixel_size=None,
+        width=140.0,
+        cut_pixels_outside=True,
+        array_noise_level=None,
+        array_noise_seed=487587,
+        array_noise_level2=None,
+        array_noise_seed2=56736,
+        nclouds=None,
+        corrlength=None,
+        alpha=None,
+        f0=None,
+        amp_atm=None,
+        mapping_perpair=False,
+        mode="standard",
+        store_pointing_matrix_input=False,
+        verbose=False,
+        perturb_el=False,
+        perturb_az=False,
+        seed_pointing=0.0,
+        mu_pointing=0.0,
+        sigma_pointing=13.0,
+        perturb_pol_angs=False,
+        seed_pa=0.0,
+        pa_mu=0.0,
+        pa_sig=0.0,
+        pa_diff=False,
+    ):
         """
         C'est parti!
 
@@ -121,25 +150,26 @@ class TimeOrderedDataPairDiff():
             Store pointing matrix used to scan the input map
         perturb_el : boolean, optional
             If True, perturb one of a few pointing instances.
-            If False, sets error arrays to 0 so that the additional pointing instances
-            are the same as the original ones.
+            If False, sets error arrays to 0 so that the additional
+            pointing instances are the same as the original ones.
         perturb_az : boolean, optional
             If True, perturb one of a few pointing instances.
-            If False, sets error arrays to 0 so that the additional pointing instances
-            are the same as the original ones.
+            If False, sets error arrays to 0 so that the additional
+            pointing instances are the same as the original ones.
         seed_pointing : integer, optional
             Seed for boresight pointing perturbation. Doesn't affect anything if
             perturb_el == False or perturb_az == False.
         mu_pointing : integer, optional
-            Mean for boresight error distribution in arcseconds. Doesn't affect anything
-            perturb_el == False or perturb_az == False.
+            Mean for boresight error distribution in arcseconds.
+            Doesn't affect anything perturb_el == False or perturb_az == False.
         sigma_pointing : integer, optional
-            Width for boresight error distribution in arcseconds. Doesn't affect anything
-            perturb_el == False or perturb_az == False.
+            Width for boresight error distribution in arcseconds.
+            Doesn't affect anything perturb_el == False or perturb_az == False.
         perturb_pol_angs : bool, optional
             If True, perturbing polarization angles.
         seed_pa : int, optional
-            seed for perturbing polarization angle (ch is added to it for randomization)
+            seed for perturbing polarization angle
+            (ch is added to it for randomization)
         pa_mu : float, optional
             mean of pa syst perturbation.
         pa_sig : float, optional
@@ -147,7 +177,7 @@ class TimeOrderedDataPairDiff():
         pa_diff : bool, optional
             if True, doing differential pa perturbation
         """
-        ## Initialise args
+        # Initialise args
         self.verbose = verbose
         self.hardware = hardware
         self.scanning_strategy = scanning_strategy
@@ -164,98 +194,122 @@ class TimeOrderedDataPairDiff():
         self.perturb_el = perturb_el
         self.perturb_az = perturb_az
 
-        ## Check if you can run dichroic detectors
+        # Check if you can run dichroic detectors
         self.mode = mode
-        if self.mode == 'dichroic' and (
-                not hasattr(self.HealpixFitsMap, 'I2')):
+        if self.mode == "dichroic" and (
+            not hasattr(self.HealpixFitsMap, "I2")
+        ):
             raise IOError("You need two sets of maps for dichroic detectors!")
-        if self.mode == 'dichroic' and (
-                not hasattr(self.hardware, 'focal_plane2')):
+        if self.mode == "dichroic" and (
+            not hasattr(self.hardware, "focal_plane2")
+        ):
             raise IOError("You need two sets of det for dichroic detectors!")
-        if self.mode == 'dichroic' and (
-                not hasattr(self.hardware, 'beam_model2')):
+        if self.mode == "dichroic" and (
+            not hasattr(self.hardware, "beam_model2")
+        ):
             raise IOError("You need two sets of det for dichroic detectors!")
 
         self.width = width
         self.cut_pixels_outside = cut_pixels_outside
         self.store_pointing_matrix_input = store_pointing_matrix_input
 
-        ## Check the projection
+        # Check the projection
         self.projection = projection
-        assert self.projection in ['healpix', 'flat'], \
-            ValueError("Projection <{}> for ".format(self.projection) +
-                       "the output map not understood! " +
-                       "Choose among ['healpix', 'flat'].")
+        assert self.projection in ["healpix", "flat"], ValueError(
+            """Projection <{}> for
+            the output map not understood!
+            Choose among ['healpix', 'flat']."""
+        ).format(self.projection)
 
-        ## Check if the number of CES is consistent with the scanning strategy
+        # Check if the number of CES is consistent with the scanning strategy
         self.CESnumber = CESnumber
-        assert self.CESnumber < self.scanning_strategy.nces, \
-            ValueError("The scan index must be between 0 and {}.".format(
+        assert self.CESnumber < self.scanning_strategy.nces, ValueError(
+            "The scan index must be between 0 and {}.".format(
                 self.scanning_strategy.nces - 1
-            ))
+            )
+        )
 
-        ## Initialise internal parameters
-        self.scan = getattr(self.scanning_strategy, 'scan{}'.format(
-            self.CESnumber))
-        self.nsamples = self.scan['nts']
+        # Initialise internal parameters
+        self.scan = getattr(
+            self.scanning_strategy, "scan{}".format(self.CESnumber)
+        )
+        self.nsamples = self.scan["nts"]
         self.npair = self.hardware.focal_plane.npair
         self.pair_list = np.reshape(
-            self.hardware.focal_plane.bolo_index_in_fp, (self.npair, 2))
+            self.hardware.focal_plane.bolo_index_in_fp, (self.npair, 2)
+        )
 
         # boresight pointing perturbation errors
         if self.perturb_az or self.perturb_el:
-            mu_pointing = mu_pointing / 3600 * np.pi/180 # arcsec to radians
-            sigma_pointing = sigma_pointing / (3600*np.sqrt(2)) * np.pi/180 # arcsec to degrees and also dividing by sqrt(2) so that the overal error on position is np.sqrt(\delta_az^2+\delta_el^2)
+            mu_pointing = mu_pointing / 3600 * np.pi / 180  # arcsec to radians
+            # arcsec to degrees and also dividing by sqrt(2) so that
+            # the overal error on position is np.sqrt(\delta_az^2+\delta_el^2)
+            sigma_pointing = (
+                sigma_pointing / (3600 * np.sqrt(2)) * np.pi / 180
+            )
         if self.perturb_az:
             # perturb azimuth
             seed_pointing_az = seed_pointing
-            state_for_pointing_errors_az = np.random.RandomState(seed_pointing_az)
-            self.err_azimuth = state_for_pointing_errors_az.normal(mu_pointing, sigma_pointing, self.scan['nts'])
+            state_for_pointing_errors_az = np.random.RandomState(
+                seed_pointing_az
+            )
+            self.err_azimuth = state_for_pointing_errors_az.normal(
+                mu_pointing, sigma_pointing, self.scan["nts"]
+            )
         else:
-            self.err_azimuth = np.zeros(self.scan['nts'])
+            self.err_azimuth = np.zeros(self.scan["nts"])
 
         if self.perturb_el:
             # perturb elevation
-            seed_pointing_el = seed_pointing + 1234567890 # different seed for each perturbation; tried to avoid having another seed input
-            state_for_pointing_errors_el = np.random.RandomState(seed_pointing_el)
-            self.err_elevation = state_for_pointing_errors_el.normal(mu_pointing, sigma_pointing, self.scan['nts'])
+            seed_pointing_el = (
+                seed_pointing + 1234567890
+            )
+            # different seed for each perturbation;
+            # tried to avoid having another seed input
+            state_for_pointing_errors_el = np.random.RandomState(
+                seed_pointing_el
+            )
+            self.err_elevation = state_for_pointing_errors_el.normal(
+                mu_pointing, sigma_pointing, self.scan["nts"]
+            )
         else:
-            self.err_elevation = np.zeros(self.scan['nts'])
+            self.err_elevation = np.zeros(self.scan["nts"])
 
-        ## Pre-compute boresight pointing objects
+        # Pre-compute boresight pointing objects
         self.get_boresightpointing()
 
-        ## Polarisation angles: intrinsic and HWP angles
+        # Polarisation angles: intrinsic and HWP angles
         self.get_angles()
 
-        ## Position of bolometers in the focal plane
-        ## TODO move that elsewhere...
+        # Position of bolometers in the focal plane
+        # TODO move that elsewhere...
         self.ypos = self.hardware.beam_model.ypos
         self.xpos = self.hardware.beam_model.xpos
         self.xpos = self.xpos / np.cos(self.ypos)
 
-        ## Initialise pointing matrix, that is the matrix to go from time
-        ## to map domain, for all pairs of detectors.
+        # Initialise pointing matrix, that is the matrix to go from time
+        # to map domain, for all pairs of detectors.
         if not self.mapping_perpair:
             self.point_matrix = np.zeros(
-                (self.npair, self.nsamples), dtype=np.int32)
+                (self.npair, self.nsamples), dtype=np.int32
+            )
 
         else:
             self.point_matrix = np.zeros((1, self.nsamples), dtype=np.int32)
 
-
         # If set, stores the pointing matrix used to scan the map
         if self.store_pointing_matrix_input:
-            self.point_matrix_input =  np.zeros(self.point_matrix.shape, dtype=np.int32)
+            self.point_matrix_input = np.zeros(
+                self.point_matrix.shape, dtype=np.int32
+            )
 
-
-        ## Initialise the mask for timestreams
+        # Initialise the mask for timestreams
         self.wafermask_pixel = self.get_timestream_masks()
 
-        ## Boundaries for subscans (t_beg, t_end)
-        self.subscans = self.scan['subscans']
+        # Boundaries for subscans (t_beg, t_end)
+        self.subscans = self.scan["subscans"]
 
-        ## Get observed pixels in the input map
+        # Get observed pixels in the input map
         if nside_out is None:
             self.nside_out = self.HealpixFitsMap.nside
         else:
@@ -268,15 +322,16 @@ class TimeOrderedDataPairDiff():
         self.obspix, self.npixsky = self.get_obspix(
             self.width,
             self.scanning_strategy.ra_mid,
-            self.scanning_strategy.dec_mid)
+            self.scanning_strategy.dec_mid,
+        )
 
-        ## Get timestream weights
+        # Get timestream weights
         self.sum_weight, self.diff_weight = self.get_weights()
 
-        ## Get detector gains
+        # Get detector gains
         self.set_detector_gains()
 
-        ## Prepare noise simulator if needed
+        # Prepare noise simulator if needed
         self.array_noise_level = array_noise_level
         self.array_noise_seed = array_noise_seed
         self.nclouds = nclouds
@@ -287,13 +342,14 @@ class TimeOrderedDataPairDiff():
         if self.array_noise_level is not None and self.alpha is None:
             self.noise_generator = WhiteNoiseGenerator(
                 array_noise_level=self.array_noise_level,
-                ndetectors=2*self.npair,
+                ndetectors=2 * self.npair,
                 ntimesamples=self.nsamples,
-                array_noise_seed=self.array_noise_seed)
+                array_noise_seed=self.array_noise_seed,
+            )
         elif self.array_noise_level is not None and self.alpha is not None:
             self.noise_generator = CorrNoiseGenerator(
                 array_noise_level=self.array_noise_level,
-                ndetectors=2*self.npair,
+                ndetectors=2 * self.npair,
                 ntimesamples=self.nsamples,
                 array_noise_seed=self.array_noise_seed,
                 nclouds=self.nclouds,
@@ -301,7 +357,8 @@ class TimeOrderedDataPairDiff():
                 amp_atm=self.amp_atm,
                 corrlength=self.corrlength,
                 alpha=self.alpha,
-                sampling_freq=self.scanning_strategy.sampling_freq)
+                sampling_freq=self.scanning_strategy.sampling_freq,
+            )
         else:
             self.noise_generator = None
 
@@ -310,13 +367,14 @@ class TimeOrderedDataPairDiff():
         if self.array_noise_level2 is not None and self.alpha is None:
             self.noise_generator2 = WhiteNoiseGenerator(
                 array_noise_level=self.array_noise_level2,
-                ndetectors=2*self.npair,
+                ndetectors=2 * self.npair,
                 ntimesamples=self.nsamples,
-                array_noise_seed=self.array_noise_seed2)
+                array_noise_seed=self.array_noise_seed2,
+            )
         elif self.array_noise_level2 is not None and self.alpha is not None:
             self.noise_generator2 = CorrNoiseGenerator(
                 array_noise_level=self.array_noise_level2,
-                ndetectors=2*self.npair,
+                ndetectors=2 * self.npair,
                 ntimesamples=self.nsamples,
                 array_noise_seed=self.array_noise_seed2,
                 nclouds=self.nclouds,
@@ -324,7 +382,8 @@ class TimeOrderedDataPairDiff():
                 amp_atm=self.amp_atm,
                 corrlength=self.corrlength,
                 alpha=self.alpha,
-                sampling_freq=self.scanning_strategy.sampling_freq)
+                sampling_freq=self.scanning_strategy.sampling_freq,
+            )
         else:
             self.noise_generator2 = None
 
@@ -334,25 +393,25 @@ class TimeOrderedDataPairDiff():
         and initialise total polarisation angle.
         """
         self.hwpangle = self.hardware.half_wave_plate.compute_HWP_angles(
-            sample_rate=self.scan['sample_rate'],
-            size=self.nsamples)
+            sample_rate=self.scan["sample_rate"], size=self.nsamples
+        )
 
         self.intrinsic_polangle = self.hardware.focal_plane.bolo_polangle
         self.intrinsic_polangle2 = None
-        if self.mode == 'dichroic':
+        if self.mode == "dichroic":
             self.intrinsic_polangle2 = self.hardware.focal_plane2.bolo_polangle
 
-        ## Will contain the total polarisation angles for all bolometers
-        ## That is PA + intrinsic + 2 * HWP
+        # Will contain the total polarisation angles for all bolometers
+        # That is PA + intrinsic + 2 * HWP
         if not self.mapping_perpair:
             self.pol_angs = np.zeros((self.npair, self.nsamples))
             self.pol_angs2 = None
-            if self.mode == 'dichroic':
+            if self.mode == "dichroic":
                 self.pol_angs2 = np.zeros((self.npair, self.nsamples))
         else:
             self.pol_angs = np.zeros((1, self.nsamples))
             self.pol_angs2 = None
-            if self.mode == 'dichroic':
+            if self.mode == "dichroic":
                 self.pol_angs2 = np.zeros((1, self.nsamples))
 
     def get_timestream_masks(self):
@@ -406,48 +465,51 @@ class TimeOrderedDataPairDiff():
         >>> tod = TimeOrderedDataPairDiff(inst, scan, sky_in, CESnumber=0,
         ...     projection='flat')
         >>> obspix, npix = tod.get_obspix(10., 0., 0.)
-        >>> print(obspix) ## the same as healpix
+        >>> print(obspix) # the same as healpix
         [1376 1439 1440 1504 1567 1568 1632 1695]
         >>> print(npix, len(obspix))
         16 8
         """
-        ## Change to radian
+        # Change to radian
         ra_src = ra_src * d2r
         dec_src = dec_src * d2r
-        ## TODO implement the first line correctly...
+        # TODO implement the first line correctly...
         try:
             xmin, xmax, ymin, ymax = np.array(width) * d2r
         except TypeError:
-            xmin = xmax = ymin = ymax = d2r * width / 2.
+            xmin = xmax = ymin = ymax = d2r * width / 2.0
 
         # If map bound crosses zero make coordinates
-        ## bounds monotonic in [-pi,pi]
-        ra_min = (ra_src - xmin)
+        # bounds monotonic in [-pi,pi]
+        ra_min = ra_src - xmin
         if (ra_src + xmax) >= 2 * np.pi:
             ra_max = (ra_src + xmax) % (2 * np.pi)
             ra_min = ra_min if ra_min <= np.pi else ra_min - 2 * np.pi
         else:
-            ra_min = (ra_src - xmin)
-            ra_max = (ra_src + xmax)
+            ra_min = ra_src - xmin
+            ra_max = ra_src + xmax
 
-        dec_min = max([(dec_src - ymin), -np.pi/2])
-        dec_max = min([dec_src + ymax, np.pi/2])
+        dec_min = max([(dec_src - ymin), -np.pi / 2])
+        dec_max = min([dec_src + ymax, np.pi / 2])
 
         self.xmin = ra_min
         self.xmax = ra_max
         self.ymin = dec_min
         self.ymax = dec_max
 
-        obspix = input_sky.get_obspix(ra_min, ra_max,
-                                      dec_min, dec_max,
-                                      self.nside_out)
+        obspix = input_sky.get_obspix(
+            ra_min, ra_max, dec_min, dec_max, self.nside_out
+        )
 
-        if self.projection == 'flat':
-            npixsky = int(
-                round(
-                    (self.xmax - self.xmin + self.pixel_size) /
-                    self.pixel_size))**2
-        elif self.projection == 'healpix':
+        if self.projection == "flat":
+            npixsky = (
+                int(
+                    round(
+                        (self.xmax - self.xmin + self.pixel_size) / self.pixel_size
+                    )
+                ) ** 2
+            )
+        elif self.projection == "healpix":
             npixsky = len(obspix)
 
         return obspix, npixsky
@@ -512,20 +574,23 @@ class TimeOrderedDataPairDiff():
         >>> tod.set_detector_gains(new_gains=new_gains, new_gains2=new_gains2)
         """
         if new_gains is not None:
-            assert len(new_gains) == 2 * self.npair, \
-                ValueError("You have to provide {} new gain values!".format(
-                    2 * self.npair))
+            assert len(new_gains) == 2 * self.npair, ValueError(
+                "You have to provide {} new gain values!".format(
+                    2 * self.npair
+                )
+            )
             self.gain = new_gains
         else:
             self.gain = np.ones(2 * self.npair)
 
         self.gain2 = None
-        if self.mode == 'dichroic':
+        if self.mode == "dichroic":
             if new_gains2 is not None:
-                assert len(new_gains2) == 2 * self.npair, \
-                    ValueError(
-                        "You have to provide {} new gain values!".format(
-                            2 * self.npair))
+                assert len(new_gains2) == 2 * self.npair, ValueError(
+                    "You have to provide {} new gain values!".format(
+                        2 * self.npair
+                    )
+                )
                 self.gain2 = new_gains2
             else:
                 self.gain2 = np.ones(2 * self.npair)
@@ -574,18 +639,20 @@ class TimeOrderedDataPairDiff():
         """
         if new_gains is not None:
             msg = "You have to provide ({}, {}) new gain values!"
-            assert new_gains.shape == (2, self.nsamples), \
-                ValueError(msg.format(2, self.nsamples))
+            assert new_gains.shape == (2, self.nsamples), ValueError(
+                msg.format(2, self.nsamples)
+            )
             self.gain = new_gains
         else:
             self.gain = np.ones((2, self.nsamples))
 
         self.gain2 = None
-        if self.mode == 'dichroic':
+        if self.mode == "dichroic":
             if new_gains2 is not None:
                 msg = "You have to provide ({}, {}) new gain values!"
-                assert new_gains2.shape == (2, self.nsamples), \
-                    ValueError(msg.format(2, self.nsamples))
+                assert new_gains2.shape == (2, self.nsamples), ValueError(
+                    msg.format(2, self.nsamples)
+                )
                 self.gain2 = new_gains2
             else:
                 self.gain2 = np.ones((2, self.nsamples))
@@ -602,48 +669,58 @@ class TimeOrderedDataPairDiff():
         This is to avoid projection artifact by operating a rotation
         of the coordinates to (0, 0) in flat projection (scan around equator).
         """
-        lat = float(
-            self.scanning_strategy.telescope_location.lat) * 180. / np.pi
+        lat = float(self.scanning_strategy.telescope_location.lat)\
+            * 180.0 / np.pi
 
-        if self.projection == 'healpix':
+        if self.projection == "healpix":
             ra_src = 0.0
             dec_src = 0.0
-        elif self.projection == 'flat':
-            ra_src = self.scanning_strategy.ra_mid * np.pi / 180.
-            dec_src = self.scanning_strategy.dec_mid * np.pi / 180.
+        elif self.projection == "flat":
+            ra_src = self.scanning_strategy.ra_mid * np.pi / 180.0
+            dec_src = self.scanning_strategy.dec_mid * np.pi / 180.0
 
-            ## Perform a rotation of the input to put the point
-            ## (ra_src, dec_src) at (0, 0).
+            # Perform a rotation of the input to put the point
+            # (ra_src, dec_src) at (0, 0).
             # r = hp.Rotator(rot=[ra_src, self.scanning_strategy.dec_mid])
             # theta, phi = hp.pix2ang(self.HealpixFitsMap.nside,
             #                         range(12 * self.HealpixFitsMap.nside**2))
             # t, p = r(theta, phi, inv=True)
             # pix = hp.ang2pix(self.HealpixFitsMap.nside, t, p)
             #
-            # ## Apply the rotation to our maps
+            # # Apply the rotation to our maps
             # self.HealpixFitsMap.I = self.HealpixFitsMap.I[pix]
             # self.HealpixFitsMap.Q = self.HealpixFitsMap.Q[pix]
             # self.HealpixFitsMap.U = self.HealpixFitsMap.U[pix]
 
         self.pointing = Pointing(
-            az_enc=self.scan['azimuth'], # degrees, size of nts
-            el_enc=self.scan['elevation'], # degrees, size of nts
-            time=self.scan['clock-utc'],
+            az_enc=self.scan["azimuth"],  # degrees, size of nts
+            el_enc=self.scan["elevation"],  # degrees, size of nts
+            time=self.scan["clock-utc"],
             value_params=self.hardware.pointing_model.value_params,
             allowed_params=self.hardware.pointing_model.allowed_params,
             ut1utc_fn=self.scanning_strategy.ut1utc_fn,
-            lat=lat, ra_src=ra_src, dec_src=dec_src)
+            lat=lat,
+            ra_src=ra_src,
+            dec_src=dec_src,
+        )
 
         # boresight pointing systematics
         if self.perturb_el or self.perturb_az:
             self.pointing_perturbed = Pointing(
-                az_enc = (self.scan['azimuth']+self.err_azimuth), # degrees, size of nts
-                el_enc = (self.scan['elevation']+self.err_elevation), # degrees, size of nts
-                time=self.scan['clock-utc'],
+                az_enc=(
+                    self.scan["azimuth"] + self.err_azimuth
+                ),  # degrees, size of nts
+                el_enc=(
+                    self.scan["elevation"] + self.err_elevation
+                ),  # degrees, size of nts
+                time=self.scan["clock-utc"],
                 value_params=self.hardware.pointing_model.value_params,
                 allowed_params=self.hardware.pointing_model.allowed_params,
                 ut1utc_fn=self.scanning_strategy.ut1utc_fn,
-                lat=lat, ra_src=ra_src, dec_src=dec_src)
+                lat=lat,
+                ra_src=ra_src,
+                dec_src=dec_src,
+            )
         else:
             self.pointing_perturbed = None
 
@@ -693,11 +770,14 @@ class TimeOrderedDataPairDiff():
         if polangle_err:
             state_for_polang = np.random.RandomState(self.seed_pa)
 
-
-            if self.pa_sig==0:
-                dpolang = np.ones(len(self.intrinsic_polangle))*self.pa_mu # in deg
+            if self.pa_sig == 0:
+                dpolang = (
+                    np.ones(len(self.intrinsic_polangle)) * self.pa_mu
+                )  # in deg
             else:
-                dpolang = state_for_polang.normal(self.pa_mu, self.pa_sig,len(self.intrinsic_polangle)) # in deg
+                dpolang = state_for_polang.normal(
+                    self.pa_mu, self.pa_sig, len(self.intrinsic_polangle)
+                )  # in deg
 
             if self.pa_diff:
                 # differential pol ang symmetrically
@@ -710,29 +790,28 @@ class TimeOrderedDataPairDiff():
         else:
             intrinsic_polangle = self.intrinsic_polangle
 
-
         # calc total pa (with or without perturbations)
 
         ang_pix = (90.0 - intrinsic_polangle[ch]) * d2r
 
-        ## Demodulation or pair diff use different convention
-        ## for the definition of the angle.
-        if not hasattr(self, 'dm'):
+        # Demodulation or pair diff use different convention
+        # for the definition of the angle.
+        if not hasattr(self, "dm"):
             pol_ang = parallactic_angle + ang_pix + 2.0 * self.hwpangle
         else:
             pol_ang = parallactic_angle - ang_pix - 2.0 * self.hwpangle
 
         pol_ang2 = None
         # TODO: add polarization angle perturbations for the second frequency.
-        if self.mode == 'dichroic':
+        if self.mode == "dichroic":
             ang_pix2 = (90.0 - self.intrinsic_polangle2[ch]) * d2r
 
-            ## Demodulation or pair diff use different convention
-            ## for the definition of the angle.
-            if not hasattr(self, 'dm'):
-                pol_ang2 = parallactic_angle + ang_pix2 + 2.0*self.hwpangle
+            # Demodulation or pair diff use different convention
+            # for the definition of the angle.
+            if not hasattr(self, "dm"):
+                pol_ang2 = parallactic_angle + ang_pix2 + 2.0 * self.hwpangle
             else:
-                pol_ang2 = parallactic_angle - ang_pix2 - 2.0*self.hwpangle
+                pol_ang2 = parallactic_angle - ang_pix2 - 2.0 * self.hwpangle
 
         return pol_ang, pol_ang2
 
@@ -778,44 +857,50 @@ class TimeOrderedDataPairDiff():
             elif frequency_channel == 2:
                 ang_pix = (90.0 - self.intrinsic_polangle2[ch]) * d2r
 
-            if not hasattr(self, 'dm'):
-                return pa - ang_pix - 2*self.hwpangle
+            if not hasattr(self, "dm"):
+                return pa - ang_pix - 2 * self.hwpangle
             else:
                 return pa + ang_pix
         else:
             if frequency_channel == 1:
-                ang_pix = (90.0 - self.intrinsic_polangle[2*ch]) * d2r
+                ang_pix = (90.0 - self.intrinsic_polangle[2 * ch]) * d2r
             elif frequency_channel == 2:
-                ang_pix = (90.0 - self.intrinsic_polangle2[2*ch]) * d2r
-            if not hasattr(self, 'dm'):
-                return pa[ch] - ang_pix - 2*self.hwpangle
+                ang_pix = (90.0 - self.intrinsic_polangle2[2 * ch]) * d2r
+            if not hasattr(self, "dm"):
+                return pa[ch] - ang_pix - 2 * self.hwpangle
             else:
                 return pa[ch] + ang_pix
 
-    def get_pixel_indices(self,ra,dec):
-        ## Retrieve corresponding pixels on the sky, and their index locally.
-        if self.projection == 'flat':
-            ## ??
-            xmin = - self.width/2.*np.pi/180.
-            ymin = - self.width/2.*np.pi/180.
+    def get_pixel_indices(self, ra, dec):
+        # Retrieve corresponding pixels on the sky, and their index locally.
+        if self.projection == "flat":
+            # ??
+            xmin = -self.width / 2.0 * np.pi / 180.0
+            ymin = -self.width / 2.0 * np.pi / 180.0
             index_global, index_local = build_pointing_matrix(
-                ra, dec, nside_in=self.HealpixFitsMap.nside,
+                ra,
+                dec,
+                nside_in=self.HealpixFitsMap.nside,
                 nside_out=self.nside_out,
                 xmin=xmin,
                 ymin=ymin,
                 pixel_size=self.pixel_size,
                 npix_per_row=int(np.sqrt(self.npixsky)),
                 projection=self.projection,
-                cut_pixels_outside=self.cut_pixels_outside)
-        elif self.projection == 'healpix':
+                cut_pixels_outside=self.cut_pixels_outside,
+            )
+        elif self.projection == "healpix":
             index_global, index_local = build_pointing_matrix(
-                ra, dec, nside_in=self.HealpixFitsMap.nside,
+                ra,
+                dec,
+                nside_in=self.HealpixFitsMap.nside,
                 nside_out=self.nside_out,
                 obspix=self.obspix,
                 ext_map_gal=self.HealpixFitsMap.ext_map_gal,
                 projection=self.projection,
-                cut_pixels_outside=self.cut_pixels_outside)
-        return index_global,index_local
+                cut_pixels_outside=self.cut_pixels_outside,
+            )
+        return index_global, index_local
 
     def map2tod(self, ch):
         """
@@ -860,55 +945,61 @@ class TimeOrderedDataPairDiff():
         ...     mode='dichroic', CESnumber=1)
         >>> d = tod.map2tod(0)
         """
-        ## Use bolometer beam offsets.
+        # Use bolometer beam offsets.
         azd, eld = self.xpos[ch], self.ypos[ch]
 
-        ## Compute pointing for detector ch
+        # Compute pointing for detector ch
         ra, dec, pa = self.pointing.offset_detector(azd, eld)
 
-        ## Compute pointing matrix
+        # Compute pointing matrix
         index_global, index_local = self.get_pixel_indices(ra, dec)
 
         # Perturbed boresight pointing values
         if self.pointing_perturbed is not None:
-            ra_perturbed, dec_perturbed, pa_perturbed = self.pointing_perturbed.offset_detector(azd, eld)
+            ra_perturbed, dec_perturbed, pa_perturbed = \
+                self.pointing_perturbed.offset_detector(azd, eld)
 
             # Perturbed boresight pointing values
-            index_global_perturbed, index_local_perturbed = self.get_pixel_indices(ra_perturbed,dec_perturbed)
+            index_global_perturbed, index_local_perturbed = self.get_pixel_indices(
+                ra_perturbed, dec_perturbed
+            )
 
         else:
             ra_perturbed = ra
             dec_perturbed = dec
-            pa_perturbed = pa
+            # pa_perturbed = pa
             index_global_perturbed = index_global
-            index_local_perturbed = index_local
+            # index_local_perturbed = index_local
 
-        if ((self.projection == 'healpix') & (index_local is None)) :
+        if ((self.projection == 'healpix') & (index_local is None)):
             # Using a pointer not to increase memory usage
             index_local = index_global
 
             # Perturbed boresight pointing values
-            index_local_perturbed = index_global_perturbed
+            # index_local_perturbed = index_global_perturbed
 
-
-        ## For flat projection, one needs to flip the sign of U
-        ## w.r.t to the full-sky basis (IAU angle convention)
-        if self.projection == 'flat':
-            sign = -1.
-        elif self.projection == 'healpix': sign = 1.
+        # For flat projection, one needs to flip the sign of U
+        # w.r.t to the full-sky basis (IAU angle convention)
+        if self.projection == "flat":
+            sign = -1.0
+        elif self.projection == "healpix":
+            sign = 1.0
         self.Usign = sign
 
-        ## Store pointing matrix and parallactic angle for tod2map operations
+        # Store pointing matrix and parallactic angle for tod2map operations
         if ch % 2 == 0:
-            if ((self.xpos[ch]!=self.xpos[ch+1]) or (self.ypos[ch]!=self.ypos[ch+1])):
-                ## Compute pointing matrix for the pair center if beam
-                ## offsets for top and bottom detector do not coincide.
-                azd = 0.5*(self.xpos[ch]+self.xpos[ch+1])
-                eld = 0.5*(self.ypos[ch]+self.ypos[ch+1])
+            if (self.xpos[ch] != self.xpos[ch + 1]) or (
+                self.ypos[ch] != self.ypos[ch + 1]
+            ):
+                # Compute pointing matrix for the pair center if beam
+                # offsets for top and bottom detector do not coincide.
+                azd = 0.5 * (self.xpos[ch] + self.xpos[ch + 1])
+                eld = 0.5 * (self.ypos[ch] + self.ypos[ch + 1])
                 ra, dec, pa_pair = self.pointing.offset_detector(azd, eld)
-                index_global_pair, index_local = self.get_pixel_indices(ra,dec)
-                #print("even",ch, self.xpos[ch],self.xpos[ch+1],self.ypos[ch],self.ypos[ch+1],pa,pa_pair)
-                if index_local is None :
+                index_global_pair, index_local = self.get_pixel_indices(
+                    ra, dec
+                )
+                if index_local is None:
                     # Using a pointer not to increase memory usage
                     index_local = index_global_pair
             else:
@@ -916,23 +1007,22 @@ class TimeOrderedDataPairDiff():
                 # introducing differential beam systematics.
                 index_global_pair = index_global
 
-            ## Store list of pixels to be mapped only for top bolometers or pair
-            ## center in presence of differntial pointing
+            # Store list of pixels to be mapped only for top bolometers or pair
+            # center in presence of differntial pointing
             if ch % 2 == 0 and not self.mapping_perpair:
-                self.point_matrix[int(ch/2)] = index_local
+                self.point_matrix[int(ch / 2)] = index_local
                 if self.store_pointing_matrix_input:
-                    index_global_pair[index_local==-1] = -1
-                    self.point_matrix_input[int(ch/2)] = index_global_pair
+                    index_global_pair[index_local == -1] = -1
+                    self.point_matrix_input[int(ch / 2)] = index_global_pair
             elif ch % 2 == 0 and self.mapping_perpair:
                 self.point_matrix[0] = index_local
                 if self.store_pointing_matrix_input:
-                    index_global_pair[index_local==-1] = -1
+                    index_global_pair[index_local == -1] = -1
                     self.point_matrix_input[0] = index_global_pair
 
-
-        ## Default gain for a detector is 1.,
-        ## but you can change it using set_detector_gains or
-        ## set_detector_gains_perpair.
+        # Default gain for a detector is 1.,
+        # but you can change it using set_detector_gains or
+        # set_detector_gains_perpair.
         if len(self.gain) == self.npair * 2:
             norm = self.gain[ch]
         elif len(self.gain) == 2:
@@ -942,7 +1032,7 @@ class TimeOrderedDataPairDiff():
             else:
                 norm = self.gain[1]
 
-        ## Noise simulation
+        # Noise simulation
         if self.noise_generator is not None:
             noise = self.noise_generator.simulate_noise_one_detector(ch)
         else:
@@ -954,81 +1044,94 @@ class TimeOrderedDataPairDiff():
             noise2 = 0.0
 
         if self.HealpixFitsMap.do_pol:
-            ## pol_ang2 is None if mode == 'standard'
-            pol_ang, pol_ang2 = self.compute_simpolangle(ch, pa, polangle_err=False)
+            # pol_ang2 is None if mode == 'standard'
+            pol_ang, pol_ang2 = self.compute_simpolangle(
+                ch, pa, polangle_err=False
+            )
 
             if self.perturb_pol_angs:
                 do_polangle_err = True
             else:
                 do_polangle_err = False
 
-            pol_ang_perturbed, pol_ang2_perturbed = self.compute_simpolangle(ch, pa, polangle_err=do_polangle_err)
+            pol_ang_perturbed, pol_ang2_perturbed = self.compute_simpolangle(
+                ch, pa, polangle_err=do_polangle_err
+            )
 
-
-            ## Use pa of pair center for tod2map if differential pointing
-            ## is used. Otherwise the polarization angle of a pair is the
-            ## same as the top and bottom detectors.
+            # Use pa of pair center for tod2map if differential pointing
+            # is used. Otherwise the polarization angle of a pair is the
+            # same as the top and bottom detectors.
+            # TODO: I do not understand this try/except.
+            # TODO: remove the bare exception!!!
             try:
                 pol_ang_pair, pol_ang2_pair = self.compute_simpolangle(
-                    ch, pa_pair, polangle_err=False)
-            except:
+                    ch, pa_pair, polangle_err=False
+                )
+            except UnboundLocalError:
                 pol_ang_pair = pol_ang
                 pol_ang2_pair = pol_ang2
 
-            ## For demodulation, HWP angles are not included at the level
-            ## of the pointing matrix (convention).
-            if hasattr(self, 'dm'):
+            # For demodulation, HWP angles are not included at the level
+            # of the pointing matrix (convention).
+            if hasattr(self, "dm"):
                 pol_ang_out = pol_ang_pair + 2.0 * self.hwpangle
             else:
                 pol_ang_out = pol_ang_pair
 
-            ## Store list of polangle only for top bolometers
+            # Store list of polangle only for top bolometers
             if ch % 2 == 0 and not self.mapping_perpair:
-                self.pol_angs[int(ch/2)] = pol_ang_out
+                self.pol_angs[int(ch / 2)] = pol_ang_out
             elif ch % 2 == 0 and self.mapping_perpair:
                 self.pol_angs[0] = pol_ang_out
 
-            ts1 = (
-                self.HealpixFitsMap.I[index_global] +
-                self.HealpixFitsMap.Q[index_global] * np.cos(2 * pol_ang) +
-                sign * self.HealpixFitsMap.U[index_global] *
-                np.sin(2 * pol_ang) + noise) * norm
+            ts1 = self.HealpixFitsMap.I[index_global]\
+                + self.HealpixFitsMap.Q[index_global] * np.cos(2 * pol_ang)\
+                + sign * self.HealpixFitsMap.U[index_global] * np.sin(2 * pol_ang)\
+                + noise
+            ts1 = ts1 * norm
 
-            if self.mode == 'standard':
+            if self.mode == "standard":
                 return ts1
 
-            elif self.mode == 'dichroic':
+            elif self.mode == "dichroic":
                 # For demodulation, HWP angles are not included at the level
-                ## of the pointing matrix (convention).
-                if hasattr(self, 'dm'):
+                # of the pointing matrix (convention).
+                if hasattr(self, "dm"):
                     pol_ang_out2 = pol_ang2_pair + 2.0 * self.hwpangle
                 else:
                     pol_ang_out2 = pol_ang2_pair
 
-                ## Store list polangle only for top bolometers
+                # Store list polangle only for top bolometers
                 if ch % 2 == 0 and not self.mapping_perpair:
-                    self.pol_angs2[int(ch/2)] = pol_ang_out2
+                    self.pol_angs2[int(ch / 2)] = pol_ang_out2
                 elif ch % 2 == 0 and self.mapping_perpair:
                     self.pol_angs2[0] = pol_ang_out2
 
-                ts2 = (
-                    self.HealpixFitsMap.I2[index_global_perturbed] +
-                    self.HealpixFitsMap.Q2[index_global_perturbed] * np.cos(2*pol_ang2_perturbed) +
-                    sign * self.HealpixFitsMap.U2[index_global_perturbed] *
-                    np.sin(2 * pol_ang2_perturbed) + noise2) * norm
+                ts2 = self.HealpixFitsMap.I2[index_global_perturbed]\
+                    + self.HealpixFitsMap.Q2[index_global_perturbed]\
+                    * np.cos(2 * pol_ang2_perturbed)\
+                    + sign\
+                    * self.HealpixFitsMap.U2[index_global_perturbed]\
+                    * np.sin(2 * pol_ang2_perturbed)\
+                    + noise2
+                ts2 = ts2 * norm
                 return np.array([ts1, ts2])
 
         else:
-            ts1 = norm * (self.HealpixFitsMap.I[index_global_perturbed] + noise)
-            if self.mode == 'standard':
+            ts1 = norm * (
+                self.HealpixFitsMap.I[index_global_perturbed] + noise
+            )
+            if self.mode == "standard":
                 return ts1
-            elif self.mode == 'dichroic':
-                ts2 = norm * (self.HealpixFitsMap.I2[index_global_perturbed] + noise2)
+            elif self.mode == "dichroic":
+                ts2 = norm * (
+                    self.HealpixFitsMap.I2[index_global_perturbed] + noise2
+                )
                 return np.array([ts1, ts2])
 
-    def tod2map(self, waferts, output_maps,
-                gdeprojection=False,
-                frequency_channel=1):
+    def tod2map(
+        self, waferts, output_maps, gdeprojection=False, frequency_channel=1
+    ):
         """
         Project time-ordered data into sky maps for the whole array.
         Maps are updated on-the-fly. Massive speed-up thanks to the
@@ -1104,8 +1207,8 @@ class TimeOrderedDataPairDiff():
         ...     nside=tod.nside_out, obspix=tod.obspix)
         >>> for pair in tod.pair_list:
         ...   d = np.array([tod.map2tod(det) for det in pair])
-        ...   d1 = d[:, 0] ## first frequency channel
-        ...   d2 = d[:, 1] ## second frequency channel
+        ...   d1 = d[:, 0] # first frequency channel
+        ...   d2 = d[:, 1] # second frequency channel
         ...   tod.tod2map(d1, m1)
         ...   tod.tod2map(d2, m2)
 
@@ -1129,17 +1232,19 @@ class TimeOrderedDataPairDiff():
         npixfp = nbolofp / 2
         nt = int(waferts.shape[-1])
 
-        ## Check sizes
-        msg = 'Most likely you set mapping_perpair wrongly when ' + \
-            'initialising your TOD.' + \
-            'The way you loop over focal plane pixel to do the mapmaking' + \
-            'depends on the value of mapping_perpair parameter. ' + \
-            'If mapping_perpair=False, one first load all the pixel and ' + \
-            'then you need to perform the mapmaking with all the pixels ' + \
-            'at once. If mapping_perpair=True, one should load ' + \
-            'pair-by-pair and the mapmaking is done pair-by-pair.' + \
-            'See so_MC_crosstalk.py vs so_MC_gain_drift.py to see both ' + \
-            'approaches (s4cmb-resources/Part2), and example in doctest above.'
+        # Check sizes
+        msg = """
+            Most likely you set mapping_perpair wrongly when
+            initialising your TOD.
+            The way you loop over focal plane pixel to do the mapmaking
+            depends on the value of mapping_perpair parameter.
+            If mapping_perpair=False, one first load all the pixel and
+            then you need to perform the mapmaking with all the pixels
+            at once. If mapping_perpair=True, one should load
+            pair-by-pair and the mapmaking is done pair-by-pair.
+            See so_MC_crosstalk.py vs so_MC_gain_drift.py to see both
+            approaches (s4cmb-resources/Part2), and example in doctest above.
+        """
         assert npixfp == self.point_matrix.shape[0], msg
         assert nt == self.point_matrix.shape[1], msg
 
@@ -1156,44 +1261,95 @@ class TimeOrderedDataPairDiff():
         sum_weight = self.sum_weight.flatten()
         wafermask_pixel = self.wafermask_pixel.flatten()
 
-        if (hasattr(self, 'dm') and (gdeprojection is False)):
+        if hasattr(self, "dm") and (gdeprojection is False):
             tod_f.tod2map_hwp_f(
-                output_maps.d0, output_maps.d4r, output_maps.d4i,
-                output_maps.w0, output_maps.w4, output_maps.nhit,
-                point_matrix, pol_angs, waferts,
-                diff_weight, sum_weight, nt,
-                wafermask_pixel, npixfp, self.npixsky)
-        elif ((hasattr(output_maps, 'dm') is False) and gdeprojection):
-            print('gdep!')
+                output_maps.d0,
+                output_maps.d4r,
+                output_maps.d4i,
+                output_maps.w0,
+                output_maps.w4,
+                output_maps.nhit,
+                point_matrix,
+                pol_angs,
+                waferts,
+                diff_weight,
+                sum_weight,
+                nt,
+                wafermask_pixel,
+                npixfp,
+                self.npixsky,
+            )
+        elif (hasattr(output_maps, "dm") is False) and gdeprojection:
+            print("gdep!")
             tod_f.tod2map_pair_gdeprojection_f(
-                output_maps.d, output_maps.w,
-                output_maps.dm, output_maps.dc, output_maps.ds,
-                output_maps.wm, output_maps.cc, output_maps.cs,
-                output_maps.ss, output_maps.c, output_maps.s, output_maps.nhit,
-                point_matrix, pol_angs, waferts,
-                diff_weight, sum_weight, nt,
-                wafermask_pixel, npixfp, self.npixsky)
+                output_maps.d,
+                output_maps.w,
+                output_maps.dm,
+                output_maps.dc,
+                output_maps.ds,
+                output_maps.wm,
+                output_maps.cc,
+                output_maps.cs,
+                output_maps.ss,
+                output_maps.c,
+                output_maps.s,
+                output_maps.nhit,
+                point_matrix,
+                pol_angs,
+                waferts,
+                diff_weight,
+                sum_weight,
+                nt,
+                wafermask_pixel,
+                npixfp,
+                self.npixsky,
+            )
         else:
             tod_f.tod2map_pair_f(
-                output_maps.d, output_maps.w, output_maps.dc,
-                output_maps.ds, output_maps.cc, output_maps.cs,
-                output_maps.ss, output_maps.nhit,
-                point_matrix, pol_angs, waferts,
-                diff_weight, sum_weight, nt,
-                wafermask_pixel, npixfp, self.npixsky)
+                output_maps.d,
+                output_maps.w,
+                output_maps.dc,
+                output_maps.ds,
+                output_maps.cc,
+                output_maps.cs,
+                output_maps.ss,
+                output_maps.nhit,
+                point_matrix,
+                pol_angs,
+                waferts,
+                diff_weight,
+                sum_weight,
+                nt,
+                wafermask_pixel,
+                npixfp,
+                self.npixsky,
+            )
         # Garbage collector guard
         wafermask_pixel
 
 
 class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
     """ Class to """
-    def __init__(self, hardware, scanning_strategy, HealpixFitsMap,
-                 CESnumber, projection='healpix',
-                 nside_out=None, pixel_size=None, width=140.,
-                 cut_pixels_outside=True,
-                 array_noise_level=None, array_noise_seed=487587,
-                 array_noise_level2=None, array_noise_seed2=56736,
-                 mapping_perpair=False, mode='standard', verbose=False):
+
+    def __init__(
+        self,
+        hardware,
+        scanning_strategy,
+        HealpixFitsMap,
+        CESnumber,
+        projection="healpix",
+        nside_out=None,
+        pixel_size=None,
+        width=140.0,
+        cut_pixels_outside=True,
+        array_noise_level=None,
+        array_noise_seed=487587,
+        array_noise_level2=None,
+        array_noise_seed2=56736,
+        mapping_perpair=False,
+        mode="standard",
+        verbose=False,
+    ):
         """
         C'est parti!
 
@@ -1271,9 +1427,15 @@ class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
         >>> tod.tod2map(d2, m2, frequency_channel=2)
         """
         TimeOrderedDataPairDiff.__init__(
-            self, hardware, scanning_strategy, HealpixFitsMap,
-            CESnumber, projection=projection,
-            nside_out=nside_out, pixel_size=pixel_size, width=width,
+            self,
+            hardware,
+            scanning_strategy,
+            HealpixFitsMap,
+            CESnumber,
+            projection=projection,
+            nside_out=nside_out,
+            pixel_size=pixel_size,
+            width=width,
             cut_pixels_outside=cut_pixels_outside,
             array_noise_level=array_noise_level,
             array_noise_seed=array_noise_seed,
@@ -1281,16 +1443,18 @@ class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
             array_noise_seed2=array_noise_seed2,
             mapping_perpair=mapping_perpair,
             mode=mode,
-            verbose=verbose)
+            verbose=verbose,
+        )
 
-        ## Prepare the demodulation of timestreams
+        # Prepare the demodulation of timestreams
         self.dm = Demodulation(
             self.hardware.half_wave_plate.freq_hwp,
             self.scanning_strategy.sampling_freq,
             self.hwpangle,
-            self.verbose)
+            self.verbose,
+        )
 
-        ## Prepare the filters use for the demodulation
+        # Prepare the filters use for the demodulation
         self.dm.prepfilter([4], [1.9])
         self.dm.prepfftedfilter(nt=self.nsamples)
 
@@ -1320,11 +1484,11 @@ class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
         # dm.b.copy()
         self.dm.br = ts
 
-        ## Do temperature
+        # Do temperature
         self.dm.demod(0)
         newts[:, 0, :] = self.dm.bm.real
 
-        ## Do 4f component (effectively polarisation)
+        # Do 4f component (effectively polarisation)
         self.dm.demod(4)
         newts[:, 1, :] = self.dm.bm.real
         newts[:, 2, :] = self.dm.bm.imag
@@ -1332,8 +1496,9 @@ class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
         return newts
 
 
-class Demodulation():
+class Demodulation:
     """ Class to handle demodulation of timestreams """
+
     def __init__(self, hwp_freq, sampling_freq, hwp_angles, verbose=False):
         """
         Demodulation of timestreams means here that we estimate I, Q and U
@@ -1363,12 +1528,12 @@ class Demodulation():
         self.hwp_angles = hwp_angles
         self.verbose = verbose
 
-        ## In Hz
-        self.speed = np.median(
-            np.diff(self.hwp_angles)) * self.sampling_freq / (2 * np.pi)
+        # In Hz
+        med = np.median(np.diff(self.hwp_angles))
+        self.speed = med * self.sampling_freq / (2 * np.pi)
 
-        ## Nyquist frequency at half the sampling
-        self.nyq = self.sampling_freq / 2.
+        # Nyquist frequency at half the sampling
+        self.nyq = self.sampling_freq / 2.0
 
     def prepfilter(self, modes, bands=None, numtaps=None, relative=True):
         """
@@ -1394,7 +1559,7 @@ class Demodulation():
 
         """
         if numtaps is None:
-            if self.nyq < 100./6:
+            if self.nyq < 100.0 / 6:
                 numtaps = 255
             else:
                 numtaps = 1023
@@ -1412,24 +1577,26 @@ class Demodulation():
                 self.bands *= self.speed
                 self.hwp_freq *= self.speed
 
-        bad = (self.modes * self.speed + self.bands > self.nyq)
+        bad = self.modes * self.speed + self.bands > self.nyq
 
         if bad.any():
-            print('You need freq = modes * speed + bands < nyquist')
-            print('MODES', self.modes)
-            print('SPEED', self.speed)
-            print('BANDS', self.bands)
-            print('FREQ', self.modes * self.speed + self.bands)
-            print('NYQUIST', self.nyq)
-            print('mode', self.modes[bad], 'are over nyq.')
-            print('You need either to increase the sampling frequency of',
-                  'your detectors, or decrease the spin frequency of the HWP.')
+            print("You need freq = modes * speed + bands < nyquist")
+            print("MODES", self.modes)
+            print("SPEED", self.speed)
+            print("BANDS", self.bands)
+            print("FREQ", self.modes * self.speed + self.bands)
+            print("NYQUIST", self.nyq)
+            print("mode", self.modes[bad], "are over nyq.")
+            print(
+                "You need either to increase the sampling frequency of",
+                "your detectors, or decrease the spin frequency of the HWP.",
+            )
             self.modes = self.modes[~bad]
             self.bands = self.bands[~bad]
 
         self.lpf0 = firwin(numtaps, self.hwp_freq, nyq=self.nyq)
 
-        ## Construct the filters
+        # Construct the filters
         self.lpfs = []
         self.bpfs = []
         for mode, band in zip(self.modes, self.bands):
@@ -1438,10 +1605,11 @@ class Demodulation():
                 numtaps,
                 [self.speed * mode - band, self.speed * mode + band],
                 nyq=self.nyq,
-                pass_zero=False)
+                pass_zero=False,
+            )
 
             fbpf = fftpack.fft(bpfreal)
-            fbpf[: int((numtaps + 1) / 2)] = 0.
+            fbpf[: int((numtaps + 1) / 2)] = 0.0
             self.bpfs.append(fftpack.ifft(fbpf))
 
         self.bpfs = np.array(self.bpfs)
@@ -1488,14 +1656,14 @@ class Demodulation():
         lpf : bool, optional
             If True, perform a Low Pass Filtering. Default is True.
         """
-        ## Temperature or not understood!
+        # Temperature or not understood!
         if mode not in self.modes:
             if mode == 0:
                 # if (self.br == 0.).all():
                 #     self.bm = np.zeros(self.br.shape, dtype=self.br.dtype)
                 #     return self.bm
 
-                if hasattr(self, 'flpf0'):
+                if hasattr(self, "flpf0"):
                     flpf0 = self.flpf0
                 else:
                     flpf0 = None
@@ -1503,15 +1671,15 @@ class Demodulation():
                 self.bm = convolvefilter(self.br, self.lpf0, flpf0)
                 return self.bm
             else:
-                print('Filters for', mode, 'is not prepared!')
+                print("Filters for", mode, "is not prepared!")
                 return None
 
-        ## Polarisation
+        # Polarisation
         else:
             i = np.where(self.modes == mode)[0][0]
 
-        if hasattr(self, 'bm'):
-            del(self.bm)
+        if hasattr(self, "bm"):
+            del self.bm
 
         # if (self.br == 0.).all():
         #     self.bm = np.zeros(self.br.shape, dtype=self.br.dtype) + 0.j
@@ -1521,7 +1689,7 @@ class Demodulation():
             bpf = self.bpfs[i]
             try:
                 fbpf = self.fbpfs[i]
-            except(AttributeError, IndexError):
+            except (AttributeError, IndexError):
                 fbpf = None
         else:
             bpf = None
@@ -1529,13 +1697,19 @@ class Demodulation():
             lpf = self.lpfs[i]
             try:
                 flpf = self.flpfs[i]
-            except(AttributeError, IndexError):
+            except (AttributeError, IndexError):
                 flpf = None
         else:
             lpf = None
 
-        self.bm = demod(self.br, np.exp(1.j * mode * self.hwp_angles),
-                        bpf=bpf, lpf=lpf, fbpf=fbpf, flpf=flpf)
+        self.bm = demod(
+            self.br,
+            np.exp(1.0j * mode * self.hwp_angles),
+            bpf=bpf,
+            lpf=lpf,
+            fbpf=fbpf,
+            flpf=flpf,
+        )
 
         return self.bm
 
@@ -1571,7 +1745,7 @@ def demod(x, e, bpf=None, lpf=None, fbpf=None, flpf=None):
     For examples, see TimeOrderedDataDemod.
 
     """
-    u = np.ones(list(x.shape[:-1]) + [1], x.dtype) * 2. * e
+    u = np.ones(list(x.shape[:-1]) + [1], x.dtype) * 2.0 * e
     if bpf is not None:
         u *= convolvefilter(x, bpf, fbpf)
     else:
@@ -1579,6 +1753,7 @@ def demod(x, e, bpf=None, lpf=None, fbpf=None, flpf=None):
     if lpf is not None:
         u = convolvefilter(u, lpf, flpf)
     return u
+
 
 def convolvefilter(x, f, ff=None, isreal=False):
     """
@@ -1607,18 +1782,18 @@ def convolvefilter(x, f, ff=None, isreal=False):
     # since f might not be numpy.ndarray
     assert np.ndim(f) == 1
 
-    ## Get shapes
+    # Get shapes
     init_shape = x.shape
     n = f.size
     nt = init_shape[-1]
 
-    ## How many FFTs to perform
+    # How many FFTs to perform
     fftsize = int(2 ** np.ceil(np.log2(nt + 3 * n - 1)))
     fftslice = (slice(None), slice((3 * n - 1) // 2, (3 * n - 1) // 2 + nt))
 
     x2 = x.reshape(-1, nt)
-    u = np.zeros((init_shape[0], fftsize), (np.ones(1, x.dtype) + 0.j).dtype)
-    (u[:, : n].T)[:] = x2[:, 0]
+    u = np.zeros((init_shape[0], fftsize), (np.ones(1, x.dtype) + 0.0j).dtype)
+    (u[:, :n].T)[:] = x2[:, 0]
     u[:, n: nt + n] = x2
     (u[:, nt + n: nt + n * 2].T)[:] = x2[:, -1]
 
@@ -1630,7 +1805,7 @@ def convolvefilter(x, f, ff=None, isreal=False):
         u1 *= ff
         fftpack.ifft(u1, fftsize, overwrite_x=True)
 
-    ## Condition to return the real part
+    # Condition to return the real part
     cond1 = x.dtype == float or x.dtype == np.float32
     cond2 = x.dtype == int or x.dtype == np.int32
     cond3 = f.dtype == float or f.dtype == np.float32
@@ -1641,10 +1816,12 @@ def convolvefilter(x, f, ff=None, isreal=False):
     return u[fftslice].reshape(init_shape)
 
 
-class WhiteNoiseGenerator():
+class WhiteNoiseGenerator:
     """ Class to handle white noise """
-    def __init__(self, array_noise_level, ndetectors, ntimesamples,
-                 array_noise_seed):
+
+    def __init__(
+        self, array_noise_level, ndetectors, ntimesamples, array_noise_seed
+    ):
         """
         This class is used to simulate time-domain noise.
         Usually, it is used in combination with map2tod to insert noise
@@ -1668,9 +1845,10 @@ class WhiteNoiseGenerator():
         self.ndetectors = ndetectors
         self.ntimesamples = ntimesamples
 
-        ## Noise level for one detector
-        self.detector_noise_level = self.array_noise_level * \
-            np.sqrt(self.ndetectors)
+        # Noise level for one detector
+        self.detector_noise_level = self.array_noise_level * np.sqrt(
+            self.ndetectors
+        )
 
         self.array_noise_seed = array_noise_seed
         state = np.random.RandomState(self.array_noise_seed)
@@ -1703,11 +1881,23 @@ class WhiteNoiseGenerator():
 
         return self.detector_noise_level * vec
 
+
 class CorrNoiseGenerator(WhiteNoiseGenerator):
     """ """
-    def __init__(self, array_noise_level, ndetectors, ntimesamples,
-                 array_noise_seed, nclouds=10, f0=0.1, alpha=-4, amp_atm=1e2,
-                 corrlength=300, sampling_freq=8):
+
+    def __init__(
+        self,
+        array_noise_level,
+        ndetectors,
+        ntimesamples,
+        array_noise_seed,
+        nclouds=10,
+        f0=0.1,
+        alpha=-4,
+        amp_atm=1e2,
+        corrlength=300,
+        sampling_freq=8,
+    ):
         """
         This class is used to simulate time-domain correlated noise.
         Usually, it is used in combination with map2tod to insert noise
@@ -1774,8 +1964,8 @@ class CorrNoiseGenerator(WhiteNoiseGenerator):
 
         """
         WhiteNoiseGenerator.__init__(
-            self, array_noise_level, ndetectors,
-            ntimesamples, array_noise_seed)
+            self, array_noise_level, ndetectors, ntimesamples, array_noise_seed
+        )
         self.nclouds = nclouds
         self.alpha = alpha
         self.sampling_freq = sampling_freq
@@ -1783,7 +1973,7 @@ class CorrNoiseGenerator(WhiteNoiseGenerator):
         self.f0 = f0
         self.amp_atm = amp_atm
 
-        ## Bolometers in a pair get the same seed for correlated noise
+        # Bolometers in a pair get the same seed for correlated noise
         self.pixel_noise_seeds = np.repeat(self.noise_seeds[::2], 2)
 
     def simulate_noise_one_detector(self, ch):
@@ -1811,44 +2001,41 @@ class CorrNoiseGenerator(WhiteNoiseGenerator):
         [ -7536.5882971    -224.58319073 -10795.19644268 ...,
           -5528.66256308  -3161.93996673  -5174.84161989]
         """
-        ## White noise part
+        # White noise part
         state = np.random.RandomState(self.noise_seeds[ch])
         vec = state.normal(size=self.ntimesamples)
         wnoise = self.detector_noise_level * vec
 
-        ## Correlated part
+        # Correlated part
         state = np.random.RandomState(self.pixel_noise_seeds[ch])
         # amps = 2 * (-0.5 + state.uniform(size=1))
         amps = state.uniform(size=1)
 
         corrdet = int(self.ndetectors / self.nclouds)
-        state = np.random.RandomState(
-            self.array_noise_seed + ch // corrdet)
+        state = np.random.RandomState(self.array_noise_seed + ch // corrdet)
         phases = 2 * np.pi * state.rand(self.ntimesamples)
 
         ts_corr = np.zeros(self.ntimesamples)
         for i in range(0, self.ntimesamples, self.corrlength):
-            ## Check that you have enough samples
+            # Check that you have enough samples
             if self.ntimesamples - i < self.corrlength:
                 step = self.ntimesamples - i
             else:
                 step = self.corrlength
 
-            ## Get the PSD and the frequency range
-            fs = fftfreq(step, 1. / self.sampling_freq)
+            # Get the PSD and the frequency range
+            fs = fftfreq(step, 1.0 / self.sampling_freq)
             psd = np.zeros_like(fs)
 
-            ## Avoid zero frequency
-            psd[1:] = self.amp_atm * (1 + (fs[1:]/self.f0)**self.alpha)
+            # Avoid zero frequency
+            psd[1:] = self.amp_atm * (1 + (fs[1:] / self.f0) ** self.alpha)
 
-            ## Get the TOD from the PSD
-            ts_corr[i: i+step] = corr_ts(
-                PSD=psd,
-                N=step,
-                amp=amps,
-                phase=phases[i: i+step])
+            # Get the TOD from the PSD
+            ts_corr[i: i + step] = corr_ts(
+                PSD=psd, N=step, amp=amps, phase=phases[i: i + step]
+            )
 
-        ## remove PSD normalisation and add white noise!
+        # remove PSD normalisation and add white noise!
         return ts_corr / np.sqrt(self.sampling_freq) + wnoise
 
 
@@ -1888,18 +2075,19 @@ def corr_ts(PSD, N, amp, phase):
       -0.49232085 0.07355544  0.68893301  0.46171998 -0.82563144]
     """
     Nf = len(PSD)
-    PSD[0] = 0.
+    PSD[0] = 0.0
 
     A = amp * N * np.sqrt(PSD)
 
-    FFT = A * np.exp(1j*phase[: Nf])
+    FFT = A * np.exp(1j * phase[:Nf])
 
     ts = np.fft.ifft(FFT, n=N)
 
     return np.real(ts)
 
+
 def psdts(ts, sample_rate, NFFT=4096):
-    '''
+    """
     Compute the power spectrum (or power spectral density) of a timestream ts.
 
     Parameters
@@ -1925,14 +2113,15 @@ def psdts(ts, sample_rate, NFFT=4096):
     >>> fs, psd = psdts(ts, sample_rate=1)
     >>> print(round(fs[-1], 2), round(psd[-1], 2))
     0.49 0.5
-    '''
-    ## Remove the mean
+    """
+    # Remove the mean
     ts -= np.mean(ts)
 
     fs, asd = compute_asd(ts, sample_rate=sample_rate, NFFT=NFFT)
-    psd = asd**2
+    psd = asd ** 2
 
     return fs, psd
+
 
 def compute_asd(x, sample_rate, NFFT=2048, is_complex=False):
     """
@@ -1957,25 +2146,25 @@ def compute_asd(x, sample_rate, NFFT=2048, is_complex=False):
     asd : 1d array
         Amplitude spectral density of x.
     """
-    ## Sanity check in the case of no chunking
+    # Sanity check in the case of no chunking
     maxnfft = x.shape[0] - (x.shape[0] % 2)
-    if(NFFT > maxnfft or NFFT < 0):
+    if NFFT > maxnfft or NFFT < 0:
         NFFT = maxnfft
 
     period = 1.0 / sample_rate
 
     window = np.blackman(NFFT)
-    window_norm = 1.0 / np.average(window**2)
+    window_norm = 1.0 / np.average(window ** 2)
 
     n = len(x)
-    ## Truncates and rounds down
+    # Truncates and rounds down
     nchunks = int((2 * n) / NFFT)
     if is_complex:
         PSD = np.zeros(NFFT)
     else:
-        PSD = np.zeros(int(NFFT/2))
+        PSD = np.zeros(int(NFFT / 2))
 
-    for i in range(0, nchunks-1):
+    for i in range(0, nchunks - 1):
         chunk = window * x[i * int(NFFT / 2): (i + 2) * int(NFFT / 2)]
 
         fch = fft(chunk)
@@ -1991,10 +2180,10 @@ def compute_asd(x, sample_rate, NFFT=2048, is_complex=False):
 
     fs = fftfreq(NFFT, period)
     if not is_complex:
-        fs = fs[0: int(NFFT/2)]
+        fs = fs[0: int(NFFT / 2)]
 
     if nchunks != 1:
-        PSD /= (nchunks-1)
+        PSD /= nchunks - 1
 
     # Numpy normalizes inverse transform
     PSD /= NFFT
@@ -2010,13 +2199,21 @@ def compute_asd(x, sample_rate, NFFT=2048, is_complex=False):
         PSD = fftshift(PSD)
 
     # Convert to amplitude/rtHz
-    return fs, PSD**0.5
+    return fs, PSD ** 0.5
 
-class OutputSkyMap():
+
+class OutputSkyMap:
     """ Class to handle sky maps generated by tod2map """
-    def __init__(self, projection,
-                 obspix=None, npixsky=None,
-                 nside=None, pixel_size=None, demodulation=False):
+
+    def __init__(
+        self,
+        projection,
+        obspix=None,
+        npixsky=None,
+        nside=None,
+        pixel_size=None,
+        demodulation=False,
+    ):
         """
         Initialise all maps: weights, projected TOD, and Stokes parameters.
 
@@ -2048,30 +2245,35 @@ class OutputSkyMap():
         self.pixel_size = pixel_size
         self.demodulation = demodulation
 
-        if self.projection == 'healpix':
-            assert self.obspix is not None, \
-                ValueError("You need to provide the list (obspix) " +
-                           "of observed pixel if projection=healpix!")
-            assert self.nside is not None, \
-                ValueError("You need to provide the resolution (nside) " +
-                           "of the map if projection=healpix!")
+        if self.projection == "healpix":
+            assert self.obspix is not None, ValueError(
+                """You need to provide the list (obspix)
+                of observed pixel if projection=healpix!"""
+            )
+            assert self.nside is not None, ValueError(
+                """You need to provide the resolution (nside)
+                of the map if projection=healpix!"""
+            )
             self.npixsky = len(self.obspix)
             self.pixel_size = hp.nside2resol(nside, arcmin=True)
 
-        elif self.projection == 'flat':
-            assert self.npixsky is not None, \
-                ValueError("You need to provide the number of " +
-                           "observed pixels (npixsky) if projection=flat.")
-            assert self.pixel_size is not None, \
-                ValueError("You need to provide the size of " +
-                           "pixels (pixel_size) in arcmin if projection=flat.")
+        elif self.projection == "flat":
+            assert self.npixsky is not None, ValueError(
+                """You need to provide the number of
+                observed pixels (npixsky) if projection=flat."""
+            )
+            assert self.pixel_size is not None, ValueError(
+                """You need to provide the size of
+                pixels (pixel_size) in arcmin if projection=flat.
+                """
+            )
 
         self.initialise_sky_maps()
 
         if not self.demodulation:
-            self.to_coadd = 'd dc ds w cc cs ss nhit'
+            self.to_coadd = "d dc ds w cc cs ss nhit"
         else:
-            self.to_coadd = 'd0 d4r d4i w0 w4 nhit'
+            self.to_coadd = "d0 d4r d4i w0 w4 nhit"
 
     def initialise_sky_maps(self):
         """
@@ -2120,15 +2322,15 @@ class OutputSkyMap():
         """
         testcc = self.cc * self.ss - self.cs * self.cs
         idet = np.zeros(testcc.shape)
-        inonzero = (testcc != 0.)
-        idet[inonzero] = 1. / testcc[inonzero]
+        inonzero = testcc != 0.0
+        idet[inonzero] = 1.0 / testcc[inonzero]
 
         thresh = np.finfo(np.float32).eps
         try:
-            izero = (np.abs(testcc) < thresh)
+            izero = np.abs(testcc) < thresh
         except FloatingPointError:
             izero = inan = np.isnan(testcc)
-            izero[~inan] = (np.abs(testcc[~inan]) < thresh)
+            izero[~inan] = np.abs(testcc[~inan]) < thresh
 
         idet[izero] = 0.0
         self.idet = idet
@@ -2157,10 +2359,10 @@ class OutputSkyMap():
 
         hit = self.w > 0
         I = np.zeros_like(self.d)
-        I[hit] = self.d[hit]/self.w[hit]
+        I[hit] = self.d[hit] / self.w[hit]
         return I
 
-    def get_QU(self,force=True):
+    def get_QU(self, force=True):
         """
         Solve for the polarisation maps from projected difference timestream
         maps and weights:
@@ -2190,7 +2392,7 @@ class OutputSkyMap():
         if self.demodulation:
             return self.get_QU_demod()
 
-        if ((not hasattr(self, 'idet')) or force):
+        if (not hasattr(self, "idet")) or force:
             self.set_idet()
 
         Q = self.idet * (self.ss * self.dc - self.cs * self.ds)
@@ -2293,13 +2495,14 @@ class OutputSkyMap():
         >>> print(m1.nhit)
         [ 2.  2.  2.  2.]
         """
-        assert np.all(self.obspix == other.obspix), \
-            ValueError("To add maps together, they must have the same obspix!")
+        assert np.all(self.obspix == other.obspix), ValueError(
+            "To add maps together, they must have the same obspix!"
+        )
 
         if to_coadd is None:
             to_coadd = self.to_coadd
 
-        to_coadd_split = to_coadd.split(' ')
+        to_coadd_split = to_coadd.split(" ")
         for k in to_coadd_split:
             a = getattr(self, k)
             b = getattr(other, k)
@@ -2326,19 +2529,23 @@ class OutputSkyMap():
         >>> from mpi4py import MPI
         >>> m = OutputSkyMap(projection='healpix',
         ...     nside=16, obspix=np.array([0, 1, 2, 3]))
-        >>> ## do whatever you want with the maps
+        >>> # do whatever you want with the maps
         >>> m.coadd_MPI(m, MPI)
         """
         if to_coadd is None:
             to_coadd = self.to_coadd
 
-        to_coadd_split = to_coadd.split(' ')
+        to_coadd_split = to_coadd.split(" ")
         for k in to_coadd_split:
-            setattr(self, k, MPI.COMM_WORLD.allreduce(
-                getattr(other, k), op=MPI.SUM))
+            setattr(
+                self,
+                k,
+                MPI.COMM_WORLD.allreduce(getattr(other, k), op=MPI.SUM),
+            )
 
-    def pickle_me(self, fn, shrink_maps=True, crop_maps=False,
-                  epsilon=0., verbose=False):
+    def pickle_me(
+        self, fn, shrink_maps=True, crop_maps=False, epsilon=0.0, verbose=False
+    ):
         """
         Save data into pickle file.
         Work with pair differenced data only. See pickle_me_demod for
@@ -2359,37 +2566,58 @@ class OutputSkyMap():
         """
         if self.demodulation:
             self.pickle_me_demod(
-                fn, shrink_maps=shrink_maps, crop_maps=crop_maps,
-                epsilon=epsilon, verbose=verbose)
+                fn,
+                shrink_maps=shrink_maps,
+                crop_maps=crop_maps,
+                epsilon=epsilon,
+                verbose=verbose,
+            )
         else:
             try:
                 I, Q, U = self.get_IQU()
-                wP = qu_weight_mineig(self.cc, self.cs, self.ss,
-                                      epsilon=epsilon, verbose=verbose)
+                wP = qu_weight_mineig(
+                    self.cc, self.cs, self.ss, epsilon=epsilon, verbose=verbose
+                )
 
-                data = {'I': I, 'Q': Q, 'U': U,
-                        'wI': self.w, 'wP': wP, 'nhit': self.nhit,
-                        'projection': self.projection,
-                        'nside': self.nside, 'pixel_size': self.pixel_size,
-                        'obspix': self.obspix}
+                data = {
+                    "I": I,
+                    "Q": Q,
+                    "U": U,
+                    "wI": self.w,
+                    "wP": wP,
+                    "nhit": self.nhit,
+                    "projection": self.projection,
+                    "nside": self.nside,
+                    "pixel_size": self.pixel_size,
+                    "obspix": self.obspix,
+                }
             except Exception as e:
-                print('Exception error: ', e)
-                I, G, Q, U = self.get_IQU() # if using IGQU class
-                wP = qu_weight_mineig(self.cc, self.cs, self.ss,
-                                      epsilon=epsilon, verbose=verbose)
+                print("Exception error: ", e)
+                I, G, Q, U = self.get_IQU()  # if using IGQU class
+                wP = qu_weight_mineig(
+                    self.cc, self.cs, self.ss, epsilon=epsilon, verbose=verbose
+                )
 
-                data = {'I': I, 'G': G, 'Q': Q, 'U': U,
-                        'wI': self.w, 'wP': wP, 'nhit': self.nhit,
-                        'projection': self.projection,
-                        'nside': self.nside, 'pixel_size': self.pixel_size,
-                        'obspix': self.obspix}
+                data = {
+                    "I": I,
+                    "G": G,
+                    "Q": Q,
+                    "U": U,
+                    "wI": self.w,
+                    "wP": wP,
+                    "nhit": self.nhit,
+                    "projection": self.projection,
+                    "nside": self.nside,
+                    "pixel_size": self.pixel_size,
+                    "obspix": self.obspix,
+                }
 
-            if shrink_maps and self.projection == 'flat':
-                data = shrink_me(data, based_on='wP')
-            elif crop_maps is not False and self.projection == 'flat':
-                data = crop_me(data, based_on='wP', npix_per_row=crop_maps)
+            if shrink_maps and self.projection == "flat":
+                data = shrink_me(data, based_on="wP")
+            elif crop_maps is not False and self.projection == "flat":
+                data = crop_me(data, based_on="wP", npix_per_row=crop_maps)
 
-            with open(fn, 'wb') as f:
+            with open(fn, "wb") as f:
                 pickle.dump(data, f, protocol=2)
 
     def initialise_sky_maps_demod(self):
@@ -2441,7 +2669,7 @@ class OutputSkyMap():
         """
         hit = self.w0 > 0
         I = np.zeros_like(self.d0)
-        I[hit] = self.d0[hit]/self.w0[hit]
+        I[hit] = self.d0[hit] / self.w0[hit]
         return I
 
     def get_QU_demod(self):
@@ -2475,13 +2703,14 @@ class OutputSkyMap():
         Q = np.zeros_like(self.d4r)
         U = np.zeros_like(self.d4i)
 
-        Q[hit] = self.d4r[hit]/self.w4[hit]
-        U[hit] = self.d4i[hit]/self.w4[hit]
+        Q[hit] = self.d4r[hit] / self.w4[hit]
+        U[hit] = self.d4i[hit] / self.w4[hit]
 
         return Q, U
 
-    def pickle_me_demod(self, fn, shrink_maps=True, crop_maps=False,
-                        epsilon=0., verbose=False):
+    def pickle_me_demod(
+        self, fn, shrink_maps=True, crop_maps=False, epsilon=0.0, verbose=False
+    ):
         """
         Save data into pickle file.
         Work with demodulated data only.
@@ -2501,26 +2730,39 @@ class OutputSkyMap():
         """
         I, Q, U = self.get_IQU()
 
-        data = {'I': I, 'Q': Q, 'U': U,
-                'wI': self.w0, 'wP': self.w4, 'nhit': self.nhit,
-                'projection': self.projection,
-                'nside': self.nside, 'pixel_size': self.pixel_size,
-                'obspix': self.obspix}
+        data = {
+            "I": I,
+            "Q": Q,
+            "U": U,
+            "wI": self.w0,
+            "wP": self.w4,
+            "nhit": self.nhit,
+            "projection": self.projection,
+            "nside": self.nside,
+            "pixel_size": self.pixel_size,
+            "obspix": self.obspix,
+        }
 
-        if shrink_maps and self.projection == 'flat':
-            data = shrink_me(data, based_on='wP')
-        elif crop_maps is not False and self.projection == 'flat':
-            data = crop_me(data, based_on='wP', npix_per_row=crop_maps)
+        if shrink_maps and self.projection == "flat":
+            data = shrink_me(data, based_on="wP")
+        elif crop_maps is not False and self.projection == "flat":
+            data = crop_me(data, based_on="wP", npix_per_row=crop_maps)
 
-        with open(fn, 'wb') as f:
+        with open(fn, "wb") as f:
             pickle.dump(data, f, protocol=2)
 
 
 class OutputSkyMapIGQU(OutputSkyMap):
     """ Class to handle sky maps generated by tod2map + G deprojection """
-    def __init__(self, projection,
-                 obspix=None, npixsky=None,
-                 nside=None, pixel_size=None):
+
+    def __init__(
+        self,
+        projection,
+        obspix=None,
+        npixsky=None,
+        nside=None,
+        pixel_size=None,
+    ):
         """
         Initialise all maps: weights, projected TOD, and Stokes parameters.
         Suitable if you want to perform a deprojection of a constant
@@ -2548,22 +2790,25 @@ class OutputSkyMapIGQU(OutputSkyMap):
         OutputSkyMap.__init__(
             self,
             projection=projection,
-            obspix=obspix, npixsky=npixsky,
-            nside=nside, pixel_size=pixel_size,
-            demodulation=False)
+            obspix=obspix,
+            npixsky=npixsky,
+            nside=nside,
+            pixel_size=pixel_size,
+            demodulation=False,
+        )
 
-        self.to_coadd = self.to_coadd + ' dm wm c s'
+        self.to_coadd = self.to_coadd + " dm wm c s"
 
-        ## Map and weight of deprojected spurious signal
+        # Map and weight of deprojected spurious signal
         self.dm = np.zeros(self.npixsky)
         self.wm = np.zeros(self.npixsky)
 
-        ## cosine and sine (weights for cross term GxQ and GxU)
+        # cosine and sine (weights for cross term GxQ and GxU)
         self.c = np.zeros(self.npixsky)
         self.s = np.zeros(self.npixsky)
 
     def buildV(self, ipix):
-        """ Build vector of projected polarisation TOD for a given sky pixel
+        """Build vector of projected polarisation TOD for a given sky pixel
 
         It includes G template for deprojection (dm).
 
@@ -2586,7 +2831,7 @@ class OutputSkyMapIGQU(OutputSkyMap):
         return np.array([self.dm[ipix], self.dc[ipix], self.ds[ipix]])
 
     def buildP(self, ipix):
-        """ Build pixel weight matrix for polarisation.
+        """Build pixel weight matrix for polarisation.
 
         The [3x3] matrix contains the weights for G, Q and U components of
         the mapmaking:
@@ -2634,7 +2879,7 @@ class OutputSkyMapIGQU(OutputSkyMap):
         ...     nside=16, obspix=np.array(range(12*16**2)))
         >>> m1.set_goodpix()
         """
-        ## We have 4 components: I, Q, U and G.
+        # We have 4 components: I, Q, U and G.
         inonzero = [pix for pix in range(self.npixsky) if self.nhit[pix] > 10]
         self.goodpix = np.zeros((self.npixsky))
         self.goodpix[inonzero] = 1
@@ -2676,10 +2921,11 @@ class OutputSkyMapIGQU(OutputSkyMap):
         ...     nside=16, obspix=np.array([0, 1, 2, 3]))
         >>> G, Q, U = m1.get_QU()
         """
-        if not hasattr(self, 'goodpix'):
+        if not hasattr(self, "goodpix"):
             self.set_goodpix()
         inonzero = [
-            pix for pix in range(self.npixsky) if self.goodpix[pix] != 0]
+            pix for pix in range(self.npixsky) if self.goodpix[pix] != 0
+        ]
 
         G = np.zeros((self.npixsky))
         Q = np.zeros((self.npixsky))
@@ -2772,10 +3018,11 @@ def shrink_me(dic, based_on):
     [[ 6  7]
      [10 11]]
     """
-    assert based_on in dic, \
-        KeyError("{} not in input dictionary!".format(based_on))
+    assert based_on in dic, KeyError(
+        "{} not in input dictionary!".format(based_on)
+    )
 
-    npixr = int(len(dic[based_on])**.5)
+    npixr = int(len(dic[based_on]) ** 0.5)
     halfnpixr = int(npixr / 2)
     mask = dic[based_on].reshape((npixr, npixr))
     idx = np.where(mask > 0)
@@ -2788,21 +3035,24 @@ def shrink_me(dic, based_on):
     halfdxy = int(dxy / 2)
 
     for k in dic.keys():
-        ## Filter out fields which aren't arrays
+        # Filter out fields which aren't arrays
         if type(dic[k]) == np.ndarray:
-            ## Filter out fields which are arrays but not like based_on.
-            npixr_loc = int(len(dic[k])**.5)
+            # Filter out fields which are arrays but not like based_on.
+            npixr_loc = int(len(dic[k]) ** 0.5)
             if npixr_loc == npixr:
                 dic[k] = np.array(
-                    [i[halfnpixr - halfdxy - 1: halfnpixr + halfdxy+1] for i in
-                     dic[k].reshape(
-                         (npixr, npixr))[
-                             halfnpixr - halfdxy - 1:
-                             halfnpixr + halfdxy + 1]]).flatten()
+                    [
+                        i[halfnpixr - halfdxy - 1: halfnpixr + halfdxy + 1]
+                        for i in dic[k].reshape((npixr, npixr))[
+                            halfnpixr - halfdxy - 1: halfnpixr + halfdxy + 1
+                        ]
+                    ]
+                ).flatten()
 
     return dic
 
-def crop_me(dic, based_on, npix_per_row=2**12):
+
+def crop_me(dic, based_on, npix_per_row=2 ** 12):
     """
     Crop maps to a chosen size.
     Maps have to be squared (so work only for flat sky).
@@ -2838,32 +3088,38 @@ def crop_me(dic, based_on, npix_per_row=2**12):
     [[ 6  7]
      [10 11]]
     """
-    assert based_on in dic, \
-        KeyError("{} not in input dictionary!".format(based_on))
+    assert based_on in dic, KeyError(
+        "{} not in input dictionary!".format(based_on)
+    )
 
-    npixr = int(len(dic[based_on])**.5)
+    npixr = int(len(dic[based_on]) ** 0.5)
     halfnpixr = int(npixr / 2)
     halfnpix_per_row = int(npix_per_row / 2)
 
     for k in dic.keys():
-        ## Filter out fields which aren't arrays
+        # Filter out fields which aren't arrays
         if type(dic[k]) == np.ndarray:
-            ## Filter out fields which are arrays but not like based_on.
-            npixr_loc = int(len(dic[k])**.5)
+            # Filter out fields which are arrays but not like based_on.
+            npixr_loc = int(len(dic[k]) ** 0.5)
             if npixr_loc == npixr:
-                ## Check that we have enough pixels to start with
-                assert npixr_loc >= npix_per_row, \
-                    ValueError("Map too small to " +
-                               "be cropped! ({} vs {})".format(
-                                   npixr_loc, npix_per_row))
+                # Check that we have enough pixels to start with
+                assert npixr_loc >= npix_per_row, ValueError(
+                    "Map too small to be cropped! ({} vs {})".format(
+                        npixr_loc,
+                        npix_per_row
+                    )
+                )
 
                 dic[k] = np.array(
-                    [i[halfnpixr - halfnpix_per_row:
-                       halfnpixr + halfnpix_per_row] for i in
-                     dic[k].reshape(
-                         (npixr, npixr))[halfnpixr - halfnpix_per_row:
-                                         halfnpixr +
-                                         halfnpix_per_row]]).flatten()
+                    [
+                        i[
+                            halfnpixr - halfnpix_per_row: halfnpixr + halfnpix_per_row
+                        ]
+                        for i in dic[k].reshape((npixr, npixr))[
+                            halfnpixr - halfnpix_per_row: halfnpixr + halfnpix_per_row
+                        ]
+                    ]
+                ).flatten()
 
     return dic
 
@@ -2897,15 +3153,25 @@ def partial2full(partial_obs, obspix, nside, fill_with=0.0):
     >>> obspix = np.arange(12 * nside**2, dtype=int)[30:40]
     >>> fullsky = partial2full(data, obspix, nside)
     """
-    fullsky = np.zeros(12 * nside**2) * fill_with
+    fullsky = np.zeros(12 * nside ** 2) * fill_with
     fullsky[obspix] = partial_obs
     return fullsky
 
-def build_pointing_matrix(ra, dec, nside_in, nside_out=None,
-                          projection='healpix', obspix=None, ext_map_gal=False,
-                          xmin=None, ymin=None,
-                          pixel_size=None, npix_per_row=None,
-                          cut_pixels_outside=True):
+
+def build_pointing_matrix(
+    ra,
+    dec,
+    nside_in,
+    nside_out=None,
+    projection="healpix",
+    obspix=None,
+    ext_map_gal=False,
+    xmin=None,
+    ymin=None,
+    pixel_size=None,
+    npix_per_row=None,
+    cut_pixels_outside=True,
+):
     """
     Given pointing coordinates (RA/Dec), retrieve the corresponding healpix
     pixel index for a full sky map. This acts effectively as an operator
@@ -2991,12 +3257,12 @@ def build_pointing_matrix(ra, dec, nside_in, nside_out=None,
 
     theta, phi = radec2thetaphi(ra, dec)
     if ext_map_gal:
-        r = hp.Rotator(coord=['C', 'G'])
+        r = hp.Rotator(coord=["C", "G"])
         theta, phi = r(theta, phi)
 
     index_global = hp.ang2pix(nside_in, theta, phi)
 
-    if projection == 'healpix' and obspix is not None:
+    if projection == "healpix" and obspix is not None:
         index_global_out = hp.ang2pix(nside_out, theta, phi)
         index_local = obspix.searchsorted(index_global_out)
         mask1 = index_local < len(obspix)
@@ -3004,25 +3270,29 @@ def build_pointing_matrix(ra, dec, nside_in, nside_out=None,
         loc[mask1] = obspix[index_local[mask1]] == index_global_out[mask1]
         outside_pixels = np.invert(loc)
 
-        ## Handling annoying cases.
-        if (np.sum(outside_pixels) and (not cut_pixels_outside)):
-            msg = "Pixels outside patch boundaries. " + \
-                "Patch width insufficient. To avoid this, " + \
-                "increase the parameter width while initialising the TOD " + \
-                "or set cut_pixels_outside to True to get a cropped map."
+        # Handling annoying cases.
+        if np.sum(outside_pixels) and (not cut_pixels_outside):
+            msg = """
+            Pixels outside patch boundaries.
+            Patch width insufficient. To avoid this,
+            increase the parameter width while initialising the TOD
+            or set cut_pixels_outside to True to get a cropped map.
+            """
             raise ValueError(msg)
-        elif (np.sum(outside_pixels) and cut_pixels_outside):
-            if (not ('msg_cut' in globals())):
+        elif np.sum(outside_pixels) and cut_pixels_outside:
+            if not ("msg_cut" in globals()):
                 global msg_cut
-                msg_cut = "Pixels outside patch boundaries. " + \
-                    "Your output map will be cropped. To avoid this, " + \
-                    "increase the parameter width while initialising the TOD."
+                msg_cut = """
+                Pixels outside patch boundaries.
+                Your output map will be cropped. To avoid this,
+                increase the parameter width while initialising the TOD.
+                """
                 print(msg_cut)
             index_local[outside_pixels] = -1
         else:
             pass
 
-    elif projection == 'flat':
+    elif projection == "flat":
         x, y = input_sky.LamCyl(ra, dec)
 
         xminmap = xmin - pixel_size / 2.0
@@ -3033,22 +3303,27 @@ def build_pointing_matrix(ra, dec, nside_in, nside_out=None,
 
         index_local = ix * npix_per_row + iy
 
-        outside_pixels = (ix < 0) | (ix >= npix_per_row) | \
-            (iy < 0) | (iy >= npix_per_row)
+        outside_pixels = (
+            (ix < 0) | (ix >= npix_per_row) | (iy < 0) | (iy >= npix_per_row)
+        )
 
-        ## Handling annoying cases.
-        if (np.sum(outside_pixels) and (not cut_pixels_outside)):
-            msg = "Pixels outside patch boundaries. " + \
-                "Patch width insufficient. To avoid this, " + \
-                "increase the parameter width while initialising the TOD " + \
-                "or set cut_pixels_outside to True to get a cropped map."
+        # Handling annoying cases.
+        if np.sum(outside_pixels) and (not cut_pixels_outside):
+            msg = """
+            Pixels outside patch boundaries.
+            Patch width insufficient. To avoid this,
+            increase the parameter width while initialising the TOD
+            or set cut_pixels_outside to True to get a cropped map.
+            """
             raise ValueError(msg)
-        elif (np.sum(outside_pixels) and cut_pixels_outside):
-            if (not ('msg_cut_flat' in globals())):
+        elif np.sum(outside_pixels) and cut_pixels_outside:
+            if not ("msg_cut_flat" in globals()):
                 global msg_cut_flat
-                msg_cut_flat = "Pixels outside patch boundaries. " + \
-                    "Your output map will be cropped. To avoid this, " + \
-                    "increase the parameter width while initialising the TOD."
+                msg_cut_flat = """
+                Pixels outside patch boundaries.
+                Your output map will be cropped. To avoid this,
+                increase the parameter width while initialising the TOD.
+                """
                 print(msg_cut_flat)
             index_local[outside_pixels] = -1
 
@@ -3059,8 +3334,10 @@ def build_pointing_matrix(ra, dec, nside_in, nside_out=None,
 
     return index_global, index_local
 
-def load_fake_instrument(nside=16, nsquid_per_mux=1, fwhm_in2=None,
-                         compute_derivatives=False):
+
+def load_fake_instrument(
+    nside=16, nsquid_per_mux=1, fwhm_in2=None, compute_derivatives=False
+):
     """
     For test purposes.
     Create instances of HealpixFitsMap, hardware, and
@@ -3075,43 +3352,64 @@ def load_fake_instrument(nside=16, nsquid_per_mux=1, fwhm_in2=None,
     HealpixFitsMap : HealpixFitsMap instance
         Instance of HealpixFitsMap containing input sky parameters.
     """
-    ## Add paths to load modules
-    sys.path.insert(0, os.path.realpath(os.path.join(os.getcwd(), '.')))
-    sys.path.insert(0, os.path.realpath(os.path.join(os.getcwd(), 's4cmb')))
+    # Add paths to load modules
+    sys.path.insert(0, os.path.realpath(os.path.join(os.getcwd(), ".")))
+    sys.path.insert(0, os.path.realpath(os.path.join(os.getcwd(), "s4cmb")))
     from s4cmb.input_sky import HealpixFitsMap
     from s4cmb.instrument import Hardware
     from s4cmb.scanning_strategy import ScanningStrategy
 
-    ## Create fake inputs
+    # Create fake inputs
 
-    ## Sky
-    sky_in = HealpixFitsMap('s4cmb/data/test_data_set_lensedCls.dat',
-                            do_pol=True, fwhm_in=0.0, fwhm_in2=fwhm_in2,
-                            nside_in=nside, map_seed=48584937,
-                            compute_derivatives=compute_derivatives,
-                            verbose=False, no_ileak=False, no_quleak=False)
+    # Sky
+    sky_in = HealpixFitsMap(
+        "s4cmb/data/test_data_set_lensedCls.dat",
+        do_pol=True,
+        fwhm_in=0.0,
+        fwhm_in2=fwhm_in2,
+        nside_in=nside,
+        map_seed=48584937,
+        compute_derivatives=compute_derivatives,
+        verbose=False,
+        no_ileak=False,
+        no_quleak=False,
+    )
 
-    ## Instrument
-    inst = Hardware(ncrate=1, ndfmux_per_crate=1,
-                    nsquid_per_mux=nsquid_per_mux, npair_per_squid=4,
-                    fp_size=60., fwhm=3.5,
-                    beam_seed=58347, projected_fp_size=3.,
-                    pm_name='5params', type_hwp='CRHWP',
-                    freq_hwp=0.2, angle_hwp=0., verbose=False)
+    # Instrument
+    inst = Hardware(
+        ncrate=1,
+        ndfmux_per_crate=1,
+        nsquid_per_mux=nsquid_per_mux,
+        npair_per_squid=4,
+        fp_size=60.0,
+        fwhm=3.5,
+        beam_seed=58347,
+        projected_fp_size=3.0,
+        pm_name="5params",
+        type_hwp="CRHWP",
+        freq_hwp=0.2,
+        angle_hwp=0.0,
+        verbose=False,
+    )
     if fwhm_in2 is not None:
         inst.make_dichroic(fwhm=fwhm_in2)
 
-    ## Scanning strategy
-    scan = ScanningStrategy(nces=2, start_date='2013/1/1 00:00:00',
-                            telescope_longitude='-67:46.816',
-                            telescope_latitude='-22:56.396',
-                            telescope_elevation=5200.,
-                            name_strategy='deep_patch',
-                            sampling_freq=8., sky_speed=0.4,
-                            language='fortran')
+    # Scanning strategy
+    scan = ScanningStrategy(
+        nces=2,
+        start_date="2013/1/1 00:00:00",
+        telescope_longitude="-67:46.816",
+        telescope_latitude="-22:56.396",
+        telescope_elevation=5200.0,
+        name_strategy="deep_patch",
+        sampling_freq=8.0,
+        sky_speed=0.4,
+        language="fortran",
+    )
     scan.run()
 
     return inst, scan, sky_in
+
 
 def noise_ukam(array_noise_level, fsky, nside, tobs):
     """
@@ -3146,12 +3444,15 @@ def noise_ukam(array_noise_level, fsky, nside, tobs):
     >>> print(round(noise, 2), 'uK.arcmin')
     3.93 uK.arcmin
     """
-    noise = np.sqrt(array_noise_level**2 * hp.nside2npix(nside) * fsky / tobs)
+    noise = np.sqrt(
+        array_noise_level ** 2 * hp.nside2npix(nside) * fsky / tobs
+    )
     return noise * hp.nside2resol(nside, arcmin=True)
 
 
 if __name__ == "__main__":
     import doctest
+
     if np.__version__ >= "1.14.0":
         np.set_printoptions(legacy="1.13")
     doctest.testmod()
