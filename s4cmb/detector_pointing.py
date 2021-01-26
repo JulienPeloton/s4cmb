@@ -13,24 +13,26 @@ Author: Julien Peloton, j.peloton@sussex.ac.uk
 """
 from __future__ import division, absolute_import, print_function
 
-import healpy as hp
+import os
 import numpy as np
 from numpy import cos
 from numpy import sin
 from numpy import tan
 from pyslalib import slalib
 from astropy.utils import iers
+from astropy.time import Time
 import warnings
 from s4cmb.detector_pointing_f import detector_pointing_f
 
-sec2deg = 360.0/86400.0
+sec2deg = 360.0 / 86400.0
 d2r = np.pi / 180.0
 ASTROMETRIC_GEOCENTRIC = 0
 APPARENT_GEOCENTRIC = 1
 APPARENT_TOPOCENTRIC = 2
 
+
 def get_ut1utc(ut1utc_fn, mjd):
-    """ Return the time correction to UTC.
+    """Return the time correction to UTC.
 
     Those are computed from 01 01 2012 (MJD=55927) to the latest MJD available
     in the s4cmb/data/ut1utc.ephem file.
@@ -70,17 +72,32 @@ def get_ut1utc(ut1utc_fn, mjd):
         mjd_tmp = mjd
         warn_me = False
     if warn_me:
-        warnings.warn('MJD outside ut1utc file date range %.6f -- %.6f. Default corrections applied. Consider updating the ut1utc file.'%(umjds[0],umjds[-1]))
+        warnings.warn(
+            """
+            MJD outside ut1utc file date range {:.6f} -- {:.6f}.
+            Default corrections applied. Consider updating the ut1utc file.
+            """.format(umjds[0], umjds[-1])
+        )
     uindex = np.searchsorted(umjds, mjd_tmp)
     ut1utc = ut1utcs[uindex]
     return ut1utc
 
-class Pointing():
+
+class Pointing:
     """ Class to handle detector pointing """
-    def __init__(self, az_enc, el_enc, time, value_params,
-                 allowed_params='ia ie ca an aw',
-                 ra_src=0.0, dec_src=0.0, lat=-22.958,
-                 ut1utc_fn='s4cmb/data/ut1utc.ephem'):
+
+    def __init__(
+        self,
+        az_enc,
+        el_enc,
+        time,
+        value_params,
+        allowed_params="ia ie ca an aw",
+        ra_src=0.0,
+        dec_src=0.0,
+        lat=-22.958,
+        ut1utc_fn="s4cmb/data/ut1utc.ephem",
+    ):
         """
         Apply pointing model with parameters `value_params` and
         names `allowed_params` to encoder az,el. Order of terms is
@@ -158,7 +175,7 @@ class Pointing():
 
         self.ut1utc = get_ut1utc(self.ut1utc_fn, self.time[0])
 
-        ## Initialise the object
+        # Initialise the object
         self.az, self.el = self.apply_pointing_model()
         self.azel2radec()
 
@@ -173,66 +190,94 @@ class Pointing():
         el : 1d array
             The corrected elevation in arcminutes.
         """
-        assert len(self.value_params) == len(self.allowed_params.split()), \
-            AssertionError("Vector containing parameters " +
-                           "(value_params) has to have the same " +
-                           "length than the vector containing names " +
-                           "(allowed_params).")
+        assert len(self.value_params) == len(
+            self.allowed_params.split()
+        ), AssertionError(
+            """Vector containing parameters
+            (value_params) has to have the same
+            length than the vector containing names
+            (allowed_params)."""
+        )
 
-        ## Here are many parameters defining a pointing model.
-        ## Of course, we do not use all of them. They are zero by default,
-        ## and only those specified by the user will be used.
-        params = {p: 0.0 for p in ['an', 'aw', 'an2', 'aw2', 'an4',
-                                   'aw4', 'npae', 'ca', 'ia', 'ie', 'tf',
-                                   'tfs', 'ref', 'dt', 'elt', 'ta1',
-                                   'te1', 'sa', 'se', 'sa2',
-                                   'se2', 'sta', 'ste', 'sta2', 'ste2']}
+        # Here are many parameters defining a pointing model.
+        # Of course, we do not use all of them. They are zero by default,
+        # and only those specified by the user will be used.
+        params = {
+            p: 0.0
+            for p in [
+                "an",
+                "aw",
+                "an2",
+                "aw2",
+                "an4",
+                "aw4",
+                "npae",
+                "ca",
+                "ia",
+                "ie",
+                "tf",
+                "tfs",
+                "ref",
+                "dt",
+                "elt",
+                "ta1",
+                "te1",
+                "sa",
+                "se",
+                "sa2",
+                "se2",
+                "sta",
+                "ste",
+                "sta2",
+                "ste2",
+            ]
+        }
 
         for param in params:
             if param in self.allowed_params.split():
                 index = self.allowed_params.split().index(param)
                 params[param] = self.value_params[index]
 
-        params['dt'] *= sec2deg
+        params["dt"] *= sec2deg
 
-        ## Azimuth
-        azd = -params['an'] * sin(self.az_enc) * sin(self.el_enc)
-        azd -= params['aw'] * cos(self.az_enc) * sin(self.el_enc)
+        # Azimuth
+        azd = -params["an"] * sin(self.az_enc) * sin(self.el_enc)
+        azd -= params["aw"] * cos(self.az_enc) * sin(self.el_enc)
 
-        azd -= -params['an2'] * sin(2 * self.az_enc) * sin(self.el_enc)
-        azd -= params['aw2'] * cos(2 * self.az_enc) * sin(self.el_enc)
+        azd -= -params["an2"] * sin(2 * self.az_enc) * sin(self.el_enc)
+        azd -= params["aw2"] * cos(2 * self.az_enc) * sin(self.el_enc)
 
-        azd -= -params['an4'] * sin(4 * self.az_enc) * sin(self.el_enc)
-        azd -= params['aw4'] * cos(4 * self.az_enc) * sin(self.el_enc)
+        azd -= -params["an4"] * sin(4 * self.az_enc) * sin(self.el_enc)
+        azd -= params["aw4"] * cos(4 * self.az_enc) * sin(self.el_enc)
 
-        azd += params['npae'] * sin(self.el_enc)
-        azd -= params['ca']
-        azd += params['ia'] * cos(self.el_enc)
+        azd += params["npae"] * sin(self.el_enc)
+        azd -= params["ca"]
+        azd += params["ia"] * cos(self.el_enc)
 
-        azd += params['dt'] * (
-            -sin(self.lat) + cos(self.az_enc) *
-            cos(self.lat) * tan(self.el_enc))
+        azd += params["dt"] * (
+            -sin(self.lat) + cos(self.az_enc) * cos(self.lat) * tan(self.el_enc)
+        )
 
-        ## Elevation
-        eld = params['an'] * cos(self.az_enc)
-        eld -= params['aw'] * sin(self.az_enc)
-        eld -= params['an2'] * cos(2 * self.az_enc)
-        eld -= params['aw2'] * sin(2 * self.az_enc)
-        eld -= params['an4'] * cos(4 * self.az_enc)
-        eld -= params['aw4'] * sin(4 * self.az_enc)
+        # Elevation
+        eld = params["an"] * cos(self.az_enc)
+        eld -= params["aw"] * sin(self.az_enc)
+        eld -= params["an2"] * cos(2 * self.az_enc)
+        eld -= params["aw2"] * sin(2 * self.az_enc)
+        eld -= params["an4"] * cos(4 * self.az_enc)
+        eld -= params["aw4"] * sin(4 * self.az_enc)
 
-        eld -= params['ie']
-        eld += params['tf'] * cos(self.el_enc)
-        eld += params['tfs'] * sin(self.el_enc)
-        eld -= params['ref'] / tan(self.el_enc)
+        eld -= params["ie"]
+        eld += params["tf"] * cos(self.el_enc)
+        eld += params["tfs"] * sin(self.el_enc)
+        eld -= params["ref"] / tan(self.el_enc)
 
-        eld += -params['dt'] * cos(self.lat) * sin(self.az_enc)
+        eld += -params["dt"] * cos(self.lat) * sin(self.az_enc)
 
-        eld += params['elt'] * (self.time - np.min(self.time))
+        eld += params["elt"] * (self.time - np.min(self.time))
 
-        ## Convert back in radian and apply to the encoder values.
-        azd *= np.pi / (180.0 * 60.)
-        eld *= np.pi / (180.0 * 60.)
+        # Convert back in radian and apply to the encoder values.
+        azd *= np.pi / (180.0 * 60.0)
+        eld *= np.pi / (180.0 * 60.0)
 
         azd /= np.cos(self.el_enc)
 
@@ -265,13 +310,13 @@ class Pointing():
 
         self.meanpa = np.median(v_pa)
 
-        self.quaternion = Quaternion(v_ra, v_dec, v_pa,
-                                     v_ra_src, v_dec_src)
+        self.quaternion = Quaternion(v_ra, v_dec, v_pa, v_ra_src, v_dec_src)
 
         q = self.quaternion.offset_radecpa_makequat()
 
-        assert q.shape == (self.az.size, 4), \
-            AssertionError("Wrong size for the quaternions!")
+        assert q.shape == (self.az.size, 4), AssertionError(
+            "Wrong size for the quaternions!"
+        )
 
         self.q = q
 
@@ -291,7 +336,7 @@ class Pointing():
         >>> print(round(ra[0], 2), round(dec[0], 2), round(pa[0], 2))
         0.56 0.67 3.13
         """
-        ## TODO pass lon, lat, etc from the ScanningStrategy module!
+        # TODO pass lon, lat, etc from the ScanningStrategy module!
         converter = Azel2Radec(self.time[0], self.ut1utc)
         vconv = np.vectorize(converter.azel2radecpa)
         ra, dec, pa = vconv(self.time, self.az, self.el)
@@ -312,7 +357,7 @@ class Pointing():
         >>> assert np.all(np.round(az[2:4],2) == np.round(pointing.az[2:4],2))
         >>> assert np.all(np.round(el[2:4],2) == np.round(pointing.el[2:4],2))
         """
-        ## TODO pass lon, lat, etc from the ScanningStrategy module!
+        # TODO pass lon, lat, etc from the ScanningStrategy module!
         converter = Azel2Radec(self.time[0], self.ut1utc)
         vconv = np.vectorize(converter.radec2azel)
         az, el = vconv(self.time, self.ra, self.dec)
@@ -339,15 +384,25 @@ class Pointing():
         pa : 1d array
             Parallactic angle in radian.
         """
-        ra, dec, pa = self.quaternion.offset_radecpa_applyquat(
-            self.q, -azd, -eld)
+        ra, dec, pa = self.quaternion.offset_radecpa_applyquat(self.q, -azd, -eld)
         return ra, dec, pa
+
 
 class Azel2Radec(object):
     """ Class to handle az/el <-> ra/dec conversion """
-    def __init__(self, mjd, ut1utc,
-                 lon=-67.786, lat=-22.958, height=5200.,
-                 pressure=533.29, temp=273.15, humidity=0.1, epequi=2000.0):
+
+    def __init__(
+        self,
+        mjd,
+        ut1utc,
+        lon=-67.786,
+        lat=-22.958,
+        height=5200.0,
+        pressure=533.29,
+        temp=273.15,
+        humidity=0.1,
+        epequi=2000.0,
+    ):
         """
         This class is mostly a wrapper around slalib.
         The default parameters correspond to the Polarbear observation site.
@@ -404,10 +459,20 @@ class Azel2Radec(object):
 
         """
         wavelength = (299792458.0 / 150.0e9) * 1e6
-        self.aoprms = slalib.sla_aoppa(mjd, self.ut1utc, self.lon, self.lat,
-                                       self.height, xpm, ypm, self.temp,
-                                       self.pressure, self.humidity,
-                                       wavelength, lapserate)
+        self.aoprms = slalib.sla_aoppa(
+            mjd,
+            self.ut1utc,
+            self.lon,
+            self.lat,
+            self.height,
+            xpm,
+            ypm,
+            self.temp,
+            self.pressure,
+            self.humidity,
+            wavelength,
+            lapserate,
+        )
 
     def azel2radecpa(self, mjd, az, el):
         """
@@ -436,9 +501,9 @@ class Azel2Radec(object):
         amprms = slalib.sla_mappa(self.epequi, mjd)
         self.aoprms = slalib.sla_aoppat(mjd, self.aoprms)
 
-        ra_app1, dec_app1 = slalib.sla_oapqk('a', az, zd + 1e-8, self.aoprms)
+        ra_app1, dec_app1 = slalib.sla_oapqk("a", az, zd + 1e-8, self.aoprms)
         ra1, dec1 = slalib.sla_ampqk(ra_app1, dec_app1, amprms)
-        ra_app2, dec_app2 = slalib.sla_oapqk('a', az, zd - 1e-8, self.aoprms)
+        ra_app2, dec_app2 = slalib.sla_oapqk("a", az, zd - 1e-8, self.aoprms)
         ra2, dec2 = slalib.sla_ampqk(ra_app2, dec_app2, amprms)
         pa = slalib.sla_dbear(ra1, dec1, ra2, dec2)
         ra = 0.5 * (ra1 + ra2)
@@ -473,8 +538,10 @@ class Azel2Radec(object):
         el = np.pi / 2 - zd
         return az, el
 
-class Quaternion():
+
+class Quaternion:
     """ Class to handle quaternions """
+
     def __init__(self, ra, dec, pa, v_ra_src, v_dec_src):
         """
         Once you have RA/Dec coordinates of the reference detector, one
@@ -563,10 +630,11 @@ class Quaternion():
 
         assert seq.shape[1] == 4, AssertionError("Wrong size!")
 
-        n = seq.shape[0]
+        # n = seq.shape[0]
         phi, theta, psi = quat_to_radecpa_fortran(seq)
 
         return psi, -theta, -phi
+
 
 def radec2thetaphi(ra, dec):
     """
@@ -595,6 +663,7 @@ def radec2thetaphi(ra, dec):
     theta = np.pi / 2 - dec
     phi = ra
     return theta, phi
+
 
 def mult(p, q):
     """
@@ -639,10 +708,10 @@ def mult(p, q):
     pq[:, 3] = ps * qs
     pq[:, 3] -= arraylist_dot(pv, qv).flatten()
 
-    pq[:, :3] = ps[:, np.newaxis] * qv + \
-        pv * qs[:, np.newaxis] + np.cross(pv, qv)
+    pq[:, :3] = ps[:, np.newaxis] * qv + pv * qs[:, np.newaxis] + np.cross(pv, qv)
 
     return pq
+
 
 def mult_fortran(p, q):
     """
@@ -687,6 +756,7 @@ def mult_fortran(p, q):
     pq = pq.reshape(shape)
     return pq
 
+
 def arraylist_dot(a, b):
     """
     Dot product of ndarrays.
@@ -713,6 +783,7 @@ def arraylist_dot(a, b):
     else:
         return np.sum(a * b, axis=1)[:, np.newaxis]
 
+
 def euler_quatx(alpha):
     """
     Generate quaternion units along x axis
@@ -733,6 +804,7 @@ def euler_quatx(alpha):
     c = np.cos(alpha * 0.5)
     s = np.sin(alpha * 0.5)
     return np.array([s, z, z, c]).T
+
 
 def euler_quaty(alpha):
     """
@@ -755,6 +827,7 @@ def euler_quaty(alpha):
     s = np.sin(alpha * 0.5)
     return np.array([z, s, z, c]).T
 
+
 def euler_quatz(alpha):
     """
     Generate quaternion units along z axis
@@ -775,6 +848,7 @@ def euler_quatz(alpha):
     c = np.cos(alpha * 0.5)
     s = np.sin(alpha * 0.5)
     return np.array([z, z, s, c]).T
+
 
 def quat_to_radecpa_fortran(seq):
     """
@@ -800,9 +874,9 @@ def quat_to_radecpa_fortran(seq):
     theta = np.zeros_like(q0)
     psi = np.zeros_like(q0)
 
-    detector_pointing_f.quat_to_radecpa_fortran_f(
-        q0, q1, q2, q3, phi, theta, psi, n)
+    detector_pointing_f.quat_to_radecpa_fortran_f(q0, q1, q2, q3, phi, theta, psi, n)
     return phi, theta, psi
+
 
 def quat_to_radecpa_python(seq):
     """
@@ -824,12 +898,11 @@ def quat_to_radecpa_python(seq):
 
     """
     q1, q2, q3, q0 = seq.T
-    phi = np.arctan2(2 * (q0 * q1 + q2 * q3),
-                     1. - 2. * (q1 * q1 + q2 * q2))
+    phi = np.arctan2(2 * (q0 * q1 + q2 * q3), 1.0 - 2.0 * (q1 * q1 + q2 * q2))
     theta = np.arcsin(2 * (q0 * q2 - q3 * q1))
-    psi = np.arctan2(2 * (q0 * q3 + q1 * q2),
-                     1. - 2. * (q2 * q2 + q3 * q3))
+    psi = np.arctan2(2 * (q0 * q3 + q1 * q2), 1.0 - 2.0 * (q2 * q2 + q3 * q3))
     return phi, theta, psi
+
 
 def load_fake_pointing():
     """
@@ -850,17 +923,16 @@ def load_fake_pointing():
         Encoder time (UTC) in mjd
 
     """
-    allowed_params = 'ia ie ca an aw'
-    value_params = [10.28473073, 8.73953334, -15.59771781,
-                    -0.50977716, 0.10858016]
-    az_enc = np.array([np.sin(2 * np.pi * i / 100)
-                       for i in range(100)])
+    allowed_params = "ia ie ca an aw"
+    value_params = [10.28473073, 8.73953334, -15.59771781, -0.50977716, 0.10858016]
+    az_enc = np.array([np.sin(2 * np.pi * i / 100) for i in range(100)])
     el_enc = np.ones(100) * 0.5
-    time = np.array([56293 + t/84000. for t in range(100)])
+    time = np.array([56293 + t / 84000.0 for t in range(100)])
 
     return allowed_params, value_params, az_enc, el_enc, time
 
-def update_ut1utc(fname='ut1utc_user.ephem',begin_date='2012-01-01',end_date=None):
+
+def update_ut1utc(fname="ut1utc_user.ephem", begin_date="2012-01-01", end_date=None):
     """
     Creates an updated database file with time correction to UTC.
 
@@ -885,31 +957,38 @@ def update_ut1utc(fname='ut1utc_user.ephem',begin_date='2012-01-01',end_date=Non
     """
     iers_table = iers.IERS_Auto.open()
     begin_time = Time(begin_date)
-    mask = (iers_table['MJD'].value>=begin_time.mjd)
+    mask = iers_table["MJD"].value >= begin_time.mjd
     if end_date is not None:
-        end_time = Time(end_time)
-        mask &= (iers_table['MJD'].value<=end_time.mjd)
-    y=iers_table['year'][mask]
-    m=iers_table['month'][mask]
-    d=iers_table['day'][mask]
-    mjd=iers_table['MJD'].value[mask]
-    ut1utc=iers_table['UT1_UTC'][mask]
+        end_time = Time(end_date)
+        mask &= iers_table["MJD"].value <= end_time.mjd
+    y = iers_table["year"][mask]
+    m = iers_table["month"][mask]
+    d = iers_table["day"][mask]
+    mjd = iers_table["MJD"].value[mask]
+    ut1utc = iers_table["UT1_UTC"][mask]
 
     # Corrects MJD according to astropy doc
-    y[mjd<=51543]+=1900
-    y[mjd>=51544]+=2000
+    y[mjd <= 51543] += 1900
+    y[mjd >= 51544] += 2000
 
     try:
-        fname_path = os.path.join(os.environ['s4cmbPATH'],'s4cmb/data')
-    except:
-        fname_path = './'
+        fname_path = os.path.join(os.environ["s4cmbPATH"], "s4cmb/data")
+    except KeyError as e:
+        print(str(e), "Saving the current directory instead")
+        fname_path = "./"
 
-    np.savetxt(os.path.join(fname_path,fname),np.column_stack((y,m,d,mjd,ut1utc)),fmt="%d-%d-%d\t%.6f\t%.6f")
+    np.savetxt(
+        os.path.join(fname_path, fname),
+        np.column_stack((y, m, d, mjd, ut1utc)),
+        fmt="%d-%d-%d\t%.6f\t%.6f",
+    )
     iers_table.close()
     return
 
+
 if __name__ == "__main__":
     import doctest
+
     if np.__version__ >= "1.14.0":
         np.set_printoptions(legacy="1.13")
     doctest.testmod()
