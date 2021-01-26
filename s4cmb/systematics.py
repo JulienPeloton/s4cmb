@@ -11,16 +11,25 @@ import numpy as np
 from scipy import signal
 
 from s4cmb.systematics_f import systematics_f
-from s4cmb.instrument import construct_beammap, coordinates_on_grid,gauss2d
+from s4cmb.instrument import construct_beammap, coordinates_on_grid, gauss2d
 
-arcsecond2rad = np.pi / 180. / 3600.
-arcmin2rad = np.pi / 180. / 60.
-deg2rad = np.pi / 180.
+arcsecond2rad = np.pi / 180.0 / 3600.0
+arcmin2rad = np.pi / 180.0 / 60.0
+deg2rad = np.pi / 180.0
 
-def inject_crosstalk_inside_SQUID(bolo_data, squid_ids, bolo_ids,
-                                  mu=-3., sigma=1., radius=1, beta=2,
-                                  seed=5438765, new_array=None,
-                                  language='python'):
+
+def inject_crosstalk_inside_SQUID(
+    bolo_data,
+    squid_ids,
+    bolo_ids,
+    mu=-3.0,
+    sigma=1.0,
+    radius=1,
+    beta=2,
+    seed=5438765,
+    new_array=None,
+    language="python",
+):
     """
     Introduce leakage between neighboring bolometers within a SQUID.
     You have to provide the list of bolometers, to which SQUID they
@@ -96,9 +105,9 @@ def inject_crosstalk_inside_SQUID(bolo_data, squid_ids, bolo_ids,
     For large number of bolometers per SQUID, you would prefer fortran
     to python to perform the loops. Choose python otherwise.
     """
-    ## Make mu and sigma unitless (user provides percentage)
-    mu = mu / 100.
-    sigma = sigma / 100.
+    # Make mu and sigma unitless (user provides percentage)
+    mu = mu / 100.0
+    sigma = sigma / 100.0
 
     combs = {}
     for bolo in range(len(bolo_data)):
@@ -112,35 +121,50 @@ def inject_crosstalk_inside_SQUID(bolo_data, squid_ids, bolo_ids,
     state = np.random.RandomState(seed)
     cross_amp = state.normal(mu, sigma, len(bolo_data))
 
-    if language == 'python':
+    if language == "python":
         for sq in combs:
             for ch, i in combs[sq]:
                 for ch2, i2 in combs[sq]:
                     separation_length = abs(ch - ch2)
                     if separation_length > 0 and separation_length <= radius:
-                        tsout[i] += cross_amp[i2] / \
-                            separation_length**beta * tsout[i2]
+                        tsout[i] += (
+                            cross_amp[i2] / separation_length ** beta * tsout[i2]
+                        )
 
-    elif language == 'fortran':
-        ## F2PY convention
-        tsout = np.array(tsout, order='F')
+    elif language == "fortran":
+        # F2PY convention
+        tsout = np.array(tsout, order="F")
         for sq in combs:
-            local_indices = np.array(combs[sq]).flatten()[:: 2]
-            global_indices = np.array(combs[sq]).flatten()[1:: 2]
+            local_indices = np.array(combs[sq]).flatten()[::2]
+            global_indices = np.array(combs[sq]).flatten()[1::2]
             systematics_f.inject_crosstalk_inside_squid_f(
-                tsout, local_indices, global_indices,
-                radius, cross_amp, beta,
-                len(local_indices), len(bolo_data), len(bolo_data[0]))
+                tsout,
+                local_indices,
+                global_indices,
+                radius,
+                cross_amp,
+                beta,
+                len(local_indices),
+                len(bolo_data),
+                len(bolo_data[0]),
+            )
 
     if new_array is not None:
         new_array[:] = tsout
     else:
         bolo_data[:] = tsout
 
-def inject_crosstalk_SQUID_to_SQUID(bolo_data, squid_ids, bolo_ids,
-                                    mu=-3., sigma=1.,
-                                    squid_attenuation=100.,
-                                    seed=5438765, new_array=None):
+
+def inject_crosstalk_SQUID_to_SQUID(
+    bolo_data,
+    squid_ids,
+    bolo_ids,
+    mu=-3.0,
+    sigma=1.0,
+    squid_attenuation=100.0,
+    seed=5438765,
+    new_array=None,
+):
     """
     Introduce leakage between bolometers from different SQUIDs.
     You have to provide the list of bolometers, to which SQUID they
@@ -207,9 +231,9 @@ def inject_crosstalk_SQUID_to_SQUID(bolo_data, squid_ids, bolo_ids,
     40.948 40.716
 
     """
-    ## Make mu and sigma unitless (user provides percentage)
-    mu = mu / 100.
-    sigma = sigma / 100.
+    # Make mu and sigma unitless (user provides percentage)
+    mu = mu / 100.0
+    sigma = sigma / 100.0
 
     combs = {}
     for bolo in range(len(bolo_data)):
@@ -223,15 +247,15 @@ def inject_crosstalk_SQUID_to_SQUID(bolo_data, squid_ids, bolo_ids,
     state = np.random.RandomState(seed)
     cross_amp = state.normal(mu, sigma, len(bolo_data))
 
-    ## Take one squid
+    # Take one squid
     for sq1 in combs:
-        ## Take all bolometers in that SQUID
+        # Take all bolometers in that SQUID
         for ch, i in combs[sq1]:
-            ## Take a second SQUID
+            # Take a second SQUID
             for sq2 in combs:
                 if sq2 == sq1:
                     continue
-                ## Take all bolometers in that SQUID
+                # Take all bolometers in that SQUID
                 for ch2, i2 in combs[sq2]:
                     tsout[i] += cross_amp[i2] / squid_attenuation * tsout[i2]
 
@@ -240,8 +264,14 @@ def inject_crosstalk_SQUID_to_SQUID(bolo_data, squid_ids, bolo_ids,
     else:
         bolo_data[:] = tsout
 
-def modify_beam_offsets(bolometer_xpos, bolometer_ypos,
-                        mu_diffpointing=10., sigma_diffpointing=5., seed=5847):
+
+def modify_beam_offsets(
+    bolometer_xpos,
+    bolometer_ypos,
+    mu_diffpointing=10.0,
+    sigma_diffpointing=5.0,
+    seed=5847,
+):
     """
     Modify the beam offsets (inject differential pointing between
     two pixel-pair bolometers). The model is the following:
@@ -286,22 +316,23 @@ def modify_beam_offsets(bolometer_xpos, bolometer_ypos,
     [ 0.92369044 -0.92369044 -1.10310547  1.10310547]
 
     """
-    assert len(bolometer_xpos) == len(bolometer_ypos), \
-        ValueError("x and y bolometer coordinates should have the same length")
+    assert len(bolometer_xpos) == len(bolometer_ypos), ValueError(
+        "x and y bolometer coordinates should have the same length"
+    )
     state = np.random.RandomState(seed)
 
     npair = int(len(bolometer_xpos) / 2)
 
-    ## rho is defined by the user [xpos, ypos in radians - convert it!]
-    rho = state.normal(mu_diffpointing * arcsecond2rad,
-                       sigma_diffpointing * arcsecond2rad,
-                       npair)
+    # rho is defined by the user [xpos, ypos in radians - convert it!]
+    rho = state.normal(
+        mu_diffpointing * arcsecond2rad, sigma_diffpointing * arcsecond2rad, npair
+    )
 
-    ## Angle are uniformly drawn from 0 and 360 degree
+    # Angle are uniformly drawn from 0 and 360 degree
     theta = state.uniform(0, 360, npair) * deg2rad
 
-    rhox = rho / 2. * np.cos(theta)
-    rhoy = rho / 2. * np.sin(theta)
+    rhox = rho / 2.0 * np.cos(theta)
+    rhoy = rho / 2.0 * np.sin(theta)
 
     bolometer_xpos[::2] += rhox
     bolometer_xpos[1::2] += -rhox
@@ -310,9 +341,15 @@ def modify_beam_offsets(bolometer_xpos, bolometer_ypos,
 
     return bolometer_xpos, bolometer_ypos
 
-def inject_beam_ellipticity(sigma_gaussian, mu_beamellipticity,
-                            sigma_beamellipticity, nbolo,
-                            do_diffbeamellipticity=True, seed=54875):
+
+def inject_beam_ellipticity(
+    sigma_gaussian,
+    mu_beamellipticity,
+    sigma_beamellipticity,
+    nbolo,
+    do_diffbeamellipticity=True,
+    seed=54875,
+):
     """
     Inject differential beam ellipticity (and beam ellipticity)
     Starting from the definition of the beam ellipticity:
@@ -382,28 +419,30 @@ def inject_beam_ellipticity(sigma_gaussian, mu_beamellipticity,
     state = np.random.RandomState(seed)
 
     eps = state.normal(
-        mu_beamellipticity/100., sigma_beamellipticity/100., nbolo)
+        mu_beamellipticity / 100.0, sigma_beamellipticity / 100.0, nbolo
+    )
 
     if do_diffbeamellipticity:
-        d_plus = 2 * sigma_gaussian / eps * (1. + np.sqrt((1 - eps**2)))
-        d_minus = 2 * sigma_gaussian / eps * (1. - np.sqrt((1 - eps**2)))
+        # d_plus = 2 * sigma_gaussian / eps * (1.0 + np.sqrt((1 - eps ** 2)))
+        d_minus = 2 * sigma_gaussian / eps * (1.0 - np.sqrt((1 - eps ** 2)))
         d = d_minus
     else:
-        ## Bolometers in the same pair will have the same ellipticity.
-        ## This assumes that bolometers i and i+1 belong
-        ## to the same pair (default behaviour)
+        # Bolometers in the same pair will have the same ellipticity.
+        # This assumes that bolometers i and i+1 belong
+        # to the same pair (default behaviour)
         eps = np.repeat(eps[::2], 2)
-        d_plus = 2 * sigma_gaussian / eps * (1. + np.sqrt((1 - eps**2)))
-        d_minus = 2 * sigma_gaussian / eps * (1. - np.sqrt((1 - eps**2)))
+        # d_plus = 2 * sigma_gaussian / eps * (1.0 + np.sqrt((1 - eps ** 2)))
+        d_minus = 2 * sigma_gaussian / eps * (1.0 - np.sqrt((1 - eps ** 2)))
         d = d_minus
 
-    sig_1 = np.ones(nbolo) * sigma_gaussian + d/2.
-    sig_2 = np.ones(nbolo) * sigma_gaussian - d/2.
+    sig_1 = np.ones(nbolo) * sigma_gaussian + d / 2.0
+    sig_2 = np.ones(nbolo) * sigma_gaussian - d / 2.0
 
-    ## Angle between ellipses
+    # Angle between ellipses
     ellip_ang = state.uniform(-90, 90, nbolo)
 
     return sig_1, sig_2, ellip_ang
+
 
 def modify_pointing_parameters(values, errors):
     """
@@ -425,8 +464,8 @@ def modify_pointing_parameters(values, errors):
     values_mod = [p + err for p, err in zip(values, errors)]
     return values_mod
 
-def step_function(nbolos, nsamples, mean=1, std=0.05,
-                  nbreaks=1, sign='same', seed=0):
+
+def step_function(nbolos, nsamples, mean=1, std=0.05, nbreaks=1, sign="same", seed=0):
     """
     Generate step functions for each bolometer from 1 to a values
     drawn from N(mean, std). The full timestream is broken into nbreaks
@@ -468,37 +507,37 @@ def step_function(nbolos, nsamples, mean=1, std=0.05,
     >>> gains = step_function(nbolos, nsamples, nbreaks=1, sign='opposite')
     >>> assert gains[0][0] == 2 - gains[1][0]
     """
-    ## Fix the seed
+    # Fix the seed
     state = np.random.RandomState(seed)
 
-    ## Initialise gains to ones
+    # Initialise gains to ones
     gains = np.ones((nbolos, nsamples))
 
-    ## Length of each break
+    # Length of each break
     length = nsamples // nbreaks
-    sublength = nsamples // (2*nbreaks)
+    sublength = nsamples // (2 * nbreaks)
 
     for pos in range(nbreaks):
-        ## 2 bolo in a pair will have the same break to avoid differential gain
-        end_points = state.normal(mean, std, size=int(nbolos/2))
-        end_points = np.tile(
-            end_points, (2, 1)).T.reshape((2*len(end_points), 1))
+        # 2 bolo in a pair will have the same break to avoid differential gain
+        end_points = state.normal(mean, std, size=int(nbolos / 2))
+        end_points = np.tile(end_points, (2, 1)).T.reshape((2 * len(end_points), 1))
 
-        ## Assign values
+        # Assign values
         shift = pos * length
         if pos * length < nsamples:
-            gains[:, shift + sublength:shift + 2 * sublength] = \
-                end_points.reshape((len(end_points), 1))
+            gains[:, shift + sublength: shift + 2 * sublength] = end_points.reshape(
+                (len(end_points), 1)
+            )
         else:
             continue
 
-        if sign == 'opposite':
+        if sign == "opposite":
             gains[1] = 2 - gains[1]
 
     return gains
 
-def step_function_gen(nsamples, mean=1, std=0.05,
-                      nbreaks=1, sign='same', seed=0):
+
+def step_function_gen(nsamples, mean=1, std=0.05, nbreaks=1, sign="same", seed=0):
     """
     Generator of step functions for each bolometer from 1 to a values
     drawn from N(mean, std). The full timestream is broken into nbreaks
@@ -540,38 +579,41 @@ def step_function_gen(nsamples, mean=1, std=0.05,
     >>> g = next(gains_gen)
     >>> assert g[0][0] == 2 - g[1][0]
     """
-    ## Fix the seed
+    # Fix the seed
     state = np.random.RandomState(seed)
 
-    ## Initialise gains to ones
+    # Initialise gains to ones
     gains = np.ones((2, nsamples))
 
-    ## Length of each break
+    # Length of each break
     length = nsamples // nbreaks
-    sublength = nsamples // (2*nbreaks)
+    sublength = nsamples // (2 * nbreaks)
 
     while 1:
         for pos in range(nbreaks):
-            ## 2 bolo in a pair will have the same break
-            ## to avoid differential gain
+            # 2 bolo in a pair will have the same break
+            # to avoid differential gain
             end_points = state.normal(mean, std, size=1)
             end_points = np.tile(end_points, (2, 1)).T.reshape((2, 1))
 
-            ## Assign values
+            # Assign values
             shift = pos * length
             if pos * length < nsamples:
-                gains[:, shift + sublength:shift + 2 * sublength] = \
-                    end_points.reshape((len(end_points), 1))
+                gains[
+                    :, shift + sublength: shift + 2 * sublength
+                ] = end_points.reshape((len(end_points), 1))
             else:
                 continue
 
-        if sign == 'opposite':
+        if sign == "opposite":
             gains[1] = 2 - gains[1]
 
         yield gains
 
-def linear_function(nbolos, nsamples, mean=1, std=0.05,
-                    nbreaks=1, sign='same', seed=0):
+
+def linear_function(
+    nbolos, nsamples, mean=1, std=0.05, nbreaks=1, sign="same", seed=0
+):
     """
     Generate linear functions for each bolometer from 1 to a values
     drawn from N(mean, std). The full timestream is broken into nbreaks
@@ -613,38 +655,43 @@ def linear_function(nbolos, nsamples, mean=1, std=0.05,
     >>> gains = linear_function(nbolos, nsamples, nbreaks=1, sign='opposite')
     >>> assert gains[0][0] == 2 - gains[1][0]
     """
-    ## Fix the seed
+    # Fix the seed
     state = np.random.RandomState(seed)
 
-    ## Initialise gains to ones
+    # Initialise gains to ones
     gains = np.ones((nbolos, nsamples))
 
-    ## Length of each break
+    # Length of each break
     length = nsamples // nbreaks
 
     for pos in range(nbreaks):
-        ## 2 bolo in a pair will have the same break to avoid differential gain
-        end_points = state.normal(mean, std, size=int(nbolos/2))
-        end_points = np.tile(
-            end_points, (2, 1)).T.reshape((2*len(end_points), 1))
+        # 2 bolo in a pair will have the same break to avoid differential gain
+        end_points = state.normal(mean, std, size=int(nbolos / 2))
+        end_points = np.tile(end_points, (2, 1)).T.reshape((2 * len(end_points), 1))
 
-        ## Assign values
+        # Assign values
         shift = pos * length
         if pos * length < nsamples:
-            gains[:, shift:shift + length] = np.array([np.interp(
-                range(shift, shift + length),
-                [shift, shift + length - 1],
-                [1, end[0]]) for end in end_points])
+            gains[:, shift: shift + length] = np.array(
+                [
+                    np.interp(
+                        range(shift, shift + length),
+                        [shift, shift + length - 1],
+                        [1, end[0]],
+                    )
+                    for end in end_points
+                ]
+            )
         else:
             continue
 
-    if sign == 'opposite':
+    if sign == "opposite":
         gains[1] = 2 - gains[1]
 
     return gains
 
-def linear_function_gen(nsamples, mean=1, std=0.05,
-                        nbreaks=1, sign='same', seed=0):
+
+def linear_function_gen(nsamples, mean=1, std=0.05, nbreaks=1, sign="same", seed=0):
     """
     Generator returning linear functions for each bolometer from 1 to a values
     drawn from N(mean, std). The full timestream is broken into nbreaks
@@ -687,38 +734,47 @@ def linear_function_gen(nsamples, mean=1, std=0.05,
     >>> assert g[0][0] == 2 - g[1][0]
 
     """
-    ## Fix the seed
+    # Fix the seed
     state = np.random.RandomState(seed)
 
-    ## Initialise gains to ones
+    # Initialise gains to ones
     gains = np.ones((2, nsamples))
 
-    ## Length of each break
+    # Length of each break
     length = nsamples // nbreaks
 
     while 1:
         for pos in range(nbreaks):
-            ## 2 bolo in a pair will have the same
-            ## break to avoid differential gain
+            # 2 bolo in a pair will have the same
+            # break to avoid differential gain
             end_points = state.normal(mean, std, size=1)
             end_points = np.tile(end_points, (2, 1)).T.reshape((2, 1))
 
-            ## Assign values
+            # Assign values
             shift = pos * length
             if pos * length < nsamples:
-                gains[:, shift:shift + length] = np.array([np.interp(
-                    range(shift, shift + length),
-                    [shift, shift + length - 1],
-                    [1, end[0]]) for end in end_points])
+                gains[:, shift: shift + length] = np.array(
+                    [
+                        np.interp(
+                            range(shift, shift + length),
+                            [shift, shift + length - 1],
+                            [1, end[0]],
+                        )
+                        for end in end_points
+                    ]
+                )
             else:
                 continue
 
-        if sign == 'opposite':
+        if sign == "opposite":
             gains[1] = 2 - gains[1]
 
         yield gains
 
-def get_kernel_coefficients(beamprm, pairlist,kernel_type='diff', nx=128, pix_size=None,basis='circular'):
+
+def get_kernel_coefficients(
+    beamprm, pairlist, kernel_type="diff", nx=128, pix_size=None, basis="circular"
+):
     """
     Generate beam expansion coefficients.
 
@@ -801,21 +857,29 @@ def get_kernel_coefficients(beamprm, pairlist,kernel_type='diff', nx=128, pix_si
     >>> coeffs = get_kernel_coefficients(bm, pairlist, nx=32)
 
     """
-    assert basis in ['circular','sumbeam']
-    assert kernel_type in ['sum','diff','sumdiff','diffsum']
+    assert basis in ["circular", "sumbeam"]
+    assert kernel_type in ["sum", "diff", "sumdiff", "diffsum"]
     if pix_size is None:
-        ## Go from sigma to FWHM
-        mean_FWHM_x = np.mean(beamprm.sig_1) / np.sqrt(8*np.log(2))
-        mean_FWHM_y = np.mean(beamprm.sig_2) / np.sqrt(8*np.log(2))
+        # Go from sigma to FWHM
+        mean_FWHM_x = np.mean(beamprm.sig_1) / np.sqrt(8 * np.log(2))
+        mean_FWHM_y = np.mean(beamprm.sig_2) / np.sqrt(8 * np.log(2))
 
-        ## 1/7th of the beam size.
-        pix_size = (mean_FWHM_x + mean_FWHM_y) / 2. / 7.
+        # 1/7th of the beam size.
+        pix_size = (mean_FWHM_x + mean_FWHM_y) / 2.0 / 7.0
 
-    if basis=='circular':
-        ## Creates the a circular beam used to develop the sum/diff beam
-        fwhm=beamprm.fwhm*np.pi/180/60
+    if basis == "circular":
+        # Creates the a circular beam used to develop the sum/diff beam
+        fwhm = beamprm.fwhm * np.pi / 180 / 60
         xy2f = coordinates_on_grid(pix_size=pix_size, nx=nx)
-        basis_beam = gauss2d(xy2f,0,0, 1, fwhm/np.sqrt(8*np.log(2)), fwhm/np.sqrt(8*np.log(2)),0).reshape((nx, nx))
+        basis_beam = gauss2d(
+            xy2f,
+            0,
+            0,
+            1,
+            fwhm / np.sqrt(8 * np.log(2)),
+            fwhm / np.sqrt(8 * np.log(2)),
+            0,
+        ).reshape((nx, nx))
 
     out_diff = []
     out_sum = []
@@ -823,21 +887,26 @@ def get_kernel_coefficients(beamprm, pairlist,kernel_type='diff', nx=128, pix_si
     for ct, cb in pairlist:
         summap, diffmap = construct_beammap(beamprm, ct, cb, nx, pix_size)
         if summap is not None and diffmap is not None:
-            if basis is not 'circular': basis_beam = summap
-            if 'diff' in kernel_type:
+            if basis != "circular":
+                basis_beam = summap
+            if "diff" in kernel_type:
                 kernel_diff = split_deriv(basis_beam, diffmap, pix_size)
-            if 'sum' in kernel_type:
+            if "sum" in kernel_type:
                 kernel_sum = split_deriv(basis_beam, summap, pix_size)
         else:
-            kernel = None
             kernel_sum = None
-        if 'diff' in kernel_type: out_diff.append(kernel_diff)
-        if 'sum'  in kernel_type: out_sum.append(kernel_sum)
-    if (('diff' in kernel_type) and ('sum' in kernel_type)):
+        if "diff" in kernel_type:
+            out_diff.append(kernel_diff)
+        if "sum" in kernel_type:
+            out_sum.append(kernel_sum)
+    if ("diff" in kernel_type) and ("sum" in kernel_type):
         return np.array(out_diff), np.array(out_sum)
     else:
-        if 'diff'==kernel_type: return np.array(out_diff)
-        if 'sum'== kernel_type: return np.array(out_sum)
+        if "diff" == kernel_type:
+            return np.array(out_diff)
+        if "sum" == kernel_type:
+            return np.array(out_sum)
+
 
 def split_deriv(sumbeam, diffbeam, pix_size):
     """
@@ -888,6 +957,7 @@ def split_deriv(sumbeam, diffbeam, pix_size):
 
     return x
 
+
 def xderiv(m, pix_size):
     """
     Perform the derivative of a 2d map with respect to x coordinate.
@@ -909,9 +979,10 @@ def xderiv(m, pix_size):
     >>> m = np.ones((10, 10)) * np.arange(10)
     >>> dmx = xderiv(m, pix_size=0.5/60.*np.pi/180.)
     """
-    kernel = np.array([[1, 0, -1]]) / (2.0*pix_size)
-    v = signal.convolve2d(m, kernel, mode='same')
+    kernel = np.array([[1, 0, -1]]) / (2.0 * pix_size)
+    v = signal.convolve2d(m, kernel, mode="same")
     return -v
+
 
 def yderiv(m, pix_size):
     """
@@ -934,9 +1005,10 @@ def yderiv(m, pix_size):
     >>> m = np.ones((10, 10)) * np.arange(10)
     >>> dmy = yderiv(m.T, pix_size=0.5/60.*np.pi/180.)
     """
-    kernel = np.array([[1, 0, -1]]).T / (2.0*pix_size)
-    v = signal.convolve2d(m, kernel, mode='same')
+    kernel = np.array([[1, 0, -1]]).T / (2.0 * pix_size)
+    v = signal.convolve2d(m, kernel, mode="same")
     return -v
+
 
 def derivs(m, pix_size):
     """
@@ -968,6 +1040,7 @@ def derivs(m, pix_size):
     m02 = yderiv(m01, pix_size)
 
     return np.array((m00, m10, m01, m11, m20, m02))
+
 
 def fixspin(K, spin):
     """
@@ -1011,21 +1084,21 @@ def fixspin(K, spin):
     e20 = 0.0
     e02 = 0.0
 
-    if '0' in spin:
+    if "0" in spin:
         e00 += d00
         e10 += 0.0
         e01 += 0.0
         e11 += 0.0
         e20 += x
         e02 += x
-    if '1' in spin:
+    if "1" in spin:
         e00 += 0.0
         e10 += d10
         e01 += d01
         e11 += 0.0
         e20 += 0.0
         e02 += 0.0
-    if '2' in spin:
+    if "2" in spin:
         e00 += 0.0
         e10 += 0.0
         e01 += 0.0
@@ -1034,6 +1107,7 @@ def fixspin(K, spin):
         e02 += -y
 
     return np.array((e00, e10, e01, e11, e20, e02))
+
 
 def rotate_deriv(K, theta):
     """
@@ -1082,24 +1156,35 @@ def rotate_deriv(K, theta):
 
     return es
 
-def fix_kernel_type(K,kernel_type='diffnomonopole'):
-    if 'sum' in kernel_type:
-        ## subtracts monopole part already included
-        ## in the input timestream
+
+def fix_kernel_type(K, kernel_type="diffnomonopole"):
+    if "sum" in kernel_type:
+        # subtracts monopole part already included
+        # in the input timestream
         K[:, 0] -= 1
-    if 'nomonopole' in kernel_type:
-        ## Force monopole to 0 when using leakage beam
+    if "nomonopole" in kernel_type:
+        # Force monopole to 0 when using leakage beam
         K[:, 0] = 0.0
-    ## Flips the sign of dtheta terms.
+    # Flips the sign of dtheta terms.
     K[:, 1] *= -1
     K[:, 3] *= -1
     return K
 
-def waferts_add_diffbeam(waferts, point_matrix, beam_orientation,
-                         intensity_derivatives, diffbeam_kernels,
-                         pairlist, spins='012',kernel_type='diff_nomonopole',
-                         pol_derivatives=None,pol_angle=None,spins_pol='012',
-                         Usign=1):
+
+def waferts_add_diffbeam(
+    waferts,
+    point_matrix,
+    beam_orientation,
+    intensity_derivatives,
+    diffbeam_kernels,
+    pairlist,
+    spins="012",
+    kernel_type="diff_nomonopole",
+    pol_derivatives=None,
+    pol_angle=None,
+    spins_pol="012",
+    Usign=1,
+):
     """
     Modify timestreams by injecting T->P leakage from beam mismatch.
     Note that timestreams are modified on-the-fly.
@@ -1183,15 +1268,15 @@ def waferts_add_diffbeam(waferts, point_matrix, beam_orientation,
     ...     pairlist, spins='012')
 
     """
-    assert kernel_type in ['sum','diff','sum_nomonopole','diff_nomonopole']
+    assert kernel_type in ["sum", "diff", "sum_nomonopole", "diff_nomonopole"]
 
-    ## Just to preserve it
-    K = diffbeam_kernels + 0.
+    # Just to preserve it
+    K = diffbeam_kernels + 0.0
 
-    K = fix_kernel_type(K,kernel_type)
+    K = fix_kernel_type(K, kernel_type)
 
-    if 'sum' in kernel_type:
-        ## adds I->I in sum timestream and P->P in diff timestream
+    if "sum" in kernel_type:
+        # adds I->I in sum timestream and P->P in diff timestream
         bottom_sign = -1
     else:
         bottom_sign = 1
@@ -1199,41 +1284,51 @@ def waferts_add_diffbeam(waferts, point_matrix, beam_orientation,
     for i in range(len(K)):
         K[i] = fixspin(K[i], spins)
 
-    diffbeamleak = np.zeros((int(waferts.shape[0]/2), waferts.shape[1]))
+    diffbeamleak = np.zeros((int(waferts.shape[0] / 2), waferts.shape[1]))
 
-    ## adds I leakage. if kernel_type is "diff" adds I->P leakage, otherwise
-    ## adds I->I leakage
+    # adds I leakage. if kernel_type is "diff" adds I->P leakage, otherwise
+    # adds I->I leakage
     diffbeam_map2tod(
-        diffbeamleak,
-        intensity_derivatives,
-        point_matrix,
-        beam_orientation,
-        K)
+        diffbeamleak, intensity_derivatives, point_matrix, beam_orientation, K
+    )
 
     waferts[::2] += diffbeamleak
-    waferts[1::2] -= bottom_sign*diffbeamleak
+    waferts[1::2] -= bottom_sign * diffbeamleak
 
-    ## adds P leakage. If kernel_type is "diff" adds P->I leakage, otherwise
-    ## adds P->P leakage
-    if ((pol_derivatives is not None) and (pol_angle is not None)):
-        if ((spins_pol!=spins) and (pol_derivatives is not None)):
-            ## initialize a new copy of polarization kernels withot modifying
-            ## the input
-            K_pol = fix_kernel_type(diffbeam_kernels+0.,kernel_type)
+    # adds P leakage. If kernel_type is "diff" adds P->I leakage, otherwise
+    # adds P->P leakage
+    if (pol_derivatives is not None) and (pol_angle is not None):
+        if (spins_pol != spins) and (pol_derivatives is not None):
+            # initialize a new copy of polarization kernels withot modifying
+            # the input
+            K_pol = fix_kernel_type(diffbeam_kernels + 0.0, kernel_type)
             K_pol[i] = fixspin(K_pol[i], spins_pol)
-        else: K_pol = K
-        diffbeamleak[:,:] = 0.0
+        else:
+            K_pol = K
+        diffbeamleak[:, :] = 0.0
         diffbeam_map2tod(
             diffbeamleak,
             pol_derivatives,
             point_matrix,
             beam_orientation,
-            K_pol,pol_angle,Usign)
+            K_pol,
+            pol_angle,
+            Usign,
+        )
 
         waferts[::2] += diffbeamleak
-        waferts[1::2] += bottom_sign*diffbeamleak
+        waferts[1::2] += bottom_sign * diffbeamleak
 
-def diffbeam_map2tod(out, signal_derivatives,point_matrix, beam_orientation, diffbeam_kernels, pol_angle=None,Usign=1):
+
+def diffbeam_map2tod(
+    out,
+    signal_derivatives,
+    point_matrix,
+    beam_orientation,
+    diffbeam_kernels,
+    pol_angle=None,
+    Usign=1,
+):
     """
     Scan the leakage maps to generate polarisation timestream for channel ch,
     using the differential beam model kernel.
@@ -1276,28 +1371,30 @@ def diffbeam_map2tod(out, signal_derivatives,point_matrix, beam_orientation, dif
         i1d = point_matrix[ipix, :]
         okpointing = i1d != -1
         io = i1d[okpointing]
-        k = rotate_deriv(
-            diffbeam_kernels[ipix],
-            -beam_orientation[ipix, okpointing])
-        if (pol_angle is not None):
-            #compute cosine and sine polarization angles to save time
-            psi = pol_angle[ipix,:]
-            c2pol_ang = np.cos(2*psi[okpointing])
-            s2pol_ang = np.sin(2*psi[okpointing])
+        k = rotate_deriv(diffbeam_kernels[ipix], -beam_orientation[ipix, okpointing])
+        if pol_angle is not None:
+            # compute cosine and sine polarization angles to save time
+            psi = pol_angle[ipix, :]
+            c2pol_ang = np.cos(2 * psi[okpointing])
+            s2pol_ang = np.sin(2 * psi[okpointing])
             if signal_derivatives is not None:
                 for coeff in range(len(k)):
                     # Q derivatives
-                    out[ipix, okpointing] += (signal_derivatives[0][coeff, io]*k[coeff])*c2pol_ang
+                    der0 = signal_derivatives[0][coeff, io]
+                    out[ipix, okpointing] += der0 * k[coeff] * c2pol_ang
                     # U derivatives
-                    out[ipix, okpointing] += (signal_derivatives[1][coeff, io]*k[coeff])*s2pol_ang*Usign
-        ## Add the leakage on-the-fly
+                    der1 = signal_derivatives[1][coeff, io]
+                    out[ipix, okpointing] += der1 * k[coeff] * s2pol_ang * Usign
+        # Add the leakage on-the-fly
         else:
             for coeff in range(len(k)):
                 # T derivatives
-                out[ipix, okpointing] += signal_derivatives[coeff, io]*k[coeff]
+                out[ipix, okpointing] += signal_derivatives[coeff, io] * k[coeff]
+
 
 if __name__ == "__main__":
     import doctest
+
     if np.__version__ >= "1.14.0":
         np.set_printoptions(legacy="1.13")
     doctest.testmod()
