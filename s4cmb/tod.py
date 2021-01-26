@@ -1067,7 +1067,7 @@ class TimeOrderedDataPairDiff:
                 pol_ang_pair, pol_ang2_pair = self.compute_simpolangle(
                     ch, pa_pair, polangle_err=False
                 )
-            except ValueError:
+            except UnboundLocalError:
                 pol_ang_pair = pol_ang
                 pol_ang2_pair = pol_ang2
 
