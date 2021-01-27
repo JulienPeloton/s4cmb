@@ -149,7 +149,7 @@ TODO
 
 Main developers
 ===============
-* Julien Peloton (j.peloton at sussex.ac.uk)
+* Julien Peloton (peloton at lal.in2p3.fr)
 * Giulio Fabbian (g.fabbian at sussex.ac.uk)
 
 Thanks to
@@ -162,6 +162,7 @@ In the literature
 
 s4cmb has been used in several research projects:
 
+* Instrumental systematics biases in CMB lensing reconstruction: a simulation-based assessment (`2011.13910 <https://arxiv.org/abs/2011.13910>`_)
 * Development of Calibration Strategies for the Simons Observatory (`1810.04633 <https://arxiv.org/abs/1810.04633>`_)
 * Studies of Systematic Uncertainties for Simons Observatory: Detector Array Effects (`1808.10491 <https://arxiv.org/abs/1808.10491>`_)
 * Studies of Systematic Uncertainties for Simons Observatory: Polarization Modulator Related Effects (`1808.07442 <https://arxiv.org/abs/1808.07442>`_)
