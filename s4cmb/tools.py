@@ -20,6 +20,7 @@ Module including diverse tools to manipulate alms and maps .
 import numpy as np
 import healpy as hp
 
+
 def get_healpix_ring_pixel_layout(nside, th_idx):
     """Healpix ring layout.
 
