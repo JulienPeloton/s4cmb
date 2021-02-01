@@ -1,5 +1,5 @@
 =============================
-s4cmb (public version)
+s4cmb
 =============================
 
 .. image:: https://github.com/JulienPeloton/s4cmb/workflows/s4cmb/badge.svg
@@ -31,15 +31,11 @@ Cosmic Microwave Background experiments. Currently accessible:
 
 Requirements
 ===============
-The pipeline is mainly written in python and it has the following dependencies (see requirements.txt):
+The pipeline is mainly written in python (>= 3.6) and it has the following dependencies (see requirements.txt):
 
 * numpy, matplotlib
 * astropy, ephem, pyslalib, healpy (astro libs)
 * f2py (interfacing with python)
-
-While we use python 2.7, we try to make it compatible with python 3.5 and 3.6.
-If you are using python 3.x and you encounter an error, please open an issue or a
-pull request so that we fix it asap.
 
 Some parts of the pipeline are written in Fortran which is interfaced with
 python using f2py. The compilation is done usually when you install the
