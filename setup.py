@@ -88,7 +88,6 @@ if __name__ == "__main__":
         author='Julien Peloton, Giulio Fabbian',
         author_email='peloton@lal.in2p3.fr',
         description='Simulate systematic effects in the context of CMB',
-        long_description=open('README.rst', 'r').read(),
         platforms='any',
         packages=find_packages(),
         include_package_data=True,
