@@ -1,4 +1,20 @@
 #!/usr/bin/python
+# Copyright (c) 2016-2021 Julien Peloton, Giulio Fabbian.
+#
+# This file is part of s4cmb
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 Script to simulate the hardware of a CMB experiment.
 * focal plane
@@ -6,7 +22,7 @@ Script to simulate the hardware of a CMB experiment.
 * beam parameters of the bolometers
 * polarisation angle of the bolometers
 
-Author: Julien Peloton, j.peloton@sussex.ac.uk
+Author: Julien Peloton, peloton@lal.in2p3.fr
 """
 from __future__ import division, absolute_import, print_function
 

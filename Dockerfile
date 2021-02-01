@@ -1,4 +1,4 @@
-FROM python:2.7
+FROM python:3.6
 
 MAINTAINER Julien Peloton <j.peloton@sussex.ac.uk>
 
@@ -12,8 +12,9 @@ RUN apt-get update \
 COPY . .
 
 ## Need to get numpy prior to all requirements (distutils)
-RUN pip install --upgrade pip setuptools wheel numpy \
-    && pip install -r requirements.txt
+RUN pip install --upgrade pip setuptools wheel numpy==1.14.5 \
+    && pip install -r requirements.txt \
+    && pip install pyslalib>=1.0.4
 
 ENV PYTHONPATH $PYTHONPATH:$PWD
 
