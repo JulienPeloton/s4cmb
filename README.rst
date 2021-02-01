@@ -3,7 +3,10 @@ s4cmb (public version)
 =============================
 
 .. image:: https://github.com/JulienPeloton/s4cmb/workflows/s4cmb/badge.svg
-    :target: https://github.com/JulienPeloton/s4cmb
+    :target: https://github.com/JulienPeloton/s4cmb/actions?query=workflow%3As4cmb
+
+.. image:: https://github.com/JulienPeloton/s4cmb/workflows/PEP8/badge.svg
+    :target: https://github.com/JulienPeloton/s4cmb/actions?query=workflow%3APEP8
 
 .. image:: https://coveralls.io/repos/github/JulienPeloton/s4cmb/badge.svg?branch=master
     :target: https://coveralls.io/github/JulienPeloton/s4cmb?branch=master
