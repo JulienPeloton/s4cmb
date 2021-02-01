@@ -2,8 +2,8 @@
 s4cmb (public version)
 =============================
 
-.. image:: https://travis-ci.org/JulienPeloton/s4cmb.svg?branch=master
-    :target: https://travis-ci.org/JulienPeloton/s4cmb
+.. image:: https://github.com/JulienPeloton/s4cmb/workflows/s4cmb/badge.svg
+    :target: https://github.com/JulienPeloton/s4cmb/workflows/s4cmb
 
 .. image:: https://coveralls.io/repos/github/JulienPeloton/s4cmb/badge.svg?branch=master
     :target: https://coveralls.io/github/JulienPeloton/s4cmb?branch=master
