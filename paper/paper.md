@@ -48,7 +48,7 @@ It adopts several commonly used libraries in astronomy (`astropy` [@astropy], `h
 `s4cmb` is designed to be employed on systems of varying scale, from laptops to parallel supercomputing platforms thanks to its internal Message Passing Interface (MPI) support [@10.1145/169627.169855].
 We also support packaging the entire application into a Docker container for portability.
 The simplicity of the `s4cmb` framework allows to easily add new instrumental systematics to be simulated according to the users' needs.
-
+As far as we know, s4cmb is the only dedicated package that enables the study of a wide range of instrumental simulations, from the instrument to the sky map, while being publicly available. For more general purposes, including some instrumental systematic effect simulations, users might also consider the use of `TOAST` [@theodore_kisner_2020_4270476], a software framework to simulate and process timestream data collected by telescopes focusing on efficient TOD manipulation on massively parallel architectures.
 
 # Package structure and functionalities
 
