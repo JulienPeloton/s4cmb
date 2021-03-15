@@ -25,7 +25,7 @@ The package
 Systematics For Cosmic Microwave Background (`s4cmb`) is a Python package developed to study the impact of instrumental systematic effects on measurements of CMB experiments based on bolometric detector technology.
 `s4cmb` provides a unified framework to simulate raw data streams in the time domain (TODs) acquired by CMB experiments scanning the sky, and to inject in these realistic instrumental systematics effect.
 The development of `s4cmb` is built on experience and needs of the analysis of
-data of the Polarbear ground-based experiment (see e.g. `1403.2369 https://arxiv.org/abs/1403.2369`_ and `1705.02907 https://arxiv.org/abs/1705.02907`_).
+data of the Polarbear ground-based experiment (see e.g. `1403.2369 <https://arxiv.org/abs/1403.2369>`_ and `1705.02907 <https://arxiv.org/abs/1705.02907>`_).
 It is designed to analyze real data, to guide the design of future instruments that require the estimation of specific systematic effects as well as to increase the realism of simulated data sets required in the development of data analysis methods. Users can currently model and study: 
 
 * Electrical crosstalk in the multiplexed readout.
@@ -35,12 +35,12 @@ It is designed to analyze real data, to guide the design of future instruments t
 * ... more to come!
 
 The simplicity of the `s4cmb` framework allows to easily add new instrumental systematics to be simulated according to the users' needs.
-As far as we know, s4cmb is the only dedicated package that enables the study of a wide range of instrumental simulations, from the instrument to the sky map, while being publicly available. For more general purposes, including some instrumental systematic effect simulations, users might also consider the use of `TOAST https://github.com/hpc4cmb/toast`_, a software framework to simulate and process timestream data collected by telescopes focusing on efficient TOD manipulation on massively parallel architectures.
+As far as we know, s4cmb is the only dedicated package that enables the study of a wide range of instrumental simulations, from the instrument to the sky map, while being publicly available. For more general purposes, including some instrumental systematic effect simulations, users might also consider the use of `TOAST <https://github.com/hpc4cmb/toast>`_, a software framework to simulate and process timestream data collected by telescopes focusing on efficient TOD manipulation on massively parallel architectures.
 
 
 Requirements
 ===============
-The package is mainly written in python (>= 3.6), and it adopts several commonly used libraries in astronomy (`astropy` [@astropy], `healpy` [@healpy], `ephem` [@pyephem], `pyslalib` [@pyslalib]) and uses functions based on low-level languages wrapped in Python (e.g. fortran with `f2py`) for speeding up the most critical part of the code without losing the flexibility provided by a simple python user-friendly interface. It has the following dependencies (see requirements.txt):
+The package is mainly written in python (>= 3.6), and it adopts several commonly used libraries in astronomy (`astropy`, `healpy`, `ephem`, `pyslalib`) and uses functions based on low-level languages wrapped in Python (e.g. Fortran with `f2py`) for speeding up the most critical part of the code without losing the flexibility provided by a simple python user-friendly interface. It has the following dependencies (see requirements.txt):
 
 * numpy, matplotlib
 * astropy, ephem, pyslalib, healpy (astro libs)
