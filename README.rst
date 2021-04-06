@@ -11,9 +11,6 @@ s4cmb
 .. image:: https://coveralls.io/repos/github/JulienPeloton/s4cmb/badge.svg?branch=master
     :target: https://coveralls.io/github/JulienPeloton/s4cmb?branch=master
     
-.. image:: https://joss.theoj.org/papers/8ff011dd5336a30d175b69c7b63908ab/status.svg
-    :target: https://joss.theoj.org/papers/8ff011dd5336a30d175b69c7b63908ab
-
 .. image:: https://joss.theoj.org/papers/10.21105/joss.03022/status.svg
    :target: https://doi.org/10.21105/joss.03022
 
