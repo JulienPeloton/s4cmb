@@ -14,6 +14,9 @@ s4cmb
 .. image:: https://joss.theoj.org/papers/8ff011dd5336a30d175b69c7b63908ab/status.svg
     :target: https://joss.theoj.org/papers/8ff011dd5336a30d175b69c7b63908ab
 
+.. image:: https://joss.theoj.org/papers/10.21105/joss.03022/status.svg
+   :target: https://doi.org/10.21105/joss.03022
+
 .. raw:: html
 
     <img src="https://github.com/JulienPeloton/s4cmb/blob/master/s4cmb/data/intro.png" height="400px">
