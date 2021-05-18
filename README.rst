@@ -16,7 +16,7 @@ s4cmb
 
 .. raw:: html
 
-    <img src="https://github.com/JulienPeloton/s4cmb/blob/master/s4cmb/data/intro.png" height="400px">
+    <img src="https://github.com/JulienPeloton/s4cmb/blob/master/s4cmb/data/intro_wbg.png" height="400px">
 
 .. contents:: **Table of Contents**
 
