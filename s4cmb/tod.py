@@ -369,7 +369,6 @@ class TimeOrderedDataPairDiff:
                 ndetectors=2 * self.npair,
                 ntimesamples=self.nsamples,
                 array_noise_seed=self.array_noise_seed,
-                sampling_freq=self.scanning_strategy.sampling_freq,
                 nclouds=self.nclouds,
                 f0=self.f0,
                 amp_atm=self.amp_atm,
@@ -398,7 +397,6 @@ class TimeOrderedDataPairDiff:
                 ndetectors=2 * self.npair,
                 ntimesamples=self.nsamples,
                 array_noise_seed=self.array_noise_seed2,
-                sampling_freq=self.scanning_strategy.sampling_freq,
                 nclouds=self.nclouds,
                 f0=self.f0,
                 amp_atm=self.amp_atm,
@@ -1874,6 +1872,7 @@ class WhiteNoiseGenerator:
         self.array_noise_seed = array_noise_seed
         state = np.random.RandomState(self.array_noise_seed)
         self.noise_seeds = state.randint(0, 1e6, size=self.ndetectors)
+        self.sampling_freq = sampling_freq
 
     def simulate_noise_one_detector(self, ch):
         """
@@ -1895,12 +1894,12 @@ class WhiteNoiseGenerator:
         >>> wn = WhiteNoiseGenerator(3000., 2, 4, array_noise_seed=493875, sampling_freq=8)
         >>> ts = wn.simulate_noise_one_detector(0)
         >>> print(ts) #doctest: +NORMALIZE_WHITESPACE
-        [ -2185.65609023   5137.21044598  -5407.22292574  11020.59471471]
+        [ -6181.96897098  14530.22537094 -15293.93599271  31170.94902191]
         """
         state = np.random.RandomState(self.noise_seeds[ch])
         vec = state.normal(size=self.ntimesamples)
 
-        return self.detector_noise_level * vec * np.sqrt(sampling_freq)
+        return self.detector_noise_level * vec * np.sqrt(self.sampling_freq)
 
 
 class CorrNoiseGenerator(WhiteNoiseGenerator):
@@ -1911,12 +1910,12 @@ class CorrNoiseGenerator(WhiteNoiseGenerator):
         ndetectors,
         ntimesamples,
         array_noise_seed,
+        sampling_freq,
         nclouds=10,
         f0=0.1,
         alpha=-4,
         amp_atm=1e2,
         corrlength=300,
-        sampling_freq=8,
     ):
         """
         This class is used to simulate time-domain correlated noise.
@@ -2014,12 +2013,12 @@ class CorrNoiseGenerator(WhiteNoiseGenerator):
         Examples
         ----------
         >>> cn = CorrNoiseGenerator(3000., 2, 17000,
-        ...     array_noise_seed=493875, sampling_freq=8,nclouds=1, f0=0.5, amp_atm=1.,
+        ...     array_noise_seed=493875,nclouds=1, f0=0.5, amp_atm=1.,
         ...     corrlength=300, alpha=-4, sampling_freq=8.)
         >>> ts = cn.simulate_noise_one_detector(0)
         >>> print(ts) #doctest: +NORMALIZE_WHITESPACE
-        [ -7536.5882971    -224.58319073 -10795.19644268 ...,
-          -5528.66256308  -3161.93996673  -5174.84161989]
+        [-11532.90117785    9168.43173423   -20681.90950965 ...,
+        -15489.63560137  -8793.62765494 -14484.12510973]
         """
         # White noise part
         state = np.random.RandomState(self.noise_seeds[ch])
