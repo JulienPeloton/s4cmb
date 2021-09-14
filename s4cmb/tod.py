@@ -361,11 +361,8 @@ class TimeOrderedDataPairDiff:
                 ndetectors=2 * self.npair,
                 ntimesamples=self.nsamples,
                 array_noise_seed=self.array_noise_seed,
-<<<<<<< HEAD
+                sampling_freq=self.scanning_strategy.sampling_freq,
             )
-=======
-                sampling_freq=self.scanning_strategy.sampling_freq)
->>>>>>> fix sampling frequency bug in WhiteNoiseGenerator. Change position of sampling_freq call for CorrNoiseGenerator and propagate it in all functions
         elif self.array_noise_level is not None and self.alpha is not None:
             self.noise_generator = CorrNoiseGenerator(
                 array_noise_level=self.array_noise_level,
@@ -377,13 +374,10 @@ class TimeOrderedDataPairDiff:
                 f0=self.f0,
                 amp_atm=self.amp_atm,
                 corrlength=self.corrlength,
-<<<<<<< HEAD
                 alpha=self.alpha,
                 sampling_freq=self.scanning_strategy.sampling_freq,
             )
-=======
-                alpha=self.alpha)
->>>>>>> fix sampling frequency bug in WhiteNoiseGenerator. Change position of sampling_freq call for CorrNoiseGenerator and propagate it in all functions
+
         else:
             self.noise_generator = None
 
@@ -395,11 +389,9 @@ class TimeOrderedDataPairDiff:
                 ndetectors=2 * self.npair,
                 ntimesamples=self.nsamples,
                 array_noise_seed=self.array_noise_seed2,
-<<<<<<< HEAD
+                sampling_freq=self.scanning_strategy.sampling_freq,
             )
-=======
-                sampling_freq=self.scanning_strategy.sampling_freq)
->>>>>>> fix sampling frequency bug in WhiteNoiseGenerator. Change position of sampling_freq call for CorrNoiseGenerator and propagate it in all functions
+
         elif self.array_noise_level2 is not None and self.alpha is not None:
             self.noise_generator2 = CorrNoiseGenerator(
                 array_noise_level=self.array_noise_level2,
@@ -411,13 +403,10 @@ class TimeOrderedDataPairDiff:
                 f0=self.f0,
                 amp_atm=self.amp_atm,
                 corrlength=self.corrlength,
-<<<<<<< HEAD
                 alpha=self.alpha,
                 sampling_freq=self.scanning_strategy.sampling_freq,
             )
-=======
-                alpha=self.alpha)
->>>>>>> fix sampling frequency bug in WhiteNoiseGenerator. Change position of sampling_freq call for CorrNoiseGenerator and propagate it in all functions
+
         else:
             self.noise_generator2 = None
 
@@ -1297,6 +1286,7 @@ class TimeOrderedDataPairDiff:
 
         if hasattr(self, "dm") and (gdeprojection is False):
             tod_f.tod2map_hwp_f(
+<<<<<<< HEAD
                 output_maps.d0,
                 output_maps.d4r,
                 output_maps.d4i,
@@ -1314,6 +1304,16 @@ class TimeOrderedDataPairDiff:
                 self.npixsky,
             )
         elif (hasattr(output_maps, "dm") is False) and gdeprojection:
+=======
+                output_maps.d0, output_maps.d4r, output_maps.d4i,
+                output_maps.w0, output_maps.w4, output_maps.nhit,
+                point_matrix, pol_angs, waferts,
+                diff_weight, sum_weight, nt,
+                wafermask_pixel, npixfp, self.npixsky)
+        elif (hasattr(output_maps, 'dm') and gdeprojection):
+            if (hasattr(self, 'dm') and gdeprojection):
+                warnings.warn('G deprojection not supported for demodulated TODs and continously rotating HWP. Pair differencing is used instead.')
+>>>>>>> feec45ae5a3a335d8a62e0d53b2518f4980fafbf
             tod_f.tod2map_pair_gdeprojection_f(
                 output_maps.d,
                 output_maps.w,
@@ -1859,7 +1859,10 @@ class WhiteNoiseGenerator:
 =======
     def __init__(self, array_noise_level, ndetectors, ntimesamples,
                  array_noise_seed,sampling_freq):
+<<<<<<< HEAD
 >>>>>>> fix sampling frequency bug in WhiteNoiseGenerator. Change position of sampling_freq call for CorrNoiseGenerator and propagate it in all functions
+=======
+>>>>>>> feec45ae5a3a335d8a62e0d53b2518f4980fafbf
         """
         This class is used to simulate time-domain noise.
         Usually, it is used in combination with map2tod to insert noise
@@ -1919,7 +1922,10 @@ class WhiteNoiseGenerator:
         vec = state.normal(size=self.ntimesamples)
 
         return self.detector_noise_level * vec * np.sqrt(sampling_freq)
+<<<<<<< HEAD
 
+=======
+>>>>>>> feec45ae5a3a335d8a62e0d53b2518f4980fafbf
 
 class CorrNoiseGenerator(WhiteNoiseGenerator):
     """ """
@@ -1942,7 +1948,10 @@ class CorrNoiseGenerator(WhiteNoiseGenerator):
     def __init__(self, array_noise_level, ndetectors, ntimesamples,
                  array_noise_seed, sampling_freq, nclouds=10, f0=0.1, alpha=-4, amp_atm=1e2,
                  corrlength=300):
+<<<<<<< HEAD
 >>>>>>> fix sampling frequency bug in WhiteNoiseGenerator. Change position of sampling_freq call for CorrNoiseGenerator and propagate it in all functions
+=======
+>>>>>>> feec45ae5a3a335d8a62e0d53b2518f4980fafbf
         """
         This class is used to simulate time-domain correlated noise.
         Usually, it is used in combination with map2tod to insert noise
@@ -2014,7 +2023,10 @@ class CorrNoiseGenerator(WhiteNoiseGenerator):
 =======
             self, array_noise_level, ndetectors,
             ntimesamples, array_noise_seed,sampling_freq)
+<<<<<<< HEAD
 >>>>>>> fix sampling frequency bug in WhiteNoiseGenerator. Change position of sampling_freq call for CorrNoiseGenerator and propagate it in all functions
+=======
+>>>>>>> feec45ae5a3a335d8a62e0d53b2518f4980fafbf
         self.nclouds = nclouds
         self.alpha = alpha
         self.sampling_freq = sampling_freq
