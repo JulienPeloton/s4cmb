@@ -30,7 +30,8 @@ contains
 
         integer, parameter       :: I4B = 4
         integer, parameter       :: DP = 8
-        real(DP), parameter      :: pi = 3.141592
+        !real(DP), parameter      :: pi = 3.141592
+        real(DP), parameter      :: pi = 4.D0*DATAN(1.D0)
 
         integer(I4B), intent(in) :: npix, nt, nskypix
         integer(I4B), intent(in) :: waferi1d(0:npix*nt - 1)
@@ -84,7 +85,8 @@ contains
 
         integer, parameter       :: I4B = 4
         integer, parameter       :: DP = 8
-        real(DP), parameter      :: pi = 3.141592
+        !real(DP), parameter      :: pi = 3.141592
+        real(DP), parameter      :: pi = 4.D0*DATAN(1.D0)
 
         integer(I4B), intent(in) :: npix, nt, nskypix
         integer(I4B), intent(in) :: waferi1d(0:npix*nt - 1)
@@ -144,7 +146,8 @@ contains
 
         integer, parameter       :: I4B = 4
         integer, parameter       :: DP = 8
-        real(DP), parameter      :: pi = 3.141592
+        !real(DP), parameter      :: pi = 3.141592
+        real(DP), parameter      :: pi = 4.D0*DATAN(1.D0)
 
         integer(I4B), intent(in) :: npix, nt, nskypix
         integer(I4B), intent(in) :: waferi1d(0:npix*nt - 1), wafermask_pixel(0:npix*nt - 1)
@@ -175,6 +178,19 @@ contains
 
                     nhit(pixel) = nhit(pixel) + 1
 
+                    w0(pixel) = w0(pixel) + weight0(j)
+                    w4(pixel) = w4(pixel) + weight4(j)
+                    d0(pixel) = d0(pixel)+ waferts(if0) * weight0(j)
+                    d4r(pixel) = d4r(pixel) + (c*waferts(i4r)+s*waferts(i4i)) * weight4(j)
+                    d4i(pixel) = d4i(pixel) + (s*waferts(i4r)-c*waferts(i4i)) * weight4(j)
+
+                    ! second detector of a focal plane pixel (rotated of pi/2)
+                    if0 = i + (j+1)*3*nt
+                    i4r = i + nt + (j+1)*3*nt
+                    i4i = i + nt*2 + (j+1)*3*nt
+                    c = cos(2.0*waferpa(ipix) +pi)
+                    s = sin(2.0*waferpa(ipix)+pi)
+                    nhit(pixel) = nhit(pixel) + 1
                     w0(pixel) = w0(pixel) + weight0(j)
                     w4(pixel) = w4(pixel) + weight4(j)
                     d0(pixel) = d0(pixel)+ waferts(if0) * weight0(j)
