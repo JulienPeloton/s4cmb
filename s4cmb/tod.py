@@ -369,12 +369,12 @@ class TimeOrderedDataPairDiff:
                 ndetectors=2 * self.npair,
                 ntimesamples=self.nsamples,
                 array_noise_seed=self.array_noise_seed,
+                sampling_freq=self.scanning_strategy.sampling_freq,
                 nclouds=self.nclouds,
                 f0=self.f0,
                 amp_atm=self.amp_atm,
                 corrlength=self.corrlength,
                 alpha=self.alpha,
-                sampling_freq=self.scanning_strategy.sampling_freq,
             )
 
         else:
@@ -397,12 +397,12 @@ class TimeOrderedDataPairDiff:
                 ndetectors=2 * self.npair,
                 ntimesamples=self.nsamples,
                 array_noise_seed=self.array_noise_seed2,
+                sampling_freq=self.scanning_strategy.sampling_freq,
                 nclouds=self.nclouds,
                 f0=self.f0,
                 amp_atm=self.amp_atm,
                 corrlength=self.corrlength,
                 alpha=self.alpha,
-                sampling_freq=self.scanning_strategy.sampling_freq,
             )
 
         else:
@@ -1274,7 +1274,8 @@ class TimeOrderedDataPairDiff:
 
         assert npixfp == self.diff_weight.shape[0], msg
         assert npixfp == self.sum_weight.shape[0], msg
-
+        #old_shape = waferts.shape
+        #old_polang_shape = pol_angs.shape
         point_matrix = self.point_matrix.flatten()
         pol_angs = pol_angs.flatten()
         waferts = waferts.flatten()
@@ -1283,6 +1284,7 @@ class TimeOrderedDataPairDiff:
         wafermask_pixel = self.wafermask_pixel.flatten()
 
         if hasattr(self, "dm") and (gdeprojection is False):
+            #print("Demod TOD dims",pol_angs.shape,nt,npixfp,old_shape,old_polang_shape)
             tod_f.tod2map_hwp_f(
                 output_maps.d0,
                 output_maps.d4r,
@@ -1325,6 +1327,7 @@ class TimeOrderedDataPairDiff:
                 self.npixsky,
             )
         else:
+            #print("Pairdiff TOD dims",pol_angs.shape,nt,npixfp,old_shape,old_polang_shape)
             tod_f.tod2map_pair_f(
                 output_maps.d,
                 output_maps.w,
@@ -1367,6 +1370,7 @@ class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
         array_noise_level2=None,
         array_noise_seed2=56736,
         mapping_perpair=False,
+        bandpass=1.9,
         mode="standard",
         verbose=False,
     ):
@@ -1412,6 +1416,10 @@ class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
             If True, assume that you want to process pairs of bolometers
             one-by-one, that is pairs are uncorrelated. Default is False (and
             should be False unless you know what you are doing).
+        bandpass : float, optional
+            Band width around your frequency of interest [Hz] defined relative
+            to the spinning frequency of the HWP. If not specified it is equal
+            to the HWP spinning frequency itself. Default is 1.9.
         mode : string, optional
             Choose between `standard` (1 frequency band) and `dichroic`
             (2 frequency bands). If `dichroic` is chosen, make sure your
@@ -1475,7 +1483,7 @@ class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
         )
 
         # Prepare the filters use for the demodulation
-        self.dm.prepfilter([4], [1.9])
+        self.dm.prepfilter([4], [bandpass])
         self.dm.prepfftedfilter(nt=self.nsamples)
 
     def demodulate_timestreams(self, ts):
@@ -1566,7 +1574,7 @@ class Demodulation:
             about. For example if you want the 4f component of your
             timestream, modes = [4]. Intensity (0) is never specified.
             For the moment, only 4f is implemented.
-        bands : 1D array of int
+        bands : 1D array of floats
             Band width around your frequency of interest [Hz]. If not
             specified, it is equal to the speed of the HWP.
         numtaps : int, optional
