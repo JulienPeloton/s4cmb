@@ -823,9 +823,17 @@ class TimeOrderedDataPairDiff:
             pol_ang = parallactic_angle - ang_pix - 2.0 * self.hwpangle
 
         pol_ang2 = None
-        # TODO: add polarization angle perturbations for the second frequency.
+
         if self.mode == "dichroic":
-            ang_pix2 = (90.0 - self.intrinsic_polangle2[ch]) * d2r
+            # TODO: add support for different polarization angle perturbations
+            # for each frequency of the dichroic. Assume equal perturbations for
+            # the moment.
+            if polangle_err:
+                # inject perturbations
+                intrinsic_polangle2 = np.array(self.intrinsic_polangle2) + dpolang
+            else:
+                intrinsic_polangle2 = self.intrinsic_polangle
+            ang_pix2 = (90.0 - intrinsic_polangle2[ch]) * d2r
 
             # Demodulation or pair diff use different convention
             # for the definition of the angle.
@@ -923,7 +931,7 @@ class TimeOrderedDataPairDiff:
             )
         return index_global, index_local
 
-    def map2tod(self, ch):
+    def map2tod(self, ch,demod_ts=False):
         """
         Scan the input sky maps to generate timestream for channel ch.
         /!\ this is currently the bottleneck in computation. Need to speed
@@ -933,13 +941,19 @@ class TimeOrderedDataPairDiff:
         ----------
         ch : int
             Channel index in the focal plane.
-
+        demod_ts : bool
+            If set returns the timestream of the channel as a demodulated
+            timestream from single detector observation if a CRWHP is set.
+            Useful to avoid artifacts due to CRHWP demodulation. See the
+            description of the demodulate_timestreams method of the Demodulation
+            class for more details.
         Returns
         ----------
         ts : 1d array or array of 1d array
             The timestream for detector ch. If `self.HealpixFitsMap.do_pol` is
             True it returns intensity+polarisation, otherwise just intensity.
-            If dichroic, ts = np.array([ts_freq1, ts_freq2]).
+            If dichroic, ts = np.array([ts_freq1, ts_freq2]). If demod_ts is set
+            returns a 3d array or an array of 3d array.
 
         Examples
         ----------
@@ -1071,23 +1085,21 @@ class TimeOrderedDataPairDiff:
             )
 
             if self.perturb_pol_angs:
-                do_polangle_err = True
+                pol_ang_in, pol_ang2_in = self.compute_simpolangle(
+                    ch, pa, polangle_err=True)
             else:
-                do_polangle_err = False
+                pol_ang_in=pol_ang
+                pol_ang2_in=pol_ang2
 
-            pol_ang_perturbed, pol_ang2_perturbed = self.compute_simpolangle(
-                ch, pa, polangle_err=do_polangle_err
-            )
-
+            cos2pol_ang_in = np.cos(2*pol_ang_in)
+            sin2pol_ang_in = np.sin(2*pol_ang_in)
             # Use pa of pair center for tod2map if differential pointing
-            # is used. Otherwise the polarization angle of a pair is the
-            # same as the top and bottom detectors.
-            # TODO: I do not understand this try/except.
-            # TODO: remove the bare exception!!!
+            # is used (and thus the pa_pair is defined). Throws an exception if
+            # this is not the case and uses the same unperturbed angle for the
+            # the top and bottom detectors.
             try:
                 pol_ang_pair, pol_ang2_pair = self.compute_simpolangle(
-                    ch, pa_pair, polangle_err=False
-                )
+                    ch, pa_pair, polangle_err=False)
             except UnboundLocalError:
                 pol_ang_pair = pol_ang
                 pol_ang2_pair = pol_ang2
@@ -1099,22 +1111,42 @@ class TimeOrderedDataPairDiff:
             else:
                 pol_ang_out = pol_ang_pair
 
-            # Store list of polangle only for top bolometers
-            if ch % 2 == 0 and not self.mapping_perpair:
-                self.pol_angs[int(ch / 2)] = pol_ang_out
-            elif ch % 2 == 0 and self.mapping_perpair:
-                self.pol_angs[0] = pol_ang_out
-
-            ts1 = self.HealpixFitsMap.I[index_global]\
-                + self.HealpixFitsMap.Q[index_global] * np.cos(2 * pol_ang)\
-                + sign * self.HealpixFitsMap.U[index_global] * np.sin(2 * pol_ang)\
-                + noise
+            if (hasattr(self, "dm") and demod_ts):
+                # Store list of polangle only for top bolometers without
+                # additional hwp rotation in the pointing matrix required
+                # when performing demodulation.
+                if ch % 2 == 0 and not self.mapping_perpair:
+                    self.pol_angs[int(ch / 2)] = pol_ang_pair
+                elif ch % 2 == 0 and self.mapping_perpair:
+                    self.pol_angs[0] = pol_ang_pair
+                nt=len(index_global)
+                # defines perfectly demodulated timestreams
+                ts1 = np.zeros((3,nt))
+                ts1[0] = self.HealpixFitsMap.I[index_global]
+                ts1[1] = (cos2pol_ang_in*self.HealpixFitsMap.Q[index_global]\
+                        + sign*sin2pol_ang_in*self.HealpixFitsMap.U[index_global])
+                ts1[2] = (sin2pol_ang_in*self.HealpixFitsMap.Q[index_global]\
+                        - sign*cos2pol_ang_in*self.HealpixFitsMap.U[index_global])
+            else:
+                # Store list of polangle only for top bolometers
+                if ch % 2 == 0 and not self.mapping_perpair:
+                    self.pol_angs[int(ch / 2)] = pol_ang_out
+                elif ch % 2 == 0 and self.mapping_perpair:
+                    self.pol_angs[0] = pol_ang_out
+                ts1 = self.HealpixFitsMap.I[index_global]\
+                    + self.HealpixFitsMap.Q[index_global] * cos2pol_ang_in\
+                    + sign * self.HealpixFitsMap.U[index_global] * sin2pol_ang_in\
+                    + noise
             ts1 = ts1 * norm
 
             if self.mode == "standard":
                 return ts1
 
             elif self.mode == "dichroic":
+
+                cos2pol_ang2_in = np.cos(2*pol_ang2_in)
+                sin2pol_ang2_in = np.sin(2*pol_ang2_in)
+
                 # For demodulation, HWP angles are not included at the level
                 # of the pointing matrix (convention).
                 if hasattr(self, "dm"):
@@ -1122,20 +1154,37 @@ class TimeOrderedDataPairDiff:
                 else:
                     pol_ang_out2 = pol_ang2_pair
 
-                # Store list polangle only for top bolometers
-                if ch % 2 == 0 and not self.mapping_perpair:
-                    self.pol_angs2[int(ch / 2)] = pol_ang_out2
-                elif ch % 2 == 0 and self.mapping_perpair:
-                    self.pol_angs2[0] = pol_ang_out2
+                if (hasattr(self, "dm") and demod_ts):
+                    # Store list of polangle only for top bolometers without
+                    # additional hwp rotation in the pointing matrix required
+                    # when performing demodulation.
+                    if ch % 2 == 0 and not self.mapping_perpair:
+                        self.pol_angs2[int(ch / 2)] = pol_ang2_pair
+                    elif ch % 2 == 0 and self.mapping_perpair:
+                        self.pol_angs2[0] = pol_ang2_pair
+                    nt=len(index_global)
+                    # defines perfectly demodulated timestreams
+                    ts2 = np.zeros((3,nt))
+                    ts2[0] = self.HealpixFitsMap.I[index_global]
+                    ts2[1] = (cos2pol_ang2_in*self.HealpixFitsMap.Q[index_global]\
+                            + sign*sin2pol_ang2_in*self.HealpixFitsMap.U[index_global])
+                    ts2[2] = (sin2pol_ang2_in*self.HealpixFitsMap.Q[index_global]\
+                            - sign*cos2pol_ang2_in*self.HealpixFitsMap.U[index_global])
+                else:
+                    # Store list polangle only for top bolometers
+                    if ch % 2 == 0 and not self.mapping_perpair:
+                        self.pol_angs2[int(ch / 2)] = pol_ang_out2
+                    elif ch % 2 == 0 and self.mapping_perpair:
+                        self.pol_angs2[0] = pol_ang_out2
 
-                ts2 = self.HealpixFitsMap.I2[index_global_perturbed]\
-                    + self.HealpixFitsMap.Q2[index_global_perturbed]\
-                    * np.cos(2 * pol_ang2_perturbed)\
-                    + sign\
-                    * self.HealpixFitsMap.U2[index_global_perturbed]\
-                    * np.sin(2 * pol_ang2_perturbed)\
-                    + noise2
-                ts2 = ts2 * norm
+                    ts2 = self.HealpixFitsMap.I2[index_global_perturbed]\
+                        + self.HealpixFitsMap.Q2[index_global_perturbed]\
+                        * cos2pol_ang2_in\
+                        + sign\
+                        * self.HealpixFitsMap.U2[index_global_perturbed]\
+                        * sin2pol_ang2_in\
+                        + noise2
+                    ts2 = ts2 * norm
                 return np.array([ts1, ts2])
 
         else:
