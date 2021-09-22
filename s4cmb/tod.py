@@ -726,7 +726,9 @@ class TimeOrderedDataPairDiff:
             dec_src=dec_src,
         )
 
-        # boresight pointing systematics
+        # If boresight pointing systematics are present define a new pointing
+        # class with a perturbed pointing to be used when creating TODs with
+        # map2tod method
         if self.perturb_el or self.perturb_az:
             self.pointing_perturbed = Pointing(
                 az_enc=(
@@ -1003,7 +1005,7 @@ class TimeOrderedDataPairDiff:
         else:
             ra_perturbed = ra
             dec_perturbed = dec
-            # pa_perturbed = pa
+            #pa_perturbed = pa
             index_global_perturbed = index_global
             # index_local_perturbed = index_local
 
@@ -1044,7 +1046,7 @@ class TimeOrderedDataPairDiff:
                 index_global_pair = index_global
 
             # Store list of pixels to be mapped only for top bolometers or pair
-            # center in presence of differntial pointing
+            # center in presence of differential pointing
             if ch % 2 == 0 and not self.mapping_perpair:
                 self.point_matrix[int(ch / 2)] = index_local
                 if self.store_pointing_matrix_input:
@@ -1120,7 +1122,7 @@ class TimeOrderedDataPairDiff:
                     self.pol_angs[int(ch / 2)] = pol_ang_pair
                 elif ch % 2 == 0 and self.mapping_perpair:
                     self.pol_angs[0] = pol_ang_pair
-                nt = len(index_global)
+                nt = self.nsamples
                 # defines perfectly demodulated timestreams
                 ts1 = np.zeros((3, nt))
                 ts1[0] = self.HealpixFitsMap.I[index_global]
@@ -1168,7 +1170,7 @@ class TimeOrderedDataPairDiff:
                         self.pol_angs2[int(ch / 2)] = pol_ang2_pair
                     elif ch % 2 == 0 and self.mapping_perpair:
                         self.pol_angs2[0] = pol_ang2_pair
-                    nt = len(index_global)
+                    nt = self.nsamples
                     # defines perfectly demodulated timestreams
                     ts2 = np.zeros((3, nt))
                     ts2[0] = self.HealpixFitsMap.I[index_global]
