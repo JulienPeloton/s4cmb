@@ -105,7 +105,7 @@ class ScanningStrategy:
         self.ut1utc_fn = ut1utc_fn
         if not os.path.isfile(self.ut1utc_fn):
             # server in mantainance mode as of 202007. Message updated
-            #url = 'http://tycho.usno.navy.mil/leapsec.html'
+            # url = 'http://tycho.usno.navy.mil/leapsec.html'
             url = 's4cmb.scanning_strategy.update_ut1utc'
             msg = 'The path {} does not point to a valid file! see ' + \
                 's4cmb/data/ut1utc.ephem provided with the package. ' + \

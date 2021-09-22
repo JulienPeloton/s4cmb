@@ -173,8 +173,8 @@ class TimeOrderedDataPairDiff:
             If False, sets error arrays to 0 so that the additional
             pointing instances are the same as the original ones.
         seed_pointing : integer, optional
-            Seed for boresight pointing perturbation. Doesn't affect anything if
-            perturb_el == False or perturb_az == False.
+            Seed for boresight pointing perturbation. Doesn't affect anything
+            if perturb_el == False or perturb_az == False.
         mu_pointing : integer, optional
             Mean for boresight error distribution in arcseconds.
             Doesn't affect anything perturb_el == False or perturb_az == False.
@@ -526,7 +526,8 @@ class TimeOrderedDataPairDiff:
             npixsky = (
                 int(
                     round(
-                        (self.xmax - self.xmin + self.pixel_size) / self.pixel_size
+                        (self.xmax - self.xmin + self.pixel_size) /
+                        self.pixel_size
                     )
                 ) ** 2
             )
@@ -826,13 +827,14 @@ class TimeOrderedDataPairDiff:
 
         if self.mode == "dichroic":
             # TODO: add support for different polarization angle perturbations
-            # for each frequency of the dichroic. Assume equal perturbations for
-            # the moment.
+            # for each frequency of the dichroic. Assume equal perturbations
+            # for the moment.
             if polangle_err:
                 # inject perturbations
-                intrinsic_polangle2 = np.array(self.intrinsic_polangle2) + dpolang
+                intrinsic_polangle2 = np.array(self.intrinsic_polangle2) + \
+                                        dpolang
             else:
-                intrinsic_polangle2 = self.intrinsic_polangle
+                intrinsic_polangle2 = self.intrinsic_polangle2
             ang_pix2 = (90.0 - intrinsic_polangle2[ch]) * d2r
 
             # Demodulation or pair diff use different convention
@@ -931,7 +933,7 @@ class TimeOrderedDataPairDiff:
             )
         return index_global, index_local
 
-    def map2tod(self, ch,demod_ts=False):
+    def map2tod(self, ch, demod_ts=False):
         """
         Scan the input sky maps to generate timestream for channel ch.
         /!\ this is currently the bottleneck in computation. Need to speed
@@ -945,15 +947,15 @@ class TimeOrderedDataPairDiff:
             If set returns the timestream of the channel as a demodulated
             timestream from single detector observation if a CRWHP is set.
             Useful to avoid artifacts due to CRHWP demodulation. See the
-            description of the demodulate_timestreams method of the Demodulation
-            class for more details.
+            description of the demodulate_timestreams method of the
+            Demodulation class for more details.
         Returns
         ----------
         ts : 1d array or array of 1d array
             The timestream for detector ch. If `self.HealpixFitsMap.do_pol` is
             True it returns intensity+polarisation, otherwise just intensity.
-            If dichroic, ts = np.array([ts_freq1, ts_freq2]). If demod_ts is set
-            returns a 3d array or an array of 3d array.
+            If dichroic, ts = np.array([ts_freq1, ts_freq2]). If demod_ts is
+            set returns a 3d array or an array of 3d array.
 
         Examples
         ----------
@@ -995,9 +997,8 @@ class TimeOrderedDataPairDiff:
                 self.pointing_perturbed.offset_detector(azd, eld)
 
             # Perturbed boresight pointing values
-            index_global_perturbed, index_local_perturbed = self.get_pixel_indices(
-                ra_perturbed, dec_perturbed
-            )
+            index_global_perturbed, index_local_perturbed = \
+                self.get_pixel_indices(ra_perturbed, dec_perturbed)
 
         else:
             ra_perturbed = ra
@@ -1088,8 +1089,8 @@ class TimeOrderedDataPairDiff:
                 pol_ang_in, pol_ang2_in = self.compute_simpolangle(
                     ch, pa, polangle_err=True)
             else:
-                pol_ang_in=pol_ang
-                pol_ang2_in=pol_ang2
+                pol_ang_in = pol_ang
+                pol_ang2_in = pol_ang2
 
             cos2pol_ang_in = np.cos(2*pol_ang_in)
             sin2pol_ang_in = np.sin(2*pol_ang_in)
@@ -1119,23 +1120,28 @@ class TimeOrderedDataPairDiff:
                     self.pol_angs[int(ch / 2)] = pol_ang_pair
                 elif ch % 2 == 0 and self.mapping_perpair:
                     self.pol_angs[0] = pol_ang_pair
-                nt=len(index_global)
+                nt = len(index_global)
                 # defines perfectly demodulated timestreams
-                ts1 = np.zeros((3,nt))
+                ts1 = np.zeros((3, nt))
                 ts1[0] = self.HealpixFitsMap.I[index_global]
-                ts1[1] = (cos2pol_ang_in*self.HealpixFitsMap.Q[index_global]\
-                        + sign*sin2pol_ang_in*self.HealpixFitsMap.U[index_global])
-                ts1[2] = (sin2pol_ang_in*self.HealpixFitsMap.Q[index_global]\
-                        - sign*cos2pol_ang_in*self.HealpixFitsMap.U[index_global])
+                ts1[1] = (cos2pol_ang_in*self.HealpixFitsMap.Q[index_global] +
+                          sign*sin2pol_ang_in *
+                          self.HealpixFitsMap.U[index_global])
+                ts1[2] = (sin2pol_ang_in*self.HealpixFitsMap.Q[index_global] -
+                          sign*cos2pol_ang_in *
+                          self.HealpixFitsMap.U[index_global])
             else:
                 # Store list of polangle only for top bolometers
                 if ch % 2 == 0 and not self.mapping_perpair:
                     self.pol_angs[int(ch / 2)] = pol_ang_out
                 elif ch % 2 == 0 and self.mapping_perpair:
                     self.pol_angs[0] = pol_ang_out
-                ts1 = self.HealpixFitsMap.I[index_global]\
-                    + self.HealpixFitsMap.Q[index_global] * cos2pol_ang_in\
-                    + sign * self.HealpixFitsMap.U[index_global] * sin2pol_ang_in\
+                ts1 = self.HealpixFitsMap.I[index_global] \
+                    + self.HealpixFitsMap.Q[index_global] \
+                    * cos2pol_ang_in \
+                    + sign \
+                    * self.HealpixFitsMap.U[index_global] \
+                    * sin2pol_ang_in \
                     + noise
             ts1 = ts1 * norm
 
@@ -1162,14 +1168,18 @@ class TimeOrderedDataPairDiff:
                         self.pol_angs2[int(ch / 2)] = pol_ang2_pair
                     elif ch % 2 == 0 and self.mapping_perpair:
                         self.pol_angs2[0] = pol_ang2_pair
-                    nt=len(index_global)
+                    nt = len(index_global)
                     # defines perfectly demodulated timestreams
-                    ts2 = np.zeros((3,nt))
+                    ts2 = np.zeros((3, nt))
                     ts2[0] = self.HealpixFitsMap.I[index_global]
-                    ts2[1] = (cos2pol_ang2_in*self.HealpixFitsMap.Q[index_global]\
-                            + sign*sin2pol_ang2_in*self.HealpixFitsMap.U[index_global])
-                    ts2[2] = (sin2pol_ang2_in*self.HealpixFitsMap.Q[index_global]\
-                            - sign*cos2pol_ang2_in*self.HealpixFitsMap.U[index_global])
+                    ts2[1] = (cos2pol_ang2_in *
+                              self.HealpixFitsMap.Q[index_global] +
+                              sign*sin2pol_ang2_in *
+                              self.HealpixFitsMap.U[index_global])
+                    ts2[2] = (sin2pol_ang2_in *
+                              self.HealpixFitsMap.Q[index_global] -
+                              sign*cos2pol_ang2_in *
+                              self.HealpixFitsMap.U[index_global])
                 else:
                     # Store list polangle only for top bolometers
                     if ch % 2 == 0 and not self.mapping_perpair:
@@ -1323,8 +1333,6 @@ class TimeOrderedDataPairDiff:
 
         assert npixfp == self.diff_weight.shape[0], msg
         assert npixfp == self.sum_weight.shape[0], msg
-        #old_shape = waferts.shape
-        #old_polang_shape = pol_angs.shape
         point_matrix = self.point_matrix.flatten()
         pol_angs = pol_angs.flatten()
         waferts = waferts.flatten()
@@ -1333,7 +1341,6 @@ class TimeOrderedDataPairDiff:
         wafermask_pixel = self.wafermask_pixel.flatten()
 
         if hasattr(self, "dm") and (gdeprojection is False):
-            #print("Demod TOD dims",pol_angs.shape,nt,npixfp,old_shape,old_polang_shape)
             tod_f.tod2map_hwp_f(
                 output_maps.d0,
                 output_maps.d4r,
@@ -1376,7 +1383,6 @@ class TimeOrderedDataPairDiff:
                 self.npixsky,
             )
         else:
-            #print("Pairdiff TOD dims",pol_angs.shape,nt,npixfp,old_shape,old_polang_shape)
             tod_f.tod2map_pair_f(
                 output_maps.d,
                 output_maps.w,
@@ -1896,7 +1902,7 @@ def convolvefilter(x, f, ff=None, isreal=False):
 class WhiteNoiseGenerator:
     """ Class to handle white noise """
     def __init__(self, array_noise_level, ndetectors, ntimesamples,
-                 array_noise_seed,sampling_freq):
+                 array_noise_seed, sampling_freq):
         """
         This class is used to simulate time-domain noise.
         Usually, it is used in combination with map2tod to insert noise
@@ -1948,7 +1954,8 @@ class WhiteNoiseGenerator:
 
         Examples
         ----------
-        >>> wn = WhiteNoiseGenerator(3000., 2, 4, array_noise_seed=493875, sampling_freq=8)
+        >>> wn = WhiteNoiseGenerator(3000., 2, 4, array_noise_seed=493875,
+                                     sampling_freq=8)
         >>> ts = wn.simulate_noise_one_detector(0)
         >>> print(ts) #doctest: +NORMALIZE_WHITESPACE
         [ -6181.96897098  14530.22537094 -15293.93599271  31170.94902191]
@@ -2040,7 +2047,7 @@ class CorrNoiseGenerator(WhiteNoiseGenerator):
         """
         WhiteNoiseGenerator.__init__(
             self, array_noise_level, ndetectors,
-            ntimesamples, array_noise_seed,sampling_freq,
+            ntimesamples, array_noise_seed, sampling_freq,
         )
         self.nclouds = nclouds
         self.alpha = alpha
@@ -3189,10 +3196,12 @@ def crop_me(dic, based_on, npix_per_row=2 ** 12):
                 dic[k] = np.array(
                     [
                         i[
-                            halfnpixr - halfnpix_per_row: halfnpixr + halfnpix_per_row
+                            halfnpixr - halfnpix_per_row: halfnpixr +
+                            halfnpix_per_row
                         ]
                         for i in dic[k].reshape((npixr, npixr))[
-                            halfnpixr - halfnpix_per_row: halfnpixr + halfnpix_per_row
+                            halfnpixr - halfnpix_per_row: halfnpixr +
+                            halfnpix_per_row
                         ]
                     ]
                 ).flatten()
