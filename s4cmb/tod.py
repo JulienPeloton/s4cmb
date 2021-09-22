@@ -990,31 +990,34 @@ class TimeOrderedDataPairDiff:
         # Compute pointing for detector ch
         ra, dec, pa = self.pointing.offset_detector(azd, eld)
 
-        # Compute pointing matrix
+        # Compute pointing matrix for baseline pointing
         index_global, index_local = self.get_pixel_indices(ra, dec)
 
-        # Perturbed boresight pointing values
+        # Perturbed boresight pointing values if requested
         if self.pointing_perturbed is not None:
-            ra_perturbed, dec_perturbed, pa_perturbed = \
+            ra_perturbed, dec_perturbed, pa_in = \
                 self.pointing_perturbed.offset_detector(azd, eld)
 
-            # Perturbed boresight pointing values
-            index_global_perturbed, index_local_perturbed = \
+            # When pointing is perturbed the pointing matrix and pa used to
+            # scan the sky are different from those used in the sky
+            # reconstruction map2tod.
+            # Dedicated variables are defined.
+            index_global_in, index_local_in = \
                 self.get_pixel_indices(ra_perturbed, dec_perturbed)
 
         else:
-            ra_perturbed = ra
-            dec_perturbed = dec
-            #pa_perturbed = pa
-            index_global_perturbed = index_global
-            # index_local_perturbed = index_local
+            # Otherwise the pointing matrix and pa used to scan the sky will be
+            # the same used in the sky map reconstruction.
+            pa_in = pa
+            index_global_in = index_global
+            index_local_in = index_local
 
         if ((self.projection == 'healpix') & (index_local is None)):
             # Using a pointer not to increase memory usage
             index_local = index_global
-
-            # Perturbed boresight pointing values
-            # index_local_perturbed = index_global_perturbed
+            # Redefines pointing value when pointing is perturbed
+            if index_local_in is None:
+                index_local_in = index_global_in
 
         # For flat projection, one needs to flip the sign of U
         # w.r.t to the full-sky basis (IAU angle convention)
@@ -1050,13 +1053,13 @@ class TimeOrderedDataPairDiff:
             if ch % 2 == 0 and not self.mapping_perpair:
                 self.point_matrix[int(ch / 2)] = index_local
                 if self.store_pointing_matrix_input:
-                    index_global_pair[index_local == -1] = -1
-                    self.point_matrix_input[int(ch / 2)] = index_global_pair
+                    index_global_pair_in[index_local_in == -1] = -1
+                    self.point_matrix_input[int(ch / 2)] = index_global_pair_in
             elif ch % 2 == 0 and self.mapping_perpair:
                 self.point_matrix[0] = index_local
                 if self.store_pointing_matrix_input:
-                    index_global_pair[index_local == -1] = -1
-                    self.point_matrix_input[0] = index_global_pair
+                    index_global_pair_in[index_local_in == -1] = -1
+                    self.point_matrix_input[0] = index_global_pair_in
 
         # Default gain for a detector is 1.,
         # but you can change it using set_detector_gains or
@@ -1082,31 +1085,35 @@ class TimeOrderedDataPairDiff:
             noise2 = 0.0
 
         if self.HealpixFitsMap.do_pol:
-            # pol_ang2 is None if mode == 'standard'
-            pol_ang, pol_ang2 = self.compute_simpolangle(
-                ch, pa, polangle_err=False
-            )
-
-            if self.perturb_pol_angs:
-                pol_ang_in, pol_ang2_in = self.compute_simpolangle(
-                    ch, pa, polangle_err=True)
-            else:
-                pol_ang_in = pol_ang
-                pol_ang2_in = pol_ang2
+            # Compute polarization angle per detector used to scan the input
+            # sky (accounts thus pointing errors (boresight and differential)
+            # and pol. angle perturbations).
+            # WARNING: pol_ang2 is None if mode == 'standard'
+            pol_ang_in, pol_ang2_in = self.compute_simpolangle(
+                ch, pa_in, polangle_err=self.perturb_pol_angs)
 
             cos2pol_ang_in = np.cos(2*pol_ang_in)
             sin2pol_ang_in = np.sin(2*pol_ang_in)
+
             # Use pa of pair center for tod2map if differential pointing
             # is used (and thus the pa_pair is defined). Throws an exception if
-            # this is not the case and uses the same unperturbed angle for the
+            # this is not the case and uses the same angle for the
             # the top and bottom detectors.
+            # In this case, we use the pointing objects specifically defined
+            # for the sky map reconstruction (i.e that do not include boresight
+            # and differential pointing errors).
             try:
                 pol_ang_pair, pol_ang2_pair = self.compute_simpolangle(
                     ch, pa_pair, polangle_err=False)
             except UnboundLocalError:
+                # WARNING: pol_ang2 is None if mode == 'standard'
+                pol_ang, pol_ang2 = self.compute_simpolangle(
+                    ch, pa, polangle_err=False)
                 pol_ang_pair = pol_ang
                 pol_ang2_pair = pol_ang2
 
+            # Defines values of pol. angle to be used in sky map
+            # reconstruction.
             # For demodulation, HWP angles are not included at the level
             # of the pointing matrix (convention).
             if hasattr(self, "dm"):
@@ -1115,7 +1122,8 @@ class TimeOrderedDataPairDiff:
                 pol_ang_out = pol_ang_pair
 
             if (hasattr(self, "dm") and demod_ts):
-                # Store list of polangle only for top bolometers without
+                # Store list of polangle only for tod2map operations.
+                # Stores data only for top bolometers without
                 # additional hwp rotation in the pointing matrix required
                 # when performing demodulation.
                 if ch % 2 == 0 and not self.mapping_perpair:
@@ -1125,24 +1133,26 @@ class TimeOrderedDataPairDiff:
                 nt = self.nsamples
                 # defines perfectly demodulated timestreams
                 ts1 = np.zeros((3, nt))
-                ts1[0] = self.HealpixFitsMap.I[index_global]
-                ts1[1] = (cos2pol_ang_in*self.HealpixFitsMap.Q[index_global] +
+                ts1[0] = self.HealpixFitsMap.I[index_global_in]
+                ts1[1] = (cos2pol_ang_in *
+                          self.HealpixFitsMap.Q[index_global_in] +
                           sign*sin2pol_ang_in *
-                          self.HealpixFitsMap.U[index_global])
-                ts1[2] = (sin2pol_ang_in*self.HealpixFitsMap.Q[index_global] -
+                          self.HealpixFitsMap.U[index_global_in])
+                ts1[2] = (sin2pol_ang_in *
+                          self.HealpixFitsMap.Q[index_global_in] -
                           sign*cos2pol_ang_in *
-                          self.HealpixFitsMap.U[index_global])
+                          self.HealpixFitsMap.U[index_global_in])
             else:
                 # Store list of polangle only for top bolometers
                 if ch % 2 == 0 and not self.mapping_perpair:
                     self.pol_angs[int(ch / 2)] = pol_ang_out
                 elif ch % 2 == 0 and self.mapping_perpair:
                     self.pol_angs[0] = pol_ang_out
-                ts1 = self.HealpixFitsMap.I[index_global] \
-                    + self.HealpixFitsMap.Q[index_global] \
+                ts1 = self.HealpixFitsMap.I[index_global_in] \
+                    + self.HealpixFitsMap.Q[index_global_in] \
                     * cos2pol_ang_in \
                     + sign \
-                    * self.HealpixFitsMap.U[index_global] \
+                    * self.HealpixFitsMap.U[index_global_in] \
                     * sin2pol_ang_in \
                     + noise
             ts1 = ts1 * norm
@@ -1163,7 +1173,8 @@ class TimeOrderedDataPairDiff:
                     pol_ang_out2 = pol_ang2_pair
 
                 if (hasattr(self, "dm") and demod_ts):
-                    # Store list of polangle only for top bolometers without
+                    # Store list of polangle only for tod2map operations.
+                    # Stores data only for top bolometers without
                     # additional hwp rotation in the pointing matrix required
                     # when performing demodulation.
                     if ch % 2 == 0 and not self.mapping_perpair:
@@ -1173,15 +1184,15 @@ class TimeOrderedDataPairDiff:
                     nt = self.nsamples
                     # defines perfectly demodulated timestreams
                     ts2 = np.zeros((3, nt))
-                    ts2[0] = self.HealpixFitsMap.I[index_global]
+                    ts2[0] = self.HealpixFitsMap.I[index_global_in]
                     ts2[1] = (cos2pol_ang2_in *
-                              self.HealpixFitsMap.Q[index_global] +
+                              self.HealpixFitsMap.Q[index_global_in] +
                               sign*sin2pol_ang2_in *
-                              self.HealpixFitsMap.U[index_global])
+                              self.HealpixFitsMap.U[index_global_in])
                     ts2[2] = (sin2pol_ang2_in *
-                              self.HealpixFitsMap.Q[index_global] -
+                              self.HealpixFitsMap.Q[index_global_in] -
                               sign*cos2pol_ang2_in *
-                              self.HealpixFitsMap.U[index_global])
+                              self.HealpixFitsMap.U[index_global_in])
                 else:
                     # Store list polangle only for top bolometers
                     if ch % 2 == 0 and not self.mapping_perpair:
@@ -1189,11 +1200,11 @@ class TimeOrderedDataPairDiff:
                     elif ch % 2 == 0 and self.mapping_perpair:
                         self.pol_angs2[0] = pol_ang_out2
 
-                    ts2 = self.HealpixFitsMap.I2[index_global_perturbed]\
-                        + self.HealpixFitsMap.Q2[index_global_perturbed]\
+                    ts2 = self.HealpixFitsMap.I2[index_global_in]\
+                        + self.HealpixFitsMap.Q2[index_global_in]\
                         * cos2pol_ang2_in\
                         + sign\
-                        * self.HealpixFitsMap.U2[index_global_perturbed]\
+                        * self.HealpixFitsMap.U2[index_global_in]\
                         * sin2pol_ang2_in\
                         + noise2
                     ts2 = ts2 * norm
@@ -1201,13 +1212,13 @@ class TimeOrderedDataPairDiff:
 
         else:
             ts1 = norm * (
-                self.HealpixFitsMap.I[index_global_perturbed] + noise
+                self.HealpixFitsMap.I[index_global_in] + noise
             )
             if self.mode == "standard":
                 return ts1
             elif self.mode == "dichroic":
                 ts2 = norm * (
-                    self.HealpixFitsMap.I2[index_global_perturbed] + noise2
+                    self.HealpixFitsMap.I2[index_global_in] + noise2
                 )
                 return np.array([ts1, ts2])
 
@@ -1956,7 +1967,7 @@ class WhiteNoiseGenerator:
 
         Examples
         ----------
-        >>> wn = WhiteNoiseGenerator(3000., 2, 4, array_noise_seed=493875,
+        >>> wn = WhiteNoiseGenerator(3000., 2, 4, array_noise_seed=493875,\
                                      sampling_freq=8)
         >>> ts = wn.simulate_noise_one_detector(0)
         >>> print(ts) #doctest: +NORMALIZE_WHITESPACE
