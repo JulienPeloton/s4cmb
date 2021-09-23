@@ -1,4 +1,4 @@
-#!/usr/bin/python
+# !/usr/bin/python
 # Copyright (c) 2016-2021 Julien Peloton, Giulio Fabbian.
 #
 # This file is part of s4cmb
@@ -526,7 +526,7 @@ class TimeOrderedDataPairDiff:
             npixsky = (
                 int(
                     round(
-                        (self.xmax - self.xmin + self.pixel_size) /
+                         (self.xmax - self.xmin + self.pixel_size) /
                         self.pixel_size
                     )
                 ) ** 2
@@ -834,7 +834,7 @@ class TimeOrderedDataPairDiff:
             if polangle_err:
                 # inject perturbations
                 intrinsic_polangle2 = np.array(self.intrinsic_polangle2) + \
-                                        dpolang
+                    dpolang
             else:
                 intrinsic_polangle2 = self.intrinsic_polangle2
             ang_pix2 = (90.0 - intrinsic_polangle2[ch]) * d2r
@@ -1043,6 +1043,18 @@ class TimeOrderedDataPairDiff:
                 if index_local is None:
                     # Using a pointer not to increase memory usage
                     index_local = index_global_pair
+                if self.store_pointing_matrix_input:
+                    if self.pointing_perturbed is not None:
+                        ra, dec, pa_pair_in = \
+                            self.pointing_perturbed.offset_detector(azd, eld)
+                        index_global_pair_in, index_local_pair_in = \
+                            self.get_pixel_indices(ra, dec)
+                        if index_local_pair_in is None:
+                            index_local_pair_in = index_global_pair_in
+                    else:
+                        index_global_pair_in = index_global_pair
+                        index_local_pair_in = index_local
+
             else:
                 # For consistency when storing input_map scanning after
                 # introducing differential beam systematics.
@@ -1053,12 +1065,12 @@ class TimeOrderedDataPairDiff:
             if ch % 2 == 0 and not self.mapping_perpair:
                 self.point_matrix[int(ch / 2)] = index_local
                 if self.store_pointing_matrix_input:
-                    index_global_pair_in[index_local_in == -1] = -1
+                    index_global_pair_in[index_local_pair_in == -1] = -1
                     self.point_matrix_input[int(ch / 2)] = index_global_pair_in
             elif ch % 2 == 0 and self.mapping_perpair:
                 self.point_matrix[0] = index_local
                 if self.store_pointing_matrix_input:
-                    index_global_pair_in[index_local_in == -1] = -1
+                    index_global_pair_in[index_local_pair_in == -1] = -1
                     self.point_matrix_input[0] = index_global_pair_in
 
         # Default gain for a detector is 1.,
@@ -1092,8 +1104,8 @@ class TimeOrderedDataPairDiff:
             pol_ang_in, pol_ang2_in = self.compute_simpolangle(
                 ch, pa_in, polangle_err=self.perturb_pol_angs)
 
-            cos2pol_ang_in = np.cos(2*pol_ang_in)
-            sin2pol_ang_in = np.sin(2*pol_ang_in)
+            cos2pol_ang_in = np.cos(2 * pol_ang_in)
+            sin2pol_ang_in = np.sin(2 * pol_ang_in)
 
             # Use pa of pair center for tod2map if differential pointing
             # is used (and thus the pa_pair is defined). Throws an exception if
@@ -1136,11 +1148,11 @@ class TimeOrderedDataPairDiff:
                 ts1[0] = self.HealpixFitsMap.I[index_global_in]
                 ts1[1] = (cos2pol_ang_in *
                           self.HealpixFitsMap.Q[index_global_in] +
-                          sign*sin2pol_ang_in *
+                          sign * sin2pol_ang_in *
                           self.HealpixFitsMap.U[index_global_in])
                 ts1[2] = (sin2pol_ang_in *
                           self.HealpixFitsMap.Q[index_global_in] -
-                          sign*cos2pol_ang_in *
+                          sign * cos2pol_ang_in *
                           self.HealpixFitsMap.U[index_global_in])
             else:
                 # Store list of polangle only for top bolometers
@@ -1162,8 +1174,8 @@ class TimeOrderedDataPairDiff:
 
             elif self.mode == "dichroic":
 
-                cos2pol_ang2_in = np.cos(2*pol_ang2_in)
-                sin2pol_ang2_in = np.sin(2*pol_ang2_in)
+                cos2pol_ang2_in = np.cos(2 * pol_ang2_in)
+                sin2pol_ang2_in = np.sin(2 * pol_ang2_in)
 
                 # For demodulation, HWP angles are not included at the level
                 # of the pointing matrix (convention).
@@ -1184,15 +1196,15 @@ class TimeOrderedDataPairDiff:
                     nt = self.nsamples
                     # defines perfectly demodulated timestreams
                     ts2 = np.zeros((3, nt))
-                    ts2[0] = self.HealpixFitsMap.I[index_global_in]
+                    ts2[0] = self.HealpixFitsMap.I2[index_global_in]
                     ts2[1] = (cos2pol_ang2_in *
-                              self.HealpixFitsMap.Q[index_global_in] +
-                              sign*sin2pol_ang2_in *
-                              self.HealpixFitsMap.U[index_global_in])
+                              self.HealpixFitsMap.Q2[index_global_in] +
+                              sign * sin2pol_ang2_in *
+                              self.HealpixFitsMap.U2[index_global_in])
                     ts2[2] = (sin2pol_ang2_in *
-                              self.HealpixFitsMap.Q[index_global_in] -
-                              sign*cos2pol_ang2_in *
-                              self.HealpixFitsMap.U[index_global_in])
+                              self.HealpixFitsMap.Q2[index_global_in] -
+                              sign * cos2pol_ang2_in *
+                              self.HealpixFitsMap.U2[index_global_in])
                 else:
                     # Store list polangle only for top bolometers
                     if ch % 2 == 0 and not self.mapping_perpair:
