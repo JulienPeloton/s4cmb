@@ -526,8 +526,7 @@ class TimeOrderedDataPairDiff:
             npixsky = (
                 int(
                     round(
-                         (self.xmax - self.xmin + self.pixel_size) /
-                        self.pixel_size
+                         (self.xmax - self.xmin + self.pixel_size) / self.pixel_size
                     )
                 ) ** 2
             )
@@ -1146,14 +1145,10 @@ class TimeOrderedDataPairDiff:
                 # defines perfectly demodulated timestreams
                 ts1 = np.zeros((3, nt))
                 ts1[0] = self.HealpixFitsMap.I[index_global_in]
-                ts1[1] = (cos2pol_ang_in *
-                          self.HealpixFitsMap.Q[index_global_in] +
-                          sign * sin2pol_ang_in *
-                          self.HealpixFitsMap.U[index_global_in])
-                ts1[2] = (sin2pol_ang_in *
-                          self.HealpixFitsMap.Q[index_global_in] -
-                          sign * cos2pol_ang_in *
-                          self.HealpixFitsMap.U[index_global_in])
+                ts1[1] = (cos2pol_ang_in * self.HealpixFitsMap.Q[index_global_in])\
+                    + (sign * sin2pol_ang_in * self.HealpixFitsMap.U[index_global_in])
+                ts1[2] = (sin2pol_ang_in * self.HealpixFitsMap.Q[index_global_in])\
+                    - (sign * cos2pol_ang_in * self.HealpixFitsMap.U[index_global_in])
             else:
                 # Store list of polangle only for top bolometers
                 if ch % 2 == 0 and not self.mapping_perpair:
@@ -1197,14 +1192,14 @@ class TimeOrderedDataPairDiff:
                     # defines perfectly demodulated timestreams
                     ts2 = np.zeros((3, nt))
                     ts2[0] = self.HealpixFitsMap.I2[index_global_in]
-                    ts2[1] = (cos2pol_ang2_in *
-                              self.HealpixFitsMap.Q2[index_global_in] +
-                              sign * sin2pol_ang2_in *
-                              self.HealpixFitsMap.U2[index_global_in])
-                    ts2[2] = (sin2pol_ang2_in *
-                              self.HealpixFitsMap.Q2[index_global_in] -
-                              sign * cos2pol_ang2_in *
-                              self.HealpixFitsMap.U2[index_global_in])
+                    ts2[1] = cos2pol_ang2_in \
+                        * self.HealpixFitsMap.Q2[index_global_in]\
+                        + sign * sin2pol_ang2_in\
+                        * self.HealpixFitsMap.U2[index_global_in]
+                    ts2[2] = sin2pol_ang2_in \
+                        * self.HealpixFitsMap.Q2[index_global_in]\
+                        - sign * cos2pol_ang2_in\
+                        * self.HealpixFitsMap.U2[index_global_in]
                 else:
                     # Store list polangle only for top bolometers
                     if ch % 2 == 0 and not self.mapping_perpair:
@@ -3221,12 +3216,10 @@ def crop_me(dic, based_on, npix_per_row=2 ** 12):
                 dic[k] = np.array(
                     [
                         i[
-                            halfnpixr - halfnpix_per_row: halfnpixr +
-                            halfnpix_per_row
+                            halfnpixr - halfnpix_per_row: halfnpixr + halfnpix_per_row
                         ]
                         for i in dic[k].reshape((npixr, npixr))[
-                            halfnpixr - halfnpix_per_row: halfnpixr +
-                            halfnpix_per_row
+                            halfnpixr - halfnpix_per_row: halfnpixr + halfnpix_per_row
                         ]
                     ]
                 ).flatten()
