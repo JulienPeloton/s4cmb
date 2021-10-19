@@ -1493,7 +1493,7 @@ class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
             should be False unless you know what you are doing).
         bandpass : float, optional
             Band width around your frequency of interest [Hz] defined relative
-            to the spinning frequency of the HWP. If not specified it is equal
+            to the spinning frequency of the HWP. If set to None it is equal
             to the HWP spinning frequency itself. Default is 1.9.
         mode : string, optional
             Choose between `standard` (1 frequency band) and `dichroic`
