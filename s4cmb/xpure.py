@@ -21,6 +21,7 @@ Script to generate normalized inputs for the software x2pure
 
 Author: Julien Peloton, peloton@lal.in2p3.fr
 """
+
 from __future__ import division, absolute_import, print_function
 
 import os
@@ -138,7 +139,7 @@ def write_maps_a_la_xpure(OutputSkyMap, name_out, output_path):
     fits_Q = np.zeros((12 * OutputSkyMap.nside * OutputSkyMap.nside))
     fits_U = np.zeros((12 * OutputSkyMap.nside * OutputSkyMap.nside))
 
-    I, Q, U = OutputSkyMap.get_IQU()
+    I, Q, U = OutputSkyMap.get_IQU()  # noqa: E741
     fits_I[OutputSkyMap.obspix] = I
     fits_Q[OutputSkyMap.obspix] = Q
     fits_U[OutputSkyMap.obspix] = U
@@ -203,9 +204,7 @@ def write_weights_a_la_xpure(OutputSkyMap, name_out, output_path, epsilon, HWP=F
     binary = np.zeros((12 * OutputSkyMap.nside * OutputSkyMap.nside))
     mask = np.where((weight > 0))[0]
     binary[mask] = 1.0
-    full_path = os.path.join(
-        output_path, name_out, "Iw_{}_norm.fits".format(name_out)
-    )
+    full_path = os.path.join(output_path, name_out, "Iw_{}_norm.fits".format(name_out))
     write_healpix_cmbmap(
         full_path,
         data=binary,
@@ -239,9 +238,7 @@ def write_weights_a_la_xpure(OutputSkyMap, name_out, output_path, epsilon, HWP=F
     binary = np.zeros((12 * OutputSkyMap.nside * OutputSkyMap.nside))
     mask = np.where((weight > 0))[0]
     binary[mask] = 1.0
-    full_path = os.path.join(
-        output_path, name_out, "Pw_{}_norm.fits".format(name_out)
-    )
+    full_path = os.path.join(output_path, name_out, "Pw_{}_norm.fits".format(name_out))
     write_healpix_cmbmap(
         full_path,
         data=binary,
@@ -320,8 +317,10 @@ def create_batch(batch_file, name_out, params_s4cmb, params_xpure):
         print("MODE_XPURE={}".format(params_xpure.xpure_mode), file=f)
 
         print(" ", file=f)
-        txt = "# FULL (0=myapodizemask, create_mll and XPURE) or FAST "\
+        txt = (
+            "# FULL (0=myapodizemask, create_mll and XPURE) or FAST "
             + "(1=only XPURE) or SEMI-FAST (=2 create_mll and XPURE)"
+        )
         print(
             txt,
             file=f,
@@ -410,15 +409,15 @@ def create_batch(batch_file, name_out, params_s4cmb, params_xpure):
         )
         print('if [ "${FAST}" -eq "0" ]', file=f)
         print("	then", file=f)
-        txt = "	time srun -N 1 -n {} ${{BINDIR}}/myapodizemask "\
-            + "${{BINARY_MASK_I1}} ${{APODIZED_MASK_I1}} -minpix 1 -inside 1 "\
-            + "-radius ${{radius}} & time srun -N 1 -n {} "\
-            + "${{BINDIR}}/myapodizemask ${{BINARY_MASK_P1}} "\
+        txt = (
+            "	time srun -N 1 -n {} ${{BINDIR}}/myapodizemask "
+            + "${{BINARY_MASK_I1}} ${{APODIZED_MASK_I1}} -minpix 1 -inside 1 "
+            + "-radius ${{radius}} & time srun -N 1 -n {} "
+            + "${{BINDIR}}/myapodizemask ${{BINARY_MASK_P1}} "
             + "${{APODIZED_MASK_P1}} -minpix 1 -inside 1 -radius ${{radius}}"
+        )
         print(
-            txt.format(
-                params_xpure.nproc_apo, params_xpure.nproc_apo
-            ),
+            txt.format(params_xpure.nproc_apo, params_xpure.nproc_apo),
             file=f,
         )
         print("	wait", file=f)
@@ -484,11 +483,13 @@ def create_batch(batch_file, name_out, params_s4cmb, params_xpure):
         print(" ", file=f)
         print('if [ "${FAST}" -eq "0" ]', file=f)
         print("	then", file=f)
-        txt = "	time srun -N {} -n {} ${{BINDIR}}/scalar2spin "\
-            + "param_all_I11${{name}}.par >& output_scalar2spinI11${{name}} "\
-            + "& time srun -N {} -n {} "\
-            + "${{BINDIR}}/scalar2spin param_all_P11${{name}}.par "\
+        txt = (
+            "	time srun -N {} -n {} ${{BINDIR}}/scalar2spin "
+            + "param_all_I11${{name}}.par >& output_scalar2spinI11${{name}} "
+            + "& time srun -N {} -n {} "
+            + "${{BINDIR}}/scalar2spin param_all_P11${{name}}.par "
             + ">& output_scalar2spinP11${{name}}"
+        )
         print(
             txt.format(
                 int(params_xpure.nproc_scalar_to_spin // params_xpure.nproc_per_node),
@@ -593,8 +594,9 @@ def create_batch(batch_file, name_out, params_s4cmb, params_xpure):
         print(" ", file=f)
         print('if [ "${FAST}" -eq "0" ]', file=f)
         print("        then", file=f)
-        txt = "	time srun -N {} -n {} "\
-            + "${{BINDIR}}/x2pure_create_mll createMll.par"
+        txt = (
+            "	time srun -N {} -n {} " + "${{BINDIR}}/x2pure_create_mll createMll.par"
+        )
         print(
             txt.format(
                 int(params_xpure.nproc_mll // params_xpure.nproc_per_node),
@@ -606,8 +608,10 @@ def create_batch(batch_file, name_out, params_s4cmb, params_xpure):
         print("	rm -f createMll.par", file=f)
         print('elif [ "${FAST}" -eq "2" ]', file=f)
         print("        then", file=f)
-        txt = "        time srun -N {} -n {} "\
+        txt = (
+            "        time srun -N {} -n {} "
             + "${{BINDIR}}/x2pure_create_mll createMll.par"
+        )
         print(
             txt.format(
                 int(params_xpure.nproc_mll // params_xpure.nproc_per_node),

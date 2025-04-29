@@ -22,6 +22,7 @@ scanning the sky.
 Author: Julien Peloton, peloton@lal.in2p3.fr
         Giulio Fabbian, g.fabbian@sussex.ac.uk
 """
+
 from __future__ import division, absolute_import, print_function
 
 import sys
@@ -52,7 +53,7 @@ am2rad = np.pi / 180.0 / 60.0
 
 
 class TimeOrderedDataPairDiff:
-    """ Class to handle Time-Ordered Data (TOD) """
+    """Class to handle Time-Ordered Data (TOD)"""
 
     def __init__(
         self,
@@ -212,17 +213,11 @@ class TimeOrderedDataPairDiff:
 
         # Check if you can run dichroic detectors
         self.mode = mode
-        if self.mode == "dichroic" and (
-            not hasattr(self.HealpixFitsMap, "I2")
-        ):
+        if self.mode == "dichroic" and (not hasattr(self.HealpixFitsMap, "I2")):
             raise IOError("You need two sets of maps for dichroic detectors!")
-        if self.mode == "dichroic" and (
-            not hasattr(self.hardware, "focal_plane2")
-        ):
+        if self.mode == "dichroic" and (not hasattr(self.hardware, "focal_plane2")):
             raise IOError("You need two sets of det for dichroic detectors!")
-        if self.mode == "dichroic" and (
-            not hasattr(self.hardware, "beam_model2")
-        ):
+        if self.mode == "dichroic" and (not hasattr(self.hardware, "beam_model2")):
             raise IOError("You need two sets of det for dichroic detectors!")
 
         self.width = width
@@ -246,9 +241,7 @@ class TimeOrderedDataPairDiff:
         )
 
         # Initialise internal parameters
-        self.scan = getattr(
-            self.scanning_strategy, "scan{}".format(self.CESnumber)
-        )
+        self.scan = getattr(self.scanning_strategy, "scan{}".format(self.CESnumber))
         self.nsamples = self.scan["nts"]
         self.npair = self.hardware.focal_plane.npair
         self.pair_list = np.reshape(
@@ -260,15 +253,11 @@ class TimeOrderedDataPairDiff:
             mu_pointing = mu_pointing / 3600 * np.pi / 180  # arcsec to radians
             # arcsec to degrees and also dividing by sqrt(2) so that
             # the overal error on position is np.sqrt(\delta_az^2+\delta_el^2)
-            sigma_pointing = (
-                sigma_pointing / (3600 * np.sqrt(2)) * np.pi / 180
-            )
+            sigma_pointing = sigma_pointing / (3600 * np.sqrt(2)) * np.pi / 180
         if self.perturb_az:
             # perturb azimuth
             seed_pointing_az = seed_pointing
-            state_for_pointing_errors_az = np.random.RandomState(
-                seed_pointing_az
-            )
+            state_for_pointing_errors_az = np.random.RandomState(seed_pointing_az)
             self.err_azimuth = state_for_pointing_errors_az.normal(
                 mu_pointing, sigma_pointing, self.scan["nts"]
             )
@@ -277,14 +266,10 @@ class TimeOrderedDataPairDiff:
 
         if self.perturb_el:
             # perturb elevation
-            seed_pointing_el = (
-                seed_pointing + 1234567890
-            )
+            seed_pointing_el = seed_pointing + 1234567890
             # different seed for each perturbation;
             # tried to avoid having another seed input
-            state_for_pointing_errors_el = np.random.RandomState(
-                seed_pointing_el
-            )
+            state_for_pointing_errors_el = np.random.RandomState(seed_pointing_el)
             self.err_elevation = state_for_pointing_errors_el.normal(
                 mu_pointing, sigma_pointing, self.scan["nts"]
             )
@@ -306,18 +291,14 @@ class TimeOrderedDataPairDiff:
         # Initialise pointing matrix, that is the matrix to go from time
         # to map domain, for all pairs of detectors.
         if not self.mapping_perpair:
-            self.point_matrix = np.zeros(
-                (self.npair, self.nsamples), dtype=np.int32
-            )
+            self.point_matrix = np.zeros((self.npair, self.nsamples), dtype=np.int32)
 
         else:
             self.point_matrix = np.zeros((1, self.nsamples), dtype=np.int32)
 
         # If set, stores the pointing matrix used to scan the map
         if self.store_pointing_matrix_input:
-            self.point_matrix_input = np.zeros(
-                self.point_matrix.shape, dtype=np.int32
-            )
+            self.point_matrix_input = np.zeros(self.point_matrix.shape, dtype=np.int32)
 
         # Initialise the mask for timestreams
         self.wafermask_pixel = self.get_timestream_masks()
@@ -518,17 +499,12 @@ class TimeOrderedDataPairDiff:
         self.ymin = dec_min
         self.ymax = dec_max
 
-        obspix = input_sky.get_obspix(
-            ra_min, ra_max, dec_min, dec_max, self.nside_out
-        )
+        obspix = input_sky.get_obspix(ra_min, ra_max, dec_min, dec_max, self.nside_out)
 
         if self.projection == "flat":
             npixsky = (
-                int(
-                    round(
-                         (self.xmax - self.xmin + self.pixel_size) / self.pixel_size
-                    )
-                ) ** 2
+                int(round((self.xmax - self.xmin + self.pixel_size) / self.pixel_size))
+                ** 2
             )
         elif self.projection == "healpix":
             npixsky = len(obspix)
@@ -596,9 +572,7 @@ class TimeOrderedDataPairDiff:
         """
         if new_gains is not None:
             assert len(new_gains) == 2 * self.npair, ValueError(
-                "You have to provide {} new gain values!".format(
-                    2 * self.npair
-                )
+                "You have to provide {} new gain values!".format(2 * self.npair)
             )
             self.gain = new_gains
         else:
@@ -608,9 +582,7 @@ class TimeOrderedDataPairDiff:
         if self.mode == "dichroic":
             if new_gains2 is not None:
                 assert len(new_gains2) == 2 * self.npair, ValueError(
-                    "You have to provide {} new gain values!".format(
-                        2 * self.npair
-                    )
+                    "You have to provide {} new gain values!".format(2 * self.npair)
                 )
                 self.gain2 = new_gains2
             else:
@@ -690,8 +662,7 @@ class TimeOrderedDataPairDiff:
         This is to avoid projection artifact by operating a rotation
         of the coordinates to (0, 0) in flat projection (scan around equator).
         """
-        lat = float(self.scanning_strategy.telescope_location.lat)\
-            * 180.0 / np.pi
+        lat = float(self.scanning_strategy.telescope_location.lat) * 180.0 / np.pi
 
         if self.projection == "healpix":
             ra_src = 0.0
@@ -794,9 +765,7 @@ class TimeOrderedDataPairDiff:
             state_for_polang = np.random.RandomState(self.seed_pa)
 
             if self.pa_sig == 0:
-                dpolang = (
-                    np.ones(len(self.intrinsic_polangle)) * self.pa_mu
-                )  # in deg
+                dpolang = np.ones(len(self.intrinsic_polangle)) * self.pa_mu  # in deg
             else:
                 dpolang = state_for_polang.normal(
                     self.pa_mu, self.pa_sig, len(self.intrinsic_polangle)
@@ -832,8 +801,7 @@ class TimeOrderedDataPairDiff:
             # for the moment.
             if polangle_err:
                 # inject perturbations
-                intrinsic_polangle2 = np.array(self.intrinsic_polangle2) + \
-                    dpolang
+                intrinsic_polangle2 = np.array(self.intrinsic_polangle2) + dpolang
             else:
                 intrinsic_polangle2 = self.intrinsic_polangle2
             ang_pix2 = (90.0 - intrinsic_polangle2[ch]) * d2r
@@ -994,15 +962,17 @@ class TimeOrderedDataPairDiff:
 
         # Perturbed boresight pointing values if requested
         if self.pointing_perturbed is not None:
-            ra_perturbed, dec_perturbed, pa_in = \
+            ra_perturbed, dec_perturbed, pa_in = (
                 self.pointing_perturbed.offset_detector(azd, eld)
+            )
 
             # When pointing is perturbed the pointing matrix and pa used to
             # scan the sky are different from those used in the sky
             # reconstruction map2tod.
             # Dedicated variables are defined.
-            index_global_in, index_local_in = \
-                self.get_pixel_indices(ra_perturbed, dec_perturbed)
+            index_global_in, index_local_in = self.get_pixel_indices(
+                ra_perturbed, dec_perturbed
+            )
 
         else:
             # Otherwise the pointing matrix and pa used to scan the sky will be
@@ -1011,7 +981,7 @@ class TimeOrderedDataPairDiff:
             index_global_in = index_global
             index_local_in = index_local
 
-        if ((self.projection == 'healpix') & (index_local is None)):
+        if (self.projection == "healpix") & (index_local is None):
             # Using a pointer not to increase memory usage
             index_local = index_global
             # Redefines pointing value when pointing is perturbed
@@ -1036,18 +1006,18 @@ class TimeOrderedDataPairDiff:
                 azd = 0.5 * (self.xpos[ch] + self.xpos[ch + 1])
                 eld = 0.5 * (self.ypos[ch] + self.ypos[ch + 1])
                 ra, dec, pa_pair = self.pointing.offset_detector(azd, eld)
-                index_global_pair, index_local = self.get_pixel_indices(
-                    ra, dec
-                )
+                index_global_pair, index_local = self.get_pixel_indices(ra, dec)
                 if index_local is None:
                     # Using a pointer not to increase memory usage
                     index_local = index_global_pair
                 if self.store_pointing_matrix_input:
                     if self.pointing_perturbed is not None:
-                        ra, dec, pa_pair_in = \
-                            self.pointing_perturbed.offset_detector(azd, eld)
-                        index_global_pair_in, index_local_pair_in = \
+                        ra, dec, pa_pair_in = self.pointing_perturbed.offset_detector(
+                            azd, eld
+                        )
+                        index_global_pair_in, index_local_pair_in = (
                             self.get_pixel_indices(ra, dec)
+                        )
                         if index_local_pair_in is None:
                             index_local_pair_in = index_global_pair_in
                     else:
@@ -1101,7 +1071,8 @@ class TimeOrderedDataPairDiff:
             # and pol. angle perturbations).
             # WARNING: pol_ang2 is None if mode == 'standard'
             pol_ang_in, pol_ang2_in = self.compute_simpolangle(
-                ch, pa_in, polangle_err=self.perturb_pol_angs)
+                ch, pa_in, polangle_err=self.perturb_pol_angs
+            )
 
             cos2pol_ang_in = np.cos(2 * pol_ang_in)
             sin2pol_ang_in = np.sin(2 * pol_ang_in)
@@ -1115,11 +1086,11 @@ class TimeOrderedDataPairDiff:
             # and differential pointing errors).
             try:
                 pol_ang_pair, pol_ang2_pair = self.compute_simpolangle(
-                    ch, pa_pair, polangle_err=False)
+                    ch, pa_pair, polangle_err=False
+                )
             except UnboundLocalError:
                 # WARNING: pol_ang2 is None if mode == 'standard'
-                pol_ang, pol_ang2 = self.compute_simpolangle(
-                    ch, pa, polangle_err=False)
+                pol_ang, pol_ang2 = self.compute_simpolangle(ch, pa, polangle_err=False)
                 pol_ang_pair = pol_ang
                 pol_ang2_pair = pol_ang2
 
@@ -1132,7 +1103,7 @@ class TimeOrderedDataPairDiff:
             else:
                 pol_ang_out = pol_ang_pair
 
-            if (hasattr(self, "dm") and demod_ts):
+            if hasattr(self, "dm") and demod_ts:
                 # Store list of polangle only for tod2map operations.
                 # Stores data only for top bolometers without
                 # additional hwp rotation in the pointing matrix required
@@ -1145,30 +1116,30 @@ class TimeOrderedDataPairDiff:
                 # defines perfectly demodulated timestreams
                 ts1 = np.zeros((3, nt))
                 ts1[0] = self.HealpixFitsMap.I[index_global_in]
-                ts1[1] = (cos2pol_ang_in * self.HealpixFitsMap.Q[index_global_in])\
-                    + (sign * sin2pol_ang_in * self.HealpixFitsMap.U[index_global_in])
-                ts1[2] = (sin2pol_ang_in * self.HealpixFitsMap.Q[index_global_in])\
-                    - (sign * cos2pol_ang_in * self.HealpixFitsMap.U[index_global_in])
+                ts1[1] = (cos2pol_ang_in * self.HealpixFitsMap.Q[index_global_in]) + (
+                    sign * sin2pol_ang_in * self.HealpixFitsMap.U[index_global_in]
+                )
+                ts1[2] = (sin2pol_ang_in * self.HealpixFitsMap.Q[index_global_in]) - (
+                    sign * cos2pol_ang_in * self.HealpixFitsMap.U[index_global_in]
+                )
             else:
                 # Store list of polangle only for top bolometers
                 if ch % 2 == 0 and not self.mapping_perpair:
                     self.pol_angs[int(ch / 2)] = pol_ang_out
                 elif ch % 2 == 0 and self.mapping_perpair:
                     self.pol_angs[0] = pol_ang_out
-                ts1 = self.HealpixFitsMap.I[index_global_in] \
-                    + self.HealpixFitsMap.Q[index_global_in] \
-                    * cos2pol_ang_in \
-                    + sign \
-                    * self.HealpixFitsMap.U[index_global_in] \
-                    * sin2pol_ang_in \
+                ts1 = (
+                    self.HealpixFitsMap.I[index_global_in]
+                    + self.HealpixFitsMap.Q[index_global_in] * cos2pol_ang_in
+                    + sign * self.HealpixFitsMap.U[index_global_in] * sin2pol_ang_in
                     + noise
+                )
             ts1 = ts1 * norm
 
             if self.mode == "standard":
                 return ts1
 
             elif self.mode == "dichroic":
-
                 cos2pol_ang2_in = np.cos(2 * pol_ang2_in)
                 sin2pol_ang2_in = np.sin(2 * pol_ang2_in)
 
@@ -1179,7 +1150,7 @@ class TimeOrderedDataPairDiff:
                 else:
                     pol_ang_out2 = pol_ang2_pair
 
-                if (hasattr(self, "dm") and demod_ts):
+                if hasattr(self, "dm") and demod_ts:
                     # Store list of polangle only for tod2map operations.
                     # Stores data only for top bolometers without
                     # additional hwp rotation in the pointing matrix required
@@ -1192,14 +1163,18 @@ class TimeOrderedDataPairDiff:
                     # defines perfectly demodulated timestreams
                     ts2 = np.zeros((3, nt))
                     ts2[0] = self.HealpixFitsMap.I2[index_global_in]
-                    ts2[1] = cos2pol_ang2_in \
-                        * self.HealpixFitsMap.Q2[index_global_in]\
-                        + sign * sin2pol_ang2_in\
+                    ts2[1] = (
+                        cos2pol_ang2_in * self.HealpixFitsMap.Q2[index_global_in]
+                        + sign
+                        * sin2pol_ang2_in
                         * self.HealpixFitsMap.U2[index_global_in]
-                    ts2[2] = sin2pol_ang2_in \
-                        * self.HealpixFitsMap.Q2[index_global_in]\
-                        - sign * cos2pol_ang2_in\
+                    )
+                    ts2[2] = (
+                        sin2pol_ang2_in * self.HealpixFitsMap.Q2[index_global_in]
+                        - sign
+                        * cos2pol_ang2_in
                         * self.HealpixFitsMap.U2[index_global_in]
+                    )
                 else:
                     # Store list polangle only for top bolometers
                     if ch % 2 == 0 and not self.mapping_perpair:
@@ -1207,31 +1182,26 @@ class TimeOrderedDataPairDiff:
                     elif ch % 2 == 0 and self.mapping_perpair:
                         self.pol_angs2[0] = pol_ang_out2
 
-                    ts2 = self.HealpixFitsMap.I2[index_global_in]\
-                        + self.HealpixFitsMap.Q2[index_global_in]\
-                        * cos2pol_ang2_in\
-                        + sign\
-                        * self.HealpixFitsMap.U2[index_global_in]\
-                        * sin2pol_ang2_in\
+                    ts2 = (
+                        self.HealpixFitsMap.I2[index_global_in]
+                        + self.HealpixFitsMap.Q2[index_global_in] * cos2pol_ang2_in
+                        + sign
+                        * self.HealpixFitsMap.U2[index_global_in]
+                        * sin2pol_ang2_in
                         + noise2
+                    )
                     ts2 = ts2 * norm
                 return np.array([ts1, ts2])
 
         else:
-            ts1 = norm * (
-                self.HealpixFitsMap.I[index_global_in] + noise
-            )
+            ts1 = norm * (self.HealpixFitsMap.I[index_global_in] + noise)
             if self.mode == "standard":
                 return ts1
             elif self.mode == "dichroic":
-                ts2 = norm * (
-                    self.HealpixFitsMap.I2[index_global_in] + noise2
-                )
+                ts2 = norm * (self.HealpixFitsMap.I2[index_global_in] + noise2)
                 return np.array([ts1, ts2])
 
-    def tod2map(
-        self, waferts, output_maps, gdeprojection=False, frequency_channel=1
-    ):
+    def tod2map(self, waferts, output_maps, gdeprojection=False, frequency_channel=1):
         """
         Project time-ordered data into sky maps for the whole array.
         Maps are updated on-the-fly. Massive speed-up thanks to the
@@ -1427,7 +1397,7 @@ class TimeOrderedDataPairDiff:
 
 
 class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
-    """ Class to """
+    """Class to"""
 
     def __init__(
         self,
@@ -1600,7 +1570,7 @@ class TimeOrderedDataDemod(TimeOrderedDataPairDiff):
 
 
 class Demodulation:
-    """ Class to handle demodulation of timestreams """
+    """Class to handle demodulation of timestreams"""
 
     def __init__(self, hwp_freq, sampling_freq, hwp_angles, verbose=False):
         """
@@ -1897,8 +1867,8 @@ def convolvefilter(x, f, ff=None, isreal=False):
     x2 = x.reshape(-1, nt)
     u = np.zeros((init_shape[0], fftsize), (np.ones(1, x.dtype) + 0.0j).dtype)
     (u[:, :n].T)[:] = x2[:, 0]
-    u[:, n: nt + n] = x2
-    (u[:, nt + n: nt + n * 2].T)[:] = x2[:, -1]
+    u[:, n : nt + n] = x2
+    (u[:, nt + n : nt + n * 2].T)[:] = x2[:, -1]
 
     if ff is None:
         ff = fftpack.fft(f, fftsize)
@@ -1920,9 +1890,16 @@ def convolvefilter(x, f, ff=None, isreal=False):
 
 
 class WhiteNoiseGenerator:
-    """ Class to handle white noise """
-    def __init__(self, array_noise_level, ndetectors, ntimesamples,
-                 array_noise_seed, sampling_freq):
+    """Class to handle white noise"""
+
+    def __init__(
+        self,
+        array_noise_level,
+        ndetectors,
+        ntimesamples,
+        array_noise_seed,
+        sampling_freq,
+    ):
         """
         This class is used to simulate time-domain noise.
         Usually, it is used in combination with map2tod to insert noise
@@ -1948,9 +1925,7 @@ class WhiteNoiseGenerator:
         self.ntimesamples = ntimesamples
 
         # Noise level for one detector
-        self.detector_noise_level = self.array_noise_level * np.sqrt(
-            self.ndetectors
-        )
+        self.detector_noise_level = self.array_noise_level * np.sqrt(self.ndetectors)
 
         self.array_noise_seed = array_noise_seed
         state = np.random.RandomState(self.array_noise_seed)
@@ -1988,6 +1963,7 @@ class WhiteNoiseGenerator:
 
 class CorrNoiseGenerator(WhiteNoiseGenerator):
     """ """
+
     def __init__(
         self,
         array_noise_level,
@@ -2066,8 +2042,12 @@ class CorrNoiseGenerator(WhiteNoiseGenerator):
             Units are seconds.
         """
         WhiteNoiseGenerator.__init__(
-            self, array_noise_level, ndetectors,
-            ntimesamples, array_noise_seed, sampling_freq,
+            self,
+            array_noise_level,
+            ndetectors,
+            ntimesamples,
+            array_noise_seed,
+            sampling_freq,
         )
         self.nclouds = nclouds
         self.alpha = alpha
@@ -2134,8 +2114,8 @@ class CorrNoiseGenerator(WhiteNoiseGenerator):
             psd[1:] = self.amp_atm * (1 + (fs[1:] / self.f0) ** self.alpha)
 
             # Get the TOD from the PSD
-            ts_corr[i: i + step] = corr_ts(
-                PSD=psd, N=step, amp=amps, phase=phases[i: i + step]
+            ts_corr[i : i + step] = corr_ts(
+                PSD=psd, N=step, amp=amps, phase=phases[i : i + step]
             )
 
         # remove PSD normalisation and add white noise!
@@ -2221,7 +2201,7 @@ def psdts(ts, sample_rate, NFFT=4096):
     ts -= np.mean(ts)
 
     fs, asd = compute_asd(ts, sample_rate=sample_rate, NFFT=NFFT)
-    psd = asd ** 2
+    psd = asd**2
 
     return fs, psd
 
@@ -2257,7 +2237,7 @@ def compute_asd(x, sample_rate, NFFT=2048, is_complex=False):
     period = 1.0 / sample_rate
 
     window = np.blackman(NFFT)
-    window_norm = 1.0 / np.average(window ** 2)
+    window_norm = 1.0 / np.average(window**2)
 
     n = len(x)
     # Truncates and rounds down
@@ -2268,22 +2248,22 @@ def compute_asd(x, sample_rate, NFFT=2048, is_complex=False):
         PSD = np.zeros(int(NFFT / 2))
 
     for i in range(0, nchunks - 1):
-        chunk = window * x[i * int(NFFT / 2): (i + 2) * int(NFFT / 2)]
+        chunk = window * x[i * int(NFFT / 2) : (i + 2) * int(NFFT / 2)]
 
         fch = fft(chunk)
         if not is_complex:
-            fch = fch[0: int(NFFT / 2)]
+            fch = fch[0 : int(NFFT / 2)]
 
         cf = fch * np.conj(fch)
 
         if not is_complex:
-            cf[1: (int(NFFT / 2) - 1)] *= 2
+            cf[1 : (int(NFFT / 2) - 1)] *= 2
             cf = cf.real
         PSD += cf
 
     fs = fftfreq(NFFT, period)
     if not is_complex:
-        fs = fs[0: int(NFFT / 2)]
+        fs = fs[0 : int(NFFT / 2)]
 
     if nchunks != 1:
         PSD /= nchunks - 1
@@ -2302,11 +2282,11 @@ def compute_asd(x, sample_rate, NFFT=2048, is_complex=False):
         PSD = fftshift(PSD)
 
     # Convert to amplitude/rtHz
-    return fs, PSD ** 0.5
+    return fs, PSD**0.5
 
 
 class OutputSkyMap:
-    """ Class to handle sky maps generated by tod2map """
+    """Class to handle sky maps generated by tod2map"""
 
     def __init__(
         self,
@@ -2461,7 +2441,7 @@ class OutputSkyMap:
             return self.get_I_demod()
 
         hit = self.w > 0
-        I = np.zeros_like(self.d)
+        I = np.zeros_like(self.d)  # noqa: E741
         I[hit] = self.d[hit] / self.w[hit]
         return I
 
@@ -2542,7 +2522,7 @@ class OutputSkyMap:
             Stokes U map. Note that only the observed pixels defined in
             obspix are returned (and not the full sky map).
         """
-        I = self.get_I()
+        I = self.get_I()  # noqa: E741
         Q, U = self.get_QU()
         return I, Q, U
 
@@ -2677,7 +2657,7 @@ class OutputSkyMap:
             )
         else:
             try:
-                I, Q, U = self.get_IQU()
+                I, Q, U = self.get_IQU()  # noqa: E741
                 wP = qu_weight_mineig(
                     self.cc, self.cs, self.ss, epsilon=epsilon, verbose=verbose
                 )
@@ -2696,7 +2676,7 @@ class OutputSkyMap:
                 }
             except Exception as e:
                 print("Exception error: ", e)
-                I, G, Q, U = self.get_IQU()  # if using IGQU class
+                I, G, Q, U = self.get_IQU()  # noqa: E741
                 wP = qu_weight_mineig(
                     self.cc, self.cs, self.ss, epsilon=epsilon, verbose=verbose
                 )
@@ -2771,7 +2751,7 @@ class OutputSkyMap:
         >>> I = m1.get_I()
         """
         hit = self.w0 > 0
-        I = np.zeros_like(self.d0)
+        I = np.zeros_like(self.d0)  # noqa: E741
         I[hit] = self.d0[hit] / self.w0[hit]
         return I
 
@@ -2831,7 +2811,7 @@ class OutputSkyMap:
             0 <= epsilon < 1/4. The higher the more selective.
 
         """
-        I, Q, U = self.get_IQU()
+        I, Q, U = self.get_IQU()  # noqa: E741
 
         data = {
             "I": I,
@@ -2856,7 +2836,7 @@ class OutputSkyMap:
 
 
 class OutputSkyMapIGQU(OutputSkyMap):
-    """ Class to handle sky maps generated by tod2map + G deprojection """
+    """Class to handle sky maps generated by tod2map + G deprojection"""
 
     def __init__(
         self,
@@ -3026,9 +3006,7 @@ class OutputSkyMapIGQU(OutputSkyMap):
         """
         if not hasattr(self, "goodpix"):
             self.set_goodpix()
-        inonzero = [
-            pix for pix in range(self.npixsky) if self.goodpix[pix] != 0
-        ]
+        inonzero = [pix for pix in range(self.npixsky) if self.goodpix[pix] != 0]
 
         G = np.zeros((self.npixsky))
         Q = np.zeros((self.npixsky))
@@ -3076,7 +3054,7 @@ class OutputSkyMapIGQU(OutputSkyMap):
             Stokes U map. Note that only the observed pixels defined in
             obspix are returned (and not the full sky map).
         """
-        I = self.get_I()
+        I = self.get_I()  # noqa: E741
         G, Q, U = self.get_QU()
         return I, G, Q, U
 
@@ -3121,9 +3099,7 @@ def shrink_me(dic, based_on):
     [[ 6  7]
      [10 11]]
     """
-    assert based_on in dic, KeyError(
-        "{} not in input dictionary!".format(based_on)
-    )
+    assert based_on in dic, KeyError("{} not in input dictionary!".format(based_on))
 
     npixr = int(len(dic[based_on]) ** 0.5)
     halfnpixr = int(npixr / 2)
@@ -3139,23 +3115,21 @@ def shrink_me(dic, based_on):
 
     for k in dic.keys():
         # Filter out fields which aren't arrays
-        if type(dic[k]) == np.ndarray:
+        if isinstance(dic[k], np.ndarray):
             # Filter out fields which are arrays but not like based_on.
             npixr_loc = int(len(dic[k]) ** 0.5)
             if npixr_loc == npixr:
-                dic[k] = np.array(
-                    [
-                        i[halfnpixr - halfdxy - 1: halfnpixr + halfdxy + 1]
-                        for i in dic[k].reshape((npixr, npixr))[
-                            halfnpixr - halfdxy - 1: halfnpixr + halfdxy + 1
-                        ]
+                dic[k] = np.array([
+                    i[halfnpixr - halfdxy - 1 : halfnpixr + halfdxy + 1]
+                    for i in dic[k].reshape((npixr, npixr))[
+                        halfnpixr - halfdxy - 1 : halfnpixr + halfdxy + 1
                     ]
-                ).flatten()
+                ]).flatten()
 
     return dic
 
 
-def crop_me(dic, based_on, npix_per_row=2 ** 12):
+def crop_me(dic, based_on, npix_per_row=2**12):
     """
     Crop maps to a chosen size.
     Maps have to be squared (so work only for flat sky).
@@ -3191,9 +3165,7 @@ def crop_me(dic, based_on, npix_per_row=2 ** 12):
     [[ 6  7]
      [10 11]]
     """
-    assert based_on in dic, KeyError(
-        "{} not in input dictionary!".format(based_on)
-    )
+    assert based_on in dic, KeyError("{} not in input dictionary!".format(based_on))
 
     npixr = int(len(dic[based_on]) ** 0.5)
     halfnpixr = int(npixr / 2)
@@ -3201,28 +3173,23 @@ def crop_me(dic, based_on, npix_per_row=2 ** 12):
 
     for k in dic.keys():
         # Filter out fields which aren't arrays
-        if type(dic[k]) == np.ndarray:
+        if isinstance(dic[k], np.ndarray):
             # Filter out fields which are arrays but not like based_on.
             npixr_loc = int(len(dic[k]) ** 0.5)
             if npixr_loc == npixr:
                 # Check that we have enough pixels to start with
                 assert npixr_loc >= npix_per_row, ValueError(
                     "Map too small to be cropped! ({} vs {})".format(
-                        npixr_loc,
-                        npix_per_row
+                        npixr_loc, npix_per_row
                     )
                 )
 
-                dic[k] = np.array(
-                    [
-                        i[
-                            halfnpixr - halfnpix_per_row: halfnpixr + halfnpix_per_row
-                        ]
-                        for i in dic[k].reshape((npixr, npixr))[
-                            halfnpixr - halfnpix_per_row: halfnpixr + halfnpix_per_row
-                        ]
+                dic[k] = np.array([
+                    i[halfnpixr - halfnpix_per_row : halfnpixr + halfnpix_per_row]
+                    for i in dic[k].reshape((npixr, npixr))[
+                        halfnpixr - halfnpix_per_row : halfnpixr + halfnpix_per_row
                     ]
-                ).flatten()
+                ]).flatten()
 
     return dic
 
@@ -3256,7 +3223,7 @@ def partial2full(partial_obs, obspix, nside, fill_with=0.0):
     >>> obspix = np.arange(12 * nside**2, dtype=int)[30:40]
     >>> fullsky = partial2full(data, obspix, nside)
     """
-    fullsky = np.zeros(12 * nside ** 2) * fill_with
+    fullsky = np.zeros(12 * nside**2) * fill_with
     fullsky[obspix] = partial_obs
     return fullsky
 
@@ -3383,7 +3350,7 @@ def build_pointing_matrix(
             """
             raise ValueError(msg)
         elif np.sum(outside_pixels) and cut_pixels_outside:
-            if not ("msg_cut" in globals()):
+            if "msg_cut" not in globals():
                 global msg_cut
                 msg_cut = """
                 Pixels outside patch boundaries.
@@ -3420,7 +3387,7 @@ def build_pointing_matrix(
             """
             raise ValueError(msg)
         elif np.sum(outside_pixels) and cut_pixels_outside:
-            if not ("msg_cut_flat" in globals()):
+            if "msg_cut_flat" not in globals():
                 global msg_cut_flat
                 msg_cut_flat = """
                 Pixels outside patch boundaries.
@@ -3547,9 +3514,7 @@ def noise_ukam(array_noise_level, fsky, nside, tobs):
     >>> print(round(noise, 2), 'uK.arcmin')
     3.93 uK.arcmin
     """
-    noise = np.sqrt(
-        array_noise_level ** 2 * hp.nside2npix(nside) * fsky / tobs
-    )
+    noise = np.sqrt(array_noise_level**2 * hp.nside2npix(nside) * fsky / tobs)
     return noise * hp.nside2resol(nside, arcmin=True)
 
 
