@@ -580,7 +580,7 @@ def get_obspix(xmin, xmax, ymin, ymax, nside):
     theta_min = np.pi / 2.0 - ymax
     theta_max = np.pi / 2.0 - ymin
     fpix, lpix = hp.ang2pix(nside, [theta_min, theta_max], [0.0, 2.0 * np.pi])
-    pixs = np.arange(fpix, lpix + 1, dtype=np.int)
+    pixs = np.arange(fpix, lpix + 1, dtype=int)
 
     theta, phi = hp.pix2ang(nside, pixs)
     if xmin < 0:

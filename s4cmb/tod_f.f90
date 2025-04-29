@@ -34,15 +34,17 @@ contains
         real(DP), parameter      :: pi = 4.D0*DATAN(1.D0)
 
         integer(I4B), intent(in) :: npix, nt, nskypix
-        integer(I4B), intent(in) :: waferi1d(0:npix*nt - 1)
-        integer(I4B), intent(in) :: wafermask_pixel(0:npix*nt - 1)
-        real(DP), intent(in)     :: waferpa(0:npix*nt - 1), waferts(0:npix*nt*2 - 1)
-        real(DP), intent(in)     :: diff_weight(0:npix - 1), sum_weight(0:npix - 1)
+        integer(I4B), dimension(npix*nt), intent(in) :: waferi1d
+        integer(I4B), dimension(npix*nt), intent(in) :: wafermask_pixel
+        real(DP), dimension(npix*nt), intent(in)     :: waferpa
+        real(DP), dimension(npix*nt*2), intent(in)     :: waferts
+        real(DP), dimension(npix), intent(in)     :: diff_weight
+        real(DP), dimension(npix), intent(in)     :: sum_weight
 
-        real(DP), intent(inout)  :: d(0:nskypix - 1), w(0:nskypix - 1), dc(0:nskypix - 1)
-        real(DP), intent(inout)  :: ds(0:nskypix - 1), cc(0:nskypix - 1)
-        real(DP), intent(inout)  :: cs(0:nskypix - 1), ss(0:nskypix - 1)
-        integer(I4B), intent(inout) :: nhit(0:nskypix - 1)
+        real(DP), dimension(nskypix), intent(inout)  :: d, w, dc
+        real(DP), dimension(nskypix), intent(inout)  :: ds, cc
+        real(DP), dimension(nskypix), intent(inout)  :: cs, ss
+        integer(I4B), dimension(nskypix), intent(inout) :: nhit
 
         integer(I4B)             :: i, j, ipix, pixel
         integer(I4B)             :: ict, icb
