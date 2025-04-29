@@ -1,4 +1,4 @@
-astropy==4.1
+astropy==4.3
 certifi==2020.12.5
 chardet==4.0.0
 coverage==5.5
@@ -18,6 +18,5 @@ pySLALIB==1.0.4
 python-dateutil==2.8.1
 requests==2.25.1
 scipy==1.5.4
-setuptools<=70
 six==1.16.0
 urllib3==1.26.4
