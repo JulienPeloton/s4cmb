@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.6]
+        container: ["julienpeloton/s4cmb:latest"]
 
     steps:
     - uses: actions/checkout@v2
@@ -20,22 +20,6 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install add-ons
-      run: |
-        sudo apt-get install libopenmpi-dev
-        sudo apt-get install openmpi-bin
-        sudo apt-get install gfortran
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install --upgrade pip setuptools wheel
-        pip install -r requirements.txt
-    - name: Install pyslalib
-      run: |
-        pip install pyslalib>=1.0.4
-    - name: Compile sources and install
-      run: |
-        make
     - name: Unit tests
       run: |
         ./coverage_and_test.sh
