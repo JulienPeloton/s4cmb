@@ -1,4 +1,4 @@
-name: s4cmb
+name: s4cmb-docker
 
 on:
   push:
