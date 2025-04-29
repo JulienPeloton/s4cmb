@@ -40,7 +40,7 @@ As far as we know, s4cmb is the only dedicated package that enables the study of
 
 Requirements
 ===============
-The package is mainly written in python (>= 3.6), and it adopts several commonly used libraries in astronomy (`astropy`, `healpy`, `ephem`, `pyslalib`) and uses functions based on low-level languages wrapped in Python (e.g. Fortran with `f2py`) for speeding up the most critical part of the code without losing the flexibility provided by a simple python user-friendly interface. It has the following dependencies (see requirements.txt):
+The package is mainly written in python (>= 3.9), and it adopts several commonly used libraries in astronomy (`astropy`, `healpy`, `ephem`, `pyslalib`) and uses functions based on low-level languages wrapped in Python (e.g. Fortran with `f2py`) for speeding up the most critical part of the code without losing the flexibility provided by a simple python user-friendly interface. It has the following dependencies (see requirements.txt):
 
 * numpy, matplotlib
 * astropy, ephem, pyslalib, healpy (astro libs)

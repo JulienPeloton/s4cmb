@@ -1,9 +1,10 @@
-numpy>=1.14
+numpy==1.21
 matplotlib>=2.0.0
 scipy>=0.19.1
-astropy>=1.2
+astropy<=1.0.0
 ephem>=3.7.6.0
 healpy>=1.10.3
 mpi4py>=2.0.0
 coverage>=4.2
 coveralls
+setuptools<=70
