@@ -24,6 +24,7 @@ Script to simulate the hardware of a CMB experiment.
 
 Author: Julien Peloton, peloton@lal.in2p3.fr
 """
+
 from __future__ import division, absolute_import, print_function
 
 import copy
@@ -132,7 +133,7 @@ def coordinates_on_grid(
             else:
                 nx2_tmp += 1
     else:
-        nx2 = nx ** 2
+        nx2 = nx**2
 
     if max_points is None:
         max_points = nx2
@@ -185,12 +186,14 @@ def convert_pair_to_bolometer_position(xcoord_pairs, ycoord_pairs):
     [-15. -15. -15. -15.  15.  15.  15.  15.]
     """
     nbolometer = 2 * len(xcoord_pairs)
-    xcoord_bolometers = np.dstack((xcoord_pairs, xcoord_pairs)).reshape(
-        (1, nbolometer)
-    )[0]
-    ycoord_bolometers = np.dstack((ycoord_pairs, ycoord_pairs)).reshape(
-        (1, nbolometer)
-    )[0]
+    xcoord_bolometers = np.dstack((xcoord_pairs, xcoord_pairs)).reshape((
+        1,
+        nbolometer,
+    ))[0]
+    ycoord_bolometers = np.dstack((ycoord_pairs, ycoord_pairs)).reshape((
+        1,
+        nbolometer,
+    ))[0]
 
     return xcoord_bolometers, ycoord_bolometers
 
@@ -469,7 +472,7 @@ def gauss2d(xy, x_0, y_0, Amp, sig_xp, sig_yp, psi):
     R = np.array([[np.cos(psi2), -np.sin(psi2)], [np.sin(psi2), np.cos(psi2)]])
     p = np.dot(R, xy_1)
 
-    u = p[0, :] ** 2 / (2 * sig_xp ** 2) + p[1, :] ** 2 / (2 * sig_yp ** 2)
+    u = p[0, :] ** 2 / (2 * sig_xp**2) + p[1, :] ** 2 / (2 * sig_yp**2)
 
     # Hide underflow by clipping beam function at -430dB level
     mask = u < 100
@@ -479,7 +482,7 @@ def gauss2d(xy, x_0, y_0, Amp, sig_xp, sig_yp, psi):
 
 
 class Hardware:
-    """ Class to load all the hardware and models of the instrument in once """
+    """Class to load all the hardware and models of the instrument in once"""
 
     def __init__(
         self,
@@ -608,7 +611,7 @@ class Hardware:
 
 
 class FocalPlane:
-    """ Class to handle the focal plane of the instrument. """
+    """Class to handle the focal plane of the instrument."""
 
     def __init__(
         self,
@@ -654,10 +657,12 @@ class FocalPlane:
         self.npair_per_squid = npair_per_squid
 
         # Total number of pairs and bolometers in the focal plane
-        self.npair = self.ncrate\
-            * self.ndfmux_per_crate\
-            * self.nsquid_per_mux\
+        self.npair = (
+            self.ncrate
+            * self.ndfmux_per_crate
+            * self.nsquid_per_mux
             * self.npair_per_squid
+        )
 
         self.nbolometer = self.npair * 2
 
@@ -795,12 +800,12 @@ class FocalPlane:
                             # Close the job if you hit the maximum number of
                             # bolometers or pairs.
                             try:
-                                assert (
-                                    bolo_index < self.nbolometer
-                                ), "Hardware map generated..."
-                                assert (
-                                    pair_index < self.npair
-                                ), "Hardware map generated..."
+                                assert bolo_index < self.nbolometer, (
+                                    "Hardware map generated..."
+                                )
+                                assert pair_index < self.npair, (
+                                    "Hardware map generated..."
+                                )
                             except AssertionError as e:
                                 if self.verbose:
                                     print(str(e))
@@ -845,7 +850,7 @@ class FocalPlane:
 
 
 class BeamModel:
-    """ Class to handle the beams of the detectors """
+    """Class to handle the beams of the detectors"""
 
     def __init__(
         self,
@@ -952,7 +957,7 @@ class BeamModel:
 
 
 class PointingModel:
-    """ Class to handle the pointing model of the telescope """
+    """Class to handle the pointing model of the telescope"""
 
     def __init__(self, pm_name="5params"):
         """
@@ -1007,9 +1012,13 @@ class PointingModel:
         """
         self.allowed_params = "ia ie ca an aw"
 
-        self.value_params = np.array(
-            [-10.28473073, 8.73953334, -15.59771781, -0.50977716, 0.10858016]
-        )
+        self.value_params = np.array([
+            -10.28473073,
+            8.73953334,
+            -15.59771781,
+            -0.50977716,
+            0.10858016,
+        ])
 
         # Set this to zero for the moment
         self.RMS_AZ = 0.0
@@ -1018,7 +1027,7 @@ class PointingModel:
 
 
 class HalfWavePlate:
-    """ Class to handle the Half-Wave Plate (HWP) """
+    """Class to handle the Half-Wave Plate (HWP)"""
 
     def __init__(self, type_hwp="CRHWP", freq_hwp=2.0, angle_hwp=0.0):
         """
@@ -1093,12 +1102,9 @@ class HalfWavePlate:
         """
         angle = self.angle_hwp * np.pi / 180.0
 
-        HWP_angles = np.array(
-            [
-                angle + t * (self.freq_hwp / sample_rate) * 2.0 * np.pi
-                for t in range(size)
-            ]
-        )
+        HWP_angles = np.array([
+            angle + t * (self.freq_hwp / sample_rate) * 2.0 * np.pi for t in range(size)
+        ])
 
         return HWP_angles
 

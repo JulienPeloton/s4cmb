@@ -24,6 +24,7 @@ If you have a different I/O in your pipeline, just add a new class.
 Author: Julien Peloton, peloton@lal.in2p3.fr
         Giulio Fabbian, g.fabbian@sussex.ac.uk
 """
+
 from __future__ import division, absolute_import, print_function
 
 import glob
@@ -37,7 +38,7 @@ from s4cmb.tools import alm2map_spin_der1
 
 
 class HealpixFitsMap:
-    """ Class to handle fits file containing healpix maps """
+    """Class to handle fits file containing healpix maps"""
 
     def __init__(
         self,
@@ -135,7 +136,7 @@ class HealpixFitsMap:
         self.U2 = None
 
         fromalms = False
-        if type(self.input_filename) == list:
+        if isinstance(self.input_filename, list):
             if self.verbose:
                 print("Reading sky maps from alms file...")
             self.load_healpix_fits_map_from_alms()
@@ -202,9 +203,7 @@ class HealpixFitsMap:
                     self.input_filename, (0, 1, 2), verbose=self.verbose
                 )
             else:
-                self.I = hp.read_map(
-                    self.input_filename, field=0, verbose=self.verbose
-                )
+                self.I = hp.read_map(self.input_filename, field=0, verbose=self.verbose)
             self.nside = hp.npix2nside(len(self.I))
         else:
             print("External data already present in memory")
@@ -449,13 +448,11 @@ class HealpixFitsMap:
 
         # lmax = hp.Alm.getlmax(alm.size)
         if "T1" in self.derivatives_type:
-            junk, self.dIdt, self.dIdp = hp.alm2map_der1(
-                alm, self.nside_in, self.lmax
-            )
+            junk, self.dIdt, self.dIdp = hp.alm2map_der1(alm, self.nside_in, self.lmax)
         else:
             # computes first and second derivative as derivatives of spin-1
             # transform of a scalar field with _1Elm=sqrt(l(l+1))Ilm _1Blm=0
-            l = np.arange(self.lmax + 1)
+            l = np.arange(self.lmax + 1)  # noqa: E741
             grad = np.sqrt(l * (l + 1))
             curl = np.zeros_like(alm)
             dervs = alm2map_spin_der1([hp.almxfl(alm, grad), curl], self.nside_in, 1)
@@ -655,7 +652,7 @@ def create_sky_map(cl_fn, nside=16, FWHM=0.0, seed=548397, lmax=None):
     FWHM_rad = FWHM / 60.0 * np.pi / 180.0
 
     np.random.seed(seed)
-    I, Q, U = hp.synfast(
+    I, Q, U = hp.synfast(  # noqa: E741
         [TT / llp, EE / llp, BB / llp, TE / llp],
         nside,
         lmax=lmax,
@@ -667,7 +664,7 @@ def create_sky_map(cl_fn, nside=16, FWHM=0.0, seed=548397, lmax=None):
         sigma=None,
         new=True,
         verbose=False,
-    )
+    )  # noqa: E741
     return I, Q, U
 
 
@@ -746,7 +743,7 @@ def write_dummy_map(filename="myfits_to_test_.fits", nside=16):
     >>> write_dummy_map()
     """
     nside = 16
-    I, Q, U = np.random.rand(3, hp.nside2npix(nside))
+    I, Q, U = np.random.rand(3, hp.nside2npix(nside))  # noqa: E741
     colnames = ["I", "Q", "U"]
     write_healpix_cmbmap(filename, data=[I, Q, U], colnames=colnames)
 

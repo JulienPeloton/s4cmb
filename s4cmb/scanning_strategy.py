@@ -20,6 +20,7 @@ Script to simulate the scan of a CMB experiment.
 
 Author: Julien Peloton, peloton@lal.in2p3.fr
 """
+
 from __future__ import division, absolute_import, print_function
 
 import os
@@ -37,7 +38,7 @@ sidDayToSec = 86164.0905
 
 
 class ScanningStrategy:
-    """ Class to handle the scanning strategy of the telescope """
+    """Class to handle the scanning strategy of the telescope"""
 
     def __init__(
         self,
@@ -106,10 +107,12 @@ class ScanningStrategy:
         if not os.path.isfile(self.ut1utc_fn):
             # server in mantainance mode as of 202007. Message updated
             # url = 'http://tycho.usno.navy.mil/leapsec.html'
-            url = 's4cmb.scanning_strategy.update_ut1utc'
-            msg = 'The path {} does not point to a valid file! see ' + \
-                's4cmb/data/ut1utc.ephem provided with the package. ' + \
-                'For more information, see {}.'
+            url = "s4cmb.scanning_strategy.update_ut1utc"
+            msg = (
+                "The path {} does not point to a valid file! see "
+                + "s4cmb/data/ut1utc.ephem provided with the package. "
+                + "For more information, see {}."
+            )
             raise Exception(msg.format(self.ut1utc_fn, url))
 
         self.verbose = verbose
@@ -475,13 +478,11 @@ class ScanningStrategy:
                     az_array[i] / radToDeg, el / radToDeg
                 )
 
-            az_allowed = np.asarray(
-                [
-                    az_array[i]
-                    for i in range(0, az_array.shape[0])
-                    if (dec_array[i] > dec_min and dec_array[i] < dec_max)
-                ]
-            )
+            az_allowed = np.asarray([
+                az_array[i]
+                for i in range(0, az_array.shape[0])
+                if (dec_array[i] > dec_min and dec_array[i] < dec_max)
+            ])
 
             if az_allowed.shape[0] < 2:
                 ms = "Invalid combination of declination bounds and elevation."
@@ -616,9 +617,7 @@ class ScanningStrategy:
 
                 # Increment the time by one second / sampling rate
                 if t > 0:
-                    pb_mjd_array[t] = (
-                        pb_mjd_array[t - 1] + ephem.second / sampling_freq
-                    )
+                    pb_mjd_array[t] = pb_mjd_array[t - 1] + ephem.second / sampling_freq
 
                 # Increment the time by one second / sampling rate
                 self.telescope_location.date += ephem.second / sampling_freq
@@ -849,10 +848,8 @@ class ScanningStrategy:
         if flatsky:
             if fullsky:
                 # projecting full sky with the given resolution onto a squared array.
-                A_sky_deg2 = 360.0 ** 2 / np.pi
-                N_pix = (
-                    60.0 / reso * np.sqrt(A_sky_deg2)
-                )  # number of pixels on a side
+                A_sky_deg2 = 360.0**2 / np.pi
+                N_pix = 60.0 / reso * np.sqrt(A_sky_deg2)  # number of pixels on a side
                 N_pix = np.ceil(N_pix)  # rounding up, integer number required
                 #########
                 # for full sky:
@@ -865,8 +862,7 @@ class ScanningStrategy:
                 flat_hits = np.flipud(
                     hpcp.projmap(
                         nhit,
-                        lambda x, y, z:
-                            hp.pixelfunc.vec2pix(nside, x, y, z, nest=nest)
+                        lambda x, y, z: hp.pixelfunc.vec2pix(nside, x, y, z, nest=nest),
                     )
                 )  # flipping array just for aesthetics
                 # plot
@@ -895,12 +891,7 @@ class ScanningStrategy:
         else:
             if fullsky:
                 nhit[nhit == 0] = hp.UNSEEN
-                hp.mollview(
-                    nhit,
-                    rot=rot,
-                    cmap=pl.cm.viridis,
-                    title=title
-                )
+                hp.mollview(nhit, rot=rot, cmap=pl.cm.viridis, title=title)
                 hp.graticule(verbose=self.verbose)
             else:
                 nhit[nhit == 0] = hp.UNSEEN
@@ -983,9 +974,9 @@ def convolve_focalplane(bore_nhits, nbolos, fp_radius_amin, boost):
 
     # Build the focal plane model and a list of offsets
     (x_fp, y_fp) = np.array(
-        np.unravel_index(range(0, fp_diam_bins ** 2), (fp_diam_bins, fp_diam_bins))
+        np.unravel_index(range(0, fp_diam_bins**2), (fp_diam_bins, fp_diam_bins))
     ).reshape(2, fp_diam_bins, fp_diam_bins) - (fp_rad_bins)
-    fp_map = (x_fp ** 2 + y_fp ** 2) < (fp_rad_bins) ** 2
+    fp_map = (x_fp**2 + y_fp**2) < (fp_rad_bins) ** 2
 
     bolo_per_pix = nbolos / float(np.sum(fp_map))
 
@@ -1152,9 +1143,7 @@ def mjd_to_greg(mjd):
 
     sign, (hour, minute, second, frac) = slalib.sla_dd2tf(2, fracday)
 
-    s = "{:4d}{:2d}{:2d}_{:2d}{:2d}{:2d}".format(
-        year, month, day, hour, minute, second
-    )
+    s = "{:4d}{:2d}{:2d}_{:2d}{:2d}{:2d}".format(year, month, day, hour, minute, second)
     s = s.replace(" ", "0")
 
     return s

@@ -21,6 +21,7 @@ Module to handle instrument systematics.
 Author: Julien Peloton, peloton@lal.in2p3.fr
         Giulio Fabbian, g.fabbian@sussex.ac.uk
 """
+
 from __future__ import division, absolute_import, print_function
 
 import numpy as np
@@ -143,9 +144,7 @@ def inject_crosstalk_inside_SQUID(
                 for ch2, i2 in combs[sq]:
                     separation_length = abs(ch - ch2)
                     if separation_length > 0 and separation_length <= radius:
-                        tsout[i] += (
-                            cross_amp[i2] / separation_length ** beta * tsout[i2]
-                        )
+                        tsout[i] += cross_amp[i2] / separation_length**beta * tsout[i2]
 
     elif language == "fortran":
         # F2PY convention
@@ -434,13 +433,11 @@ def inject_beam_ellipticity(
     """
     state = np.random.RandomState(seed)
 
-    eps = state.normal(
-        mu_beamellipticity / 100.0, sigma_beamellipticity / 100.0, nbolo
-    )
+    eps = state.normal(mu_beamellipticity / 100.0, sigma_beamellipticity / 100.0, nbolo)
 
     if do_diffbeamellipticity:
         # d_plus = 2 * sigma_gaussian / eps * (1.0 + np.sqrt((1 - eps ** 2)))
-        d_minus = 2 * sigma_gaussian / eps * (1.0 - np.sqrt((1 - eps ** 2)))
+        d_minus = 2 * sigma_gaussian / eps * (1.0 - np.sqrt((1 - eps**2)))
         d = d_minus
     else:
         # Bolometers in the same pair will have the same ellipticity.
@@ -448,7 +445,7 @@ def inject_beam_ellipticity(
         # to the same pair (default behaviour)
         eps = np.repeat(eps[::2], 2)
         # d_plus = 2 * sigma_gaussian / eps * (1.0 + np.sqrt((1 - eps ** 2)))
-        d_minus = 2 * sigma_gaussian / eps * (1.0 - np.sqrt((1 - eps ** 2)))
+        d_minus = 2 * sigma_gaussian / eps * (1.0 - np.sqrt((1 - eps**2)))
         d = d_minus
 
     sig_1 = np.ones(nbolo) * sigma_gaussian + d / 2.0
@@ -541,9 +538,10 @@ def step_function(nbolos, nsamples, mean=1, std=0.05, nbreaks=1, sign="same", se
         # Assign values
         shift = pos * length
         if pos * length < nsamples:
-            gains[:, shift + sublength: shift + 2 * sublength] = end_points.reshape(
-                (len(end_points), 1)
-            )
+            gains[:, shift + sublength : shift + 2 * sublength] = end_points.reshape((
+                len(end_points),
+                1,
+            ))
         else:
             continue
 
@@ -615,9 +613,9 @@ def step_function_gen(nsamples, mean=1, std=0.05, nbreaks=1, sign="same", seed=0
             # Assign values
             shift = pos * length
             if pos * length < nsamples:
-                gains[
-                    :, shift + sublength: shift + 2 * sublength
-                ] = end_points.reshape((len(end_points), 1))
+                gains[:, shift + sublength : shift + 2 * sublength] = (
+                    end_points.reshape((len(end_points), 1))
+                )
             else:
                 continue
 
@@ -627,9 +625,7 @@ def step_function_gen(nsamples, mean=1, std=0.05, nbreaks=1, sign="same", seed=0
         yield gains
 
 
-def linear_function(
-    nbolos, nsamples, mean=1, std=0.05, nbreaks=1, sign="same", seed=0
-):
+def linear_function(nbolos, nsamples, mean=1, std=0.05, nbreaks=1, sign="same", seed=0):
     """
     Generate linear functions for each bolometer from 1 to a values
     drawn from N(mean, std). The full timestream is broken into nbreaks
@@ -688,16 +684,14 @@ def linear_function(
         # Assign values
         shift = pos * length
         if pos * length < nsamples:
-            gains[:, shift: shift + length] = np.array(
-                [
-                    np.interp(
-                        range(shift, shift + length),
-                        [shift, shift + length - 1],
-                        [1, end[0]],
-                    )
-                    for end in end_points
-                ]
-            )
+            gains[:, shift : shift + length] = np.array([
+                np.interp(
+                    range(shift, shift + length),
+                    [shift, shift + length - 1],
+                    [1, end[0]],
+                )
+                for end in end_points
+            ])
         else:
             continue
 
@@ -769,16 +763,14 @@ def linear_function_gen(nsamples, mean=1, std=0.05, nbreaks=1, sign="same", seed
             # Assign values
             shift = pos * length
             if pos * length < nsamples:
-                gains[:, shift: shift + length] = np.array(
-                    [
-                        np.interp(
-                            range(shift, shift + length),
-                            [shift, shift + length - 1],
-                            [1, end[0]],
-                        )
-                        for end in end_points
-                    ]
-                )
+                gains[:, shift : shift + length] = np.array([
+                    np.interp(
+                        range(shift, shift + length),
+                        [shift, shift + length - 1],
+                        [1, end[0]],
+                    )
+                    for end in end_points
+                ])
             else:
                 continue
 

@@ -21,6 +21,7 @@ Script to predict the trajectory of a body (Sun, Moon, ...) on the sky
 
 Author: Julien Peloton, peloton@lal.in2p3.fr
 """
+
 from __future__ import division, absolute_import, print_function
 
 import ephem
@@ -29,7 +30,7 @@ import numpy as np
 
 
 class celestial_trajectory:
-    """Predict the trajectory of a body (Sun, Moon, ...) """
+    """Predict the trajectory of a body (Sun, Moon, ...)"""
 
     def __init__(
         self,

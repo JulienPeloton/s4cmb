@@ -27,6 +27,7 @@ equatorial coordinate system.
 Author: Julien Peloton, peloton@lal.in2p3.fr
         Giulio Fabbian, g.fabbian@sussex.ac.uk
 """
+
 from __future__ import division, absolute_import, print_function
 
 import os
@@ -100,7 +101,7 @@ def get_ut1utc(ut1utc_fn, mjd):
 
 
 class Pointing:
-    """ Class to handle detector pointing """
+    """Class to handle detector pointing"""
 
     def __init__(
         self,
@@ -206,13 +207,13 @@ class Pointing:
         el : 1d array
             The corrected elevation in arcminutes.
         """
-        assert len(self.value_params) == len(
-            self.allowed_params.split()
-        ), AssertionError(
-            """Vector containing parameters
+        assert len(self.value_params) == len(self.allowed_params.split()), (
+            AssertionError(
+                """Vector containing parameters
             (value_params) has to have the same
             length than the vector containing names
             (allowed_params)."""
+            )
         )
 
         # Here are many parameters defining a pointing model.
@@ -405,7 +406,7 @@ class Pointing:
 
 
 class Azel2Radec(object):
-    """ Class to handle az/el <-> ra/dec conversion """
+    """Class to handle az/el <-> ra/dec conversion"""
 
     def __init__(
         self,
@@ -556,7 +557,7 @@ class Azel2Radec(object):
 
 
 class Quaternion:
-    """ Class to handle quaternions """
+    """Class to handle quaternions"""
 
     def __init__(self, ra, dec, pa, v_ra_src, v_dec_src):
         """

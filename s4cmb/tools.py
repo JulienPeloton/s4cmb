@@ -17,6 +17,7 @@
 """
 Module including diverse tools to manipulate alms and maps .
 """
+
 import numpy as np
 import healpy as hp
 
@@ -35,12 +36,12 @@ def get_healpix_ring_pixel_layout(nside, th_idx):
         startpix, nphi, kphi0, cth, sth = get_healpix_ring_pixel_layout(
             nside, ith - 2 * (ith - nrings) - 1
         )
-        return 12 * nside ** 2 - startpix - nphi, nphi, kphi0, -cth, sth
-    dth1 = 1.0 / 3.0 / nside ** 2
+        return 12 * nside**2 - startpix - nphi, nphi, kphi0, -cth, sth
+    dth1 = 1.0 / 3.0 / nside**2
     dth2 = 2.0 / 3.0 / nside
     dst1 = 1.0 / (np.sqrt(6.0) * nside)
     if ith < nside:  # polar cap (north)
-        cth = 1.0 - ith ** 2 * dth1
+        cth = 1.0 - ith**2 * dth1
         nphi = 4 * ith
         kphi0 = 1
         sth = np.sin(2.0 * np.arcsin(ith * dst1))
@@ -60,7 +61,7 @@ def get_alpha_raise(s, lmax):
     Author: Julien Carron (j.carron@sussex.ac.uk)
     """
     ret = np.zeros(lmax + 1, dtype=float)
-    ret[abs(s):] = np.sqrt(
+    ret[abs(s) :] = np.sqrt(
         np.arange(abs(s) - s, lmax - s + 1) * np.arange(abs(s) + s + 1, lmax + s + 2)
     )
     return ret
@@ -72,7 +73,7 @@ def get_alpha_lower(s, lmax):
     Author: Julien Carron (j.carron@sussex.ac.uk)
     """
     ret = np.zeros(lmax + 1, dtype=float)
-    ret[abs(s):] = -np.sqrt(
+    ret[abs(s) :] = -np.sqrt(
         np.arange(s + abs(s), lmax + s + 1) * np.arange(abs(s) - s + 1, lmax - s + 2)
     )
     return ret
@@ -100,20 +101,18 @@ def alm2map_spin_der1(gclm, nside, spin, zbounds=(-1.0, 1.0), ret_slice=None):
         ]
         _sm1d = np.array(hp.alm2map_spin(_gclm, nside, spin - 1, lmax))
     else:
-        _sm1d = -np.array(
-            [
-                hp.alm2map(
-                    hp.almxfl(gclm[0], get_alpha_lower(spin, lmax)),
-                    nside,
-                    verbose=False,
-                ),
-                hp.alm2map(
-                    hp.almxfl(gclm[1], get_alpha_lower(spin, lmax)),
-                    nside,
-                    verbose=False,
-                ),
-            ]
-        )
+        _sm1d = -np.array([
+            hp.alm2map(
+                hp.almxfl(gclm[0], get_alpha_lower(spin, lmax)),
+                nside,
+                verbose=False,
+            ),
+            hp.alm2map(
+                hp.almxfl(gclm[1], get_alpha_lower(spin, lmax)),
+                nside,
+                verbose=False,
+            ),
+        ])
 
     _gclm = [
         hp.almxfl(gclm[0], get_alpha_raise(spin, lmax)),
